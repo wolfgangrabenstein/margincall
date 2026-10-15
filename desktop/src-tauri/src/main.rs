@@ -20,12 +20,18 @@ fn main() {
                 // margincall.quit = Beenden, margincall.fullscreen = Vollbild an/aus (F4).
                 .on_navigation(move |url| match url.host_str() {
                     Some("margincall.quit") => std::process::exit(0),
-                    Some("margincall.fullscreen") => {
+                    // Vollbild: umschalten (F4) oder gezielt an/aus (Optionen, Start)
+                    Some(host @ ("margincall.fullscreen" | "margincall.fullscreen-on" | "margincall.fullscreen-off")) => {
                         let h = handle.clone();
+                        let want = match host {
+                            "margincall.fullscreen-on" => Some(true),
+                            "margincall.fullscreen-off" => Some(false),
+                            _ => None,
+                        };
                         std::thread::spawn(move || {
                             if let Some(w) = h.get_webview_window("main") {
-                                let full = w.is_fullscreen().unwrap_or(false);
-                                let _ = w.set_fullscreen(!full);
+                                let full = want.unwrap_or(!w.is_fullscreen().unwrap_or(false));
+                                let _ = w.set_fullscreen(full);
                             }
                         });
                         false
