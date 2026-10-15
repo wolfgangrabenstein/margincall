@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath-Artefakt-Konfiguration fuer MARGIN CALL.
+  Im SignPath-Portal unter Projekt -> Artifact Configurations -> "initial" einfuegen.
+  Der GitHub-Workflow laedt die EXE als ZIP-Artefakt hoch (actions/upload-artifact),
+  daher ist das Wurzelelement <zip-file>. Der Produktname wird erzwungen, wie es die
+  Bedingungen der SignPath Foundation verlangen (Tauri traegt "MARGIN CALL" und die
+  Version aus tauri.conf.json in die EXE ein). Falls SignPath zusaetzlich eine
+  Versions-Regel verlangt, gibt der SignPath-Support die passende Schreibweise vor.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="MarginCall-*-Windows.exe" product-name="MARGIN CALL">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

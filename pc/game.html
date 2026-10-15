@@ -97,6 +97,9 @@ function marketsSimulate() {
   });
 }
 async function marketsFetch() {
+  if (settings.liveData !== true) {   // Datenschutz: ohne Zustimmung keine Anfrage an Yahoo Finance
+    marketStatus = "SIMULIERT (Live-Kurse aus)"; marketsSimulate(); buildTicker(); return;
+  }
   try {
     const r = await fetch("/api/market", { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
@@ -489,7 +492,7 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11 };
 let state = ST.TITLE;
 let enemies = [], items = [], projs = [];
 let px = 0, py = 0, dirX = 1, dirY = 0, planeX = 0, planeY = PLANE;   // Kamera des lokalen Spielers
@@ -1108,9 +1111,10 @@ function updateHint() {
 // Optionsmenue
 const OPT_ROWS = [...ACTIONS.map(([id, name]) => ({ kind: "bind", id, name })),
   { kind: "mouseLook", name: "Maussteuerung" }, { kind: "sens", name: "Mausempfindlichkeit" }, { kind: "invert", name: "Maus invertieren" },
+  { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
   { kind: "reset", name: "Standard wiederherstellen" }, { kind: "back", name: "Zurück" }];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 104, OPT_DY = 26;
+const OPT_Y0 = 100, OPT_DY = 25;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1125,6 +1129,7 @@ function optActivate() {
   switch (row.kind) {
     case "bind": optWaiting = true; break;
     case "mouseLook": settings.mouseLook = !settings.mouseLook; saveSettings(); break;
+    case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
     case "reset": settings = structuredClone(DEFAULTS); saveSettings(); optMsg = "Standardbelegung wiederhergestellt"; optMsgT = 2; sfx("KACHING"); break;
@@ -1143,7 +1148,7 @@ function optKey(k) {
     const d = k === "ArrowLeft" ? -1 : 1;
     if (row.kind === "bind") optCol = clamp(optCol + d, 0, 1);
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
-    else if (row.kind === "mouseLook" || row.kind === "invert") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live") optActivate();
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1176,8 +1181,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? "TASTE DRÜCKEN…" : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : settings.invert;
       text(on ? "AN" : "AUS", 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "sens") {
       for (let k = 1; k <= 10; k++) { g.fillStyle = k <= settings.sens ? "#28c86e" : "#1e2846"; g.fillRect(520 + (k - 1) * 40, y + 1, 32, 14); }
@@ -1247,6 +1252,10 @@ function onKeyPress(k) {
   }
   if (isBound("music", k)) { musicToggle(); say(musicOn ? "MUSIK AN" : "MUSIK AUS", 1); return; }
   switch (state) {
+    case ST.PRIVACY:
+      if (k === "enter" || k === "j") { settings.liveData = true; saveSettings(); state = ST.TITLE; marketsFetch(); }
+      else if (k === "n") { settings.liveData = false; saveSettings(); state = ST.TITLE; marketsFetch(); }
+      break;
     case ST.TITLE:
       if (k === "o") openOptions();
       else if (k === "Escape") quitGame();
@@ -2034,6 +2043,25 @@ setInterval(async () => {
   }
 }, 3000);
 
+// ---------------------------------------------------------------- Datenschutz-Hinweis beim ersten Start
+function renderPrivacy() {
+  chartBackground("#123a26", "#3a1414");
+  g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(90, 50, DW - 180, 440);
+  text("LIVE-KURSE & DATENSCHUTZ", DW / 2, 70, "#ffd232", 32, "center");
+  [
+    "MARGIN CALL kann die aktuellen Kurse von Dow Jones, S&P 500, Nasdaq-100",
+    "und Rohöl bei Yahoo Finance (query1.finance.yahoo.com) abrufen.",
+    "Dabei sieht Yahoo deine IP-Adresse – wie bei jedem Webseitenaufruf.",
+    "Es werden keine Spielstände, Namen oder sonstigen Daten übertragen.",
+    "",
+    "Ohne Live-Kurse spielst du mit simulierten Kursen – alles andere funktioniert gleich.",
+    "Du kannst das jederzeit unter [O] OPTIONEN → „Live-Kurse“ ändern.",
+    "Multiplayer verbindet sich nur mit dem Host, dessen Adresse du selbst eingibst.",
+  ].forEach((l, i) => text(l, DW / 2, 130 + i * 28, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
+  text("[ENTER] LIVE-KURSE LADEN      [N] OHNE LIVE-KURSE SPIELEN", DW / 2, 390, "#50ff82", 20, "center");
+  text("Datenschutzhinweise von Yahoo: legal.yahoo.com/de/de/yahoo/privacy", DW / 2, 450, "#6b7896", 13, "center");
+}
+
 // ---------------------------------------------------------------- Hosten / Beitreten / MP-Menue
 function renderMpChoice() {
   chartBackground("#123a26", "#3a1414");
@@ -2100,6 +2128,7 @@ function frame(now) {
   }
   switch (state) {
     case ST.TITLE: gameTime += dt; renderTitle(); break;
+    case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
     case ST.LOBBY: gameTime += dt; renderLobby(); break;
     case ST.PLAY: updateGame(dt); if (state === ST.PLAY) { renderPlay(); if (mpMenu) renderMpMenu(); } break;
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;
@@ -2125,6 +2154,7 @@ genWalls(); genSprites();
 applyMarket();
 buildWorld(0);
 musicStart();
+if (settings.liveData === undefined && !URLP.has("join")) state = ST.PRIVACY;
 marketsFetch();
 setInterval(marketsFetch, 60000);
 fetch("/api/info", { cache: "no-store" }).then(r => r.json()).then(i => { myAddr = `${i.ip}:${i.port}`; }).catch(() => { });

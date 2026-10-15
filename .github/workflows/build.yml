@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   desktop:
@@ -28,6 +29,11 @@ jobs:
             name: macOS
             args: --target universal-apple-darwin --bundles dmg
     runs-on: ${{ matrix.os }}
+    env:
+      # Code-Signatur fuer Windows ueber die SignPath Foundation (siehe CODE_SIGNING_POLICY.md).
+      # Laeuft nur bei Versions-Tags und nur, wenn das Secret SIGNPATH_API_TOKEN hinterlegt ist.
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      SIGN_WINDOWS: ${{ matrix.name == 'Windows' && startsWith(github.ref, 'refs/tags/v') }}
     defaults:
       run:
         working-directory: desktop
@@ -69,6 +75,36 @@ jobs:
           esac
           ls -la out
 
+      # ---- Windows-EXE signieren (SignPath Foundation, manuelle Freigabe im SignPath-Portal)
+      - name: Unsignierte EXE fuer SignPath bereitstellen
+        id: unsigned
+        if: env.SIGN_WINDOWS == 'true' && env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: MarginCall-Windows-unsigned
+          path: desktop/out/*.exe
+
+      - name: Signieren lassen (wartet auf Freigabe)
+        if: env.SIGN_WINDOWS == 'true' && env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'margincall' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG || 'initial' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 10800
+          output-artifact-directory: desktop/signed
+
+      - name: Signierte EXE uebernehmen
+        if: env.SIGN_WINDOWS == 'true' && env.SIGNPATH_API_TOKEN != ''
+        shell: bash
+        run: |
+          cp -f signed/*.exe out/
+          ls -la out
+
       - uses: actions/upload-artifact@v4
         with:
           name: MarginCall-${{ matrix.name }}
@@ -79,6 +115,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: desktop/out/*
+          body: |
+            Downloads für Windows, macOS, Linux und den M5Stack Cardputer ADV – siehe Assets unten.
+            Änderungen: [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) ·
+            [Code signing policy](https://github.com/${{ github.repository }}/blob/main/CODE_SIGNING_POLICY.md) ·
+            [Datenschutz](https://github.com/${{ github.repository }}/blob/main/CODE_SIGNING_POLICY.md#privacy-policy--datenschutz)
 
   cardputer:
     runs-on: ubuntu-latest
@@ -106,3 +147,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: out/*
+          append_body: true
