@@ -44,6 +44,7 @@ fn handle(stream: TcpStream) -> io::Result<()> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut line = String::new();
     reader.read_line(&mut line)?;
+    let method = line.split_whitespace().next().unwrap_or("GET").to_string();
     let path = line.split_whitespace().nth(1).unwrap_or("/").split('?').next().unwrap_or("/").to_string();
     let mut headers = BTreeMap::new();
     loop {
@@ -69,13 +70,85 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             respond(&mut out, 200, "application/json", body.as_bytes())
         }
         "/api/market" => respond(&mut out, 200, "application/json", markets_json().as_bytes()),
+        "/api/highscores" if method == "POST" => {
+            // Nur vom eigenen Rechner: Mitspieler im WLAN duerfen die Liste nicht veraendern
+            let local = out.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
+            let len: usize = headers.get("content-length").and_then(|v| v.parse().ok()).unwrap_or(0);
+            if !local || len > 4096 {
+                return respond(&mut out, 403, "text/plain", b"forbidden");
+            }
+            let mut body = vec![0u8; len];
+            reader.read_exact(&mut body)?;
+            let list = highscore_add(&body);
+            respond(&mut out, 200, "application/json", list.as_bytes())
+        }
+        "/api/highscores" => respond(&mut out, 200, "application/json", highscores_load().to_string().as_bytes()),
         "/ws" if is_ws => websocket(out, reader, &headers),
         _ => respond(&mut out, 404, "text/plain", b"not found"),
     }
 }
 
+// ------------------------------------------------------------------ Highscores (Einzelspieler)
+// Datei im Benutzerordner, damit die Liste App-Updates und Portwechsel ueberlebt.
+const HIGHSCORE_MAX: usize = 10;
+static HS_LOCK: Mutex<()> = Mutex::new(());
+
+fn highscore_file() -> std::path::PathBuf {
+    let base = if cfg!(windows) {
+        std::env::var("APPDATA").ok()
+    } else if cfg!(target_os = "macos") {
+        std::env::var("HOME").ok().map(|h| format!("{h}/Library/Application Support"))
+    } else {
+        std::env::var("XDG_DATA_HOME").ok().or_else(|| std::env::var("HOME").ok().map(|h| format!("{h}/.local/share")))
+    };
+    std::path::PathBuf::from(base.unwrap_or_else(|| ".".into())).join("MarginCall").join("highscores.json")
+}
+
+fn highscores_load() -> Value {
+    std::fs::read_to_string(highscore_file())
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .filter(|v| v.is_array())
+        .unwrap_or_else(|| json!([]))
+}
+
+/// Prueft den neuen Eintrag, sortiert ihn ein, behaelt die besten 10 und speichert.
+fn highscore_add(body: &[u8]) -> String {
+    let _guard = HS_LOCK.lock().unwrap();
+    let mut list: Vec<Value> = highscores_load().as_array().cloned().unwrap_or_default();
+    if let Ok(e) = serde_json::from_slice::<Value>(body) {
+        let name: String = e["name"]
+            .as_str()
+            .unwrap_or("")
+            .chars()
+            .filter(|c| c.is_alphanumeric() || " -_.".contains(*c))
+            .take(12)
+            .collect::<String>()
+            .trim()
+            .to_string();
+        let score = e["score"].as_i64().unwrap_or(-1);
+        let level = e["level"].as_i64().unwrap_or(1).clamp(1, 5);
+        if !name.is_empty() && (0..=100_000_000).contains(&score) {
+            let date = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            list.push(json!({ "name": name, "score": score, "level": level, "won": e["won"].as_bool().unwrap_or(false), "date": date }));
+            list.sort_by(|a, b| b["score"].as_i64().cmp(&a["score"].as_i64()));
+            list.truncate(HIGHSCORE_MAX);
+            let file = highscore_file();
+            if let Some(dir) = file.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            let _ = std::fs::write(&file, Value::from(list.clone()).to_string());
+        }
+    }
+    Value::from(list).to_string()
+}
+
 fn respond(s: &mut TcpStream, code: u16, ctype: &str, body: &[u8]) -> io::Result<()> {
-    let reason = if code == 200 { "OK" } else { "Not Found" };
+    let reason = match code {
+        200 => "OK",
+        403 => "Forbidden",
+        _ => "Not Found",
+    };
     let head = format!(
         "HTTP/1.1 {code} {reason}\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
         body.len()

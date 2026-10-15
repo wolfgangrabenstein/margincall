@@ -1,5 +1,19 @@
 # MARGIN CALL – Changelog
 
+## Version 3.6.0 – Highscore-Liste (15.10.2026)
+
+- **Highscore-Liste für den Einzelspieler:** Sie zeigt die besten 10 Läufe mit Name, P&L, erreichtem Level bzw. „SIEG“ und Datum.
+  - Im Titelbild öffnest du sie über **[H] HIGHSCORES**, per Taste oder Klick.
+- **Namen eintragen:** Wer nach einem Sieg in die Top 10 kommt, gibt seinen Namen ein (bis 12 Zeichen). Der zuletzt verwendete Name ist vorausgefüllt. Der neue Eintrag blinkt in der Liste.
+- **Aufgeben nach Insolvenz:** Nach einer Insolvenz hast du jetzt die Wahl:
+  - **[ENTER] Neuer Kredit:** Weiterspielen mit halbiertem P&L, wie bisher.
+  - **[H] Aufgeben & Highscore:** Der Lauf endet, und du kannst dich eintragen.
+- **Speicherort:** Die Liste liegt in einer Datei im Benutzerordner und bleibt deshalb auch bei Updates erhalten.
+  - Windows: `%APPDATA%\MarginCall\highscores.json`
+  - macOS: `~/Library/Application Support/MarginCall/`
+  - Linux: `~/.local/share/MarginCall/`
+- **Schreibschutz:** Mitspieler im WLAN können deine Liste nicht verändern. Einträge nimmt die App nur vom eigenen Rechner an.
+
 ## Version 3.5.3 – Menüs mit der Maus (15.10.2026)
 
 - **Alles per Mausklick bedienbar:**
