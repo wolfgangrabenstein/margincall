@@ -1215,10 +1215,15 @@ screen.addEventListener("mousedown", e => {
     else { const [x, y] = canvasPos(e); optClick(x, y); }
     return;
   }
-  if (state === ST.TITLE) {
+  {
     const [x, y] = canvasPos(e);
-    const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
-    if (b) { onKeyPress(b.key); return; }
+    const z = clickZones.find(z => x >= z.x && x < z.x + z.w && y >= z.y && y < z.y + z.h);
+    if (z && e.button === 0) { onKeyPress(z.key); return; }
+    if (state === ST.TITLE) {
+      const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
+      if (b) { onKeyPress(b.key); return; }
+    }
+    if ([ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
   if (state === ST.PLAY && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
@@ -1226,6 +1231,10 @@ screen.addEventListener("mousedown", e => {
 });
 addEventListener("mouseup", e => keys.delete("Mouse" + e.button));
 addEventListener("mousemove", e => {
+  if (document.pointerLockElement !== screen) {
+    [mouseX, mouseY] = canvasPos(e);
+    screen.style.cursor = clickZones.some(z => hovered(z.x, z.y, z.w, z.h)) ? "pointer" : "crosshair";
+  }
   if (document.pointerLockElement === screen && settings.mouseLook) mouseTurn += e.movementX * (settings.invert ? -1 : 1);
 });
 document.querySelectorAll("#touch [data-k]").forEach(b => {
@@ -1695,6 +1704,17 @@ function chartBackground(up, down) {
     g.fillRect(x, Math.min(yo, yc), 16, Math.max(4, Math.abs(yo - yc)));
   }
 }
+let clickZones = [], mouseX = -1, mouseY = -1;
+function zone(x, y, w, h, key) { clickZones.push({ x, y, w, h, key }); }
+const hovered = (x, y, w, h) => mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+// Schaltflaeche mit Hover-Effekt, per Klick wie die zugehoerige Taste
+function zoneButton(x, y, w, h, label, col, key, size = 18) {
+  const hov = hovered(x, y, w, h);
+  g.fillStyle = hov ? "rgba(255,255,255,.12)" : "rgba(0,0,0,.6)"; g.fillRect(x, y, w, h);
+  g.strokeStyle = col; g.lineWidth = hov ? 3 : 2; g.strokeRect(x, y, w, h);
+  text(label, x + w / 2, y + (h - size) / 2, col, size, "center");
+  zone(x, y, w, h, key);
+}
 function button(b, label, col) {
   g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(b.x, b.y, b.w, b.h);
   g.strokeStyle = col; g.lineWidth = 2; g.strokeRect(b.x, b.y, b.w, b.h);
@@ -1732,9 +1752,13 @@ function renderLobby() {
   const list = host ? players.map(p => [p.id, p.name, p.team, p.avatar]) : lobbyInfo;
   const modeIdx = host ? lobbyMode : lobbyMode;
   text("MODUS", 110, 100, "#6b7896", 14);
-  text(`${host ? "◀ " : ""}${MODES[modeIdx][1]}${host ? " ▶" : ""}`, 110, 120, "#50c8ff", 26);
+  if (host) {
+    zoneButton(104, 116, 34, 34, "◀", "#50c8ff", "ArrowLeft", 20);
+    text(MODES[modeIdx][1], 150, 120, "#50c8ff", 26);
+    g.font = FONT(26); zoneButton(162 + g.measureText(MODES[modeIdx][1]).width, 116, 34, 34, "▶", "#50c8ff", "ArrowRight", 20);
+  } else text(MODES[modeIdx][1], 110, 120, "#50c8ff", 26);
   const desc = { coop: "Gemeinsam durch alle 5 Level. Gegner werden mit jedem Mitspieler stärker.",
-    team: "Team Bulle gegen Team Bär. Eure Tiere kämpfen mit euch. Steigt der Markt, macht Team Bulle mehr Schaden.",
+    team: "Team Bulle gegen Team Bär – eure Tiere kämpfen mit. Steigt der Markt, trifft Team Bulle härter.",
     dm: "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L." }[MODES[modeIdx][0]];
   text(desc, 110, 156, "#a0a0b4", 15);
   text(`SPIELER (${list.length}/4)`, 110, 200, "#6b7896", 14);
@@ -1746,17 +1770,22 @@ function renderLobby() {
     text(`${name}${id === net.id ? "  (DU)" : ""}${id === net.hostId ? "  · HOST" : ""}`, 150, y + 3, "#e6e6f0", 20);
     if (MODES[modeIdx][0] === "team") text(team === 0 ? "TEAM BULLE" : "TEAM BÄR", 760, y + 3, rgbCss(col), 18, "right");
   });
-  const help = [];
-  // eigene Figur gross
+  // eigene Figur gross (anklicken = wechseln)
   const mySpr = (me.avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + me.team : (Math.max(1, me.id) - 1) % 4);
   g.drawImage(spriteCanvas(mySpr), 790, 205, 96, 96);
   text("DEINE FIGUR", 838, 186, "#6b7896", 13, "center");
   text(AVATAR_NAME[me.avatar] || "", 838, 306, "#ffd232", 15, "center");
-  text("[C] WECHSELN", 838, 326, "#50c8ff", 13, "center");
-  if (isTeam) help.push("[1] TEAM BULLE · [2] TEAM BÄR");
-  help.push(host ? "←/→ MODUS · [ENTER] SPIEL STARTEN · [ESC] VERLASSEN" : "WARTE AUF DEN HOST … · [ESC] VERLASSEN");
-  help.forEach((h, i) => text(h, DW / 2, 420 + i * 26, i === help.length - 1 && host ? "#ffffff" : "#8290b0", 17, "center"));
-  text(`Mitspieler: MARGIN CALL starten → [N] MULTIPLAYER → [J] BEITRETEN → ${isLocalOrigin() ? (myAddr || "deine IP") : location.host}   (oder im Browser: http://${isLocalOrigin() ? (myAddr || "deine IP") : location.host})`, DW / 2, 486, "#6b7896", 13, "center");
+  if (hovered(780, 180, 116, 170)) { g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(780, 180, 116, 170); }
+  zone(780, 180, 116, 170, "c");
+  zoneButton(784, 318, 108, 26, "[C] WECHSELN", "#50c8ff", "c", 13);
+  if (isTeam) {
+    zoneButton(250, 398, 220, 36, "[1] TEAM BULLE", me.team === 0 ? "#50ff82" : "#2a7a46", "1");
+    zoneButton(490, 398, 220, 36, "[2] TEAM BÄR", me.team === 1 ? "#ff5050" : "#7a2a2a", "2");
+  }
+  if (host) zoneButton(250, 442, 220, 36, "▶ SPIEL STARTEN", "#ffffff", "enter");
+  else text("WARTE AUF DEN HOST …", 360, 451, "#8290b0", 17, "center");
+  zoneButton(490, 442, 220, 36, "[ESC] VERLASSEN", "#ff7050", "Escape");
+  text(`Mitspieler: MARGIN CALL starten → [N] MULTIPLAYER → [J] BEITRETEN → ${isLocalOrigin() ? (myAddr || "deine IP") : location.host}   (oder im Browser: http://${isLocalOrigin() ? (myAddr || "deine IP") : location.host})`, DW / 2, 490, "#6b7896", 13, "center");
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
@@ -2059,7 +2088,8 @@ function renderPrivacy() {
     "Du kannst das jederzeit unter [O] OPTIONEN → „Live-Kurse“ ändern.",
     "Multiplayer verbindet sich nur mit dem Host, dessen Adresse du selbst eingibst.",
   ].forEach((l, i) => text(l, DW / 2, 130 + i * 28, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
-  text("[ENTER] LIVE-KURSE LADEN      [N] OHNE LIVE-KURSE SPIELEN", DW / 2, 390, "#50ff82", 20, "center");
+  zoneButton(160, 372, 310, 44, "[ENTER] LIVE-KURSE LADEN", "#50ff82", "enter");
+  zoneButton(490, 372, 310, 44, "[N] OHNE LIVE-KURSE", "#a0a0b4", "n");
   text("Datenschutzhinweise von Yahoo: legal.yahoo.com/de/de/yahoo/privacy", DW / 2, 450, "#6b7896", 13, "center");
 }
 
@@ -2068,11 +2098,11 @@ function renderMpChoice() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 90, DW - 320, 340);
   text("MULTIPLAYER", DW / 2, 110, "#ffd232", 40, "center");
-  text("[H] SPIEL HOSTEN", DW / 2, 190, "#50c8ff", 26, "center");
+  zoneButton(300, 172, 360, 44, "[H] SPIEL HOSTEN", "#50c8ff", "h", 24);
   text(`Mitspieler treten bei über: ${myAddr || "…"}`, DW / 2, 226, "#a0a0b4", 16, "center");
-  text("[J] SPIEL BEITRETEN", DW / 2, 290, "#50ff82", 26, "center");
+  zoneButton(300, 272, 360, 44, "[J] SPIEL BEITRETEN", "#50ff82", "j", 24);
   text("Adresse des Hosts eingeben (steht in seiner Lobby)", DW / 2, 326, "#a0a0b4", 16, "center");
-  text("[ESC] ZURÜCK", DW / 2, 390, "#8290b0", 16, "center");
+  zoneButton(390, 374, 180, 34, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
 }
 function renderJoin() {
   chartBackground("#123a26", "#3a1414");
@@ -2081,7 +2111,8 @@ function renderJoin() {
   text("Adresse des Hosts, z. B. 192.168.1.20:8080", DW / 2, 196, "#a0a0b4", 16, "center");
   g.strokeStyle = "#50ff82"; g.lineWidth = 2; g.strokeRect(240, 230, DW - 480, 46);
   text(joinText + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), 256, 242, "#ffffff", 24);
-  text("[ENTER] VERBINDEN · [ESC] ZURÜCK", DW / 2, 330, "#8290b0", 16, "center");
+  zoneButton(250, 316, 220, 40, "[ENTER] VERBINDEN", "#50ff82", "enter");
+  zoneButton(490, 316, 220, 40, "[ESC] ZURÜCK", "#8290b0", "Escape");
 }
 function joinKey(k) {
   if (k === "Escape") { state = ST.MPMENU; return; }
@@ -2098,8 +2129,9 @@ function renderMpMenu() {
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(250, 150, 460, 160);
   text("MULTIPLAYER-MENÜ", DW / 2, 166, "#ffd232", 26, "center");
   text("Das Spiel läuft weiter!", DW / 2, 202, "#ff7050", 16, "center");
-  text("[L] SPIEL VERLASSEN · [ESC] BEENDEN", DW / 2, 236, "#ffffff", 18, "center");
-  text("[P] ZURÜCK INS SPIEL", DW / 2, 268, "#8290b0", 16, "center");
+  zoneButton(268, 226, 205, 34, "[L] VERLASSEN", "#ffffff", "l", 16);
+  zoneButton(487, 226, 205, 34, "[ESC] BEENDEN", "#ff7050", "Escape", 16);
+  zoneButton(368, 268, 224, 30, "[P] ZURÜCK INS SPIEL", "#8290b0", "p", 15);
 }
 
 // ---------------------------------------------------------------- Hauptschleife
@@ -2114,12 +2146,15 @@ function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   g.imageSmoothingEnabled = false;
   netMsgT -= dt;
+  clickZones = [];   // Klickflaechen werden beim Zeichnen jedes Bildes neu registriert
   musicSchedule();   // sofort reagieren, wenn Pause an/aus geht
   if (serverGone) {   // Spiel einfrieren, bis der Server wieder da ist
     g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 170, DW, 170);
     text(IN_APP ? "DER HOST HAT DAS SPIEL BEENDET" : "SPIEL-SERVER BEENDET", DW / 2, 190, "#ff5050", 36, "center");
     text("Die Verbindung ist weg. Musik und Spiel sind angehalten.", DW / 2, 248, "#dcdce6", 18, "center");
-    text(IN_APP ? "[H] ZURÜCK ZU MEINEM SPIEL · [ESC] BEENDEN" : "Starte MARGIN CALL neu oder schließe diesen Tab.", DW / 2, 282, "#ffffff", 18, "center");
+    clickZones = [];
+    if (IN_APP) { zoneButton(230, 278, 280, 40, "[H] ZURÜCK ZU MEINEM SPIEL", "#50ff82", "h", 16); zoneButton(530, 278, 200, 40, "[ESC] BEENDEN", "#ff7050", "Escape", 16); }
+    else text("Starte MARGIN CALL neu oder schließe diesen Tab.", DW / 2, 282, "#ffffff", 18, "center");
     last = now; requestAnimationFrame(frame); return;
   }
   // Host: Lobby-Status regelmaessig verteilen, Snapshots auch auf Endbildschirmen
@@ -2135,9 +2170,11 @@ function frame(now) {
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;
     case ST.JOIN: gameTime += dt; renderJoin(); break;
     case ST.PAUSE:
-      g.fillStyle = "#000"; g.fillRect(260, 170, 440, 110);
-      text("HANDEL AUSGESETZT", DW / 2, 190, "#ffd232", 28, "center");
-      text("[P] WEITER · [O] OPTIONEN · [ESC] BEENDEN", DW / 2, 236, "#dcdce6", 18, "center");
+      g.fillStyle = "#000"; g.fillRect(230, 160, 500, 130);
+      text("HANDEL AUSGESETZT", DW / 2, 178, "#ffd232", 28, "center");
+      zoneButton(250, 228, 145, 40, "[P] WEITER", "#50ff82", "p", 16);
+      zoneButton(408, 228, 145, 40, "[O] OPTIONEN", "#50c8ff", "o", 16);
+      zoneButton(566, 228, 145, 40, "[ESC] BEENDEN", "#ff7050", "Escape", 16);
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
     case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", "Level geschafft – der Kurs steigt", "#50ff82", true); break;
