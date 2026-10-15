@@ -492,7 +492,7 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13 };
 let state = ST.TITLE;
 let enemies = [], items = [], projs = [];
 let px = 0, py = 0, dirX = 1, dirY = 0, planeX = 0, planeY = PLANE;   // Kamera des lokalen Spielers
@@ -1105,7 +1105,7 @@ function updateHint() {
   document.getElementById("hint").textContent =
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ` +
     `${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-    `${bindText("music")} Musik · 2× Richtung = Ausweichen · O Optionen · F4 Vollbild · Esc in der Pause = Beenden`;
+    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · F4 Vollbild · Esc in der Pause = Beenden`;
 }
 
 // Optionsmenue
@@ -1205,7 +1205,7 @@ addEventListener("keyup", e => keys.delete(keyName(e)));
 addEventListener("blur", () => keys.clear());
 screen.addEventListener("contextmenu", e => e.preventDefault());
 // Schaltflaechen im Titelbild (Koordinaten im 960x540-Raster)
-const TITLE_BTNS = [{ x: 90, y: 455, w: 240, h: 44, key: "n" }, { x: 360, y: 455, w: 240, h: 44, key: "o" }, { x: 630, y: 455, w: 240, h: 44, key: "Escape" }];
+const TITLE_BTNS = [{ x: 50, y: 455, w: 200, h: 44, key: "n" }, { x: 265, y: 455, w: 200, h: 44, key: "h" }, { x: 480, y: 455, w: 200, h: 44, key: "o" }, { x: 695, y: 455, w: 200, h: 44, key: "Escape" }];
 screen.addEventListener("mousedown", e => {
   e.preventDefault();
   audioUnlock();
@@ -1223,7 +1223,7 @@ screen.addEventListener("mousedown", e => {
       const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
       if (b) { onKeyPress(b.key); return; }
     }
-    if ([ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
+    if ([ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
   if (state === ST.PLAY && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
@@ -1254,6 +1254,8 @@ function onKeyPress(k) {
   if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "Escape") quitGame(); return; }
   if (state === ST.OPTIONS) { optKey(k); return; }
   if (state === ST.JOIN) { joinKey(k); return; }
+  if (state === ST.NAMEENTRY) { nameKey(k); return; }
+  if (state === ST.HIGHSCORES) { if (k === "Escape" || k === "enter") { state = hsReturn === ST.HIGHSCORES ? ST.TITLE : hsReturn; if (state === ST.TITLE) musicStart(); } return; }
   if (state === ST.PLAY && mpMenu) {
     if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
     else if (k === "l") leaveMP();
@@ -1268,6 +1270,7 @@ function onKeyPress(k) {
       break;
     case ST.TITLE:
       if (k === "o") openOptions();
+      else if (k === "h") openHighscores();
       else if (k === "Escape") quitGame();
       else if (k === "n") { if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter") { mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); state = ST.PLAY; fireCd = .4; sfx("KACHING"); }
@@ -1314,10 +1317,11 @@ function onKeyPress(k) {
       break;
     case ST.DEAD:
       if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); me.score = Math.floor(me.score / 2); loadLevel(level); state = ST.PLAY; fireCd = .4; }
+      else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
     case ST.WIN:
       if (k === "enter" && isHost()) {
-        if (isMP()) { mode = "solo"; state = ST.LOBBY; hostSendLobby(); musicStart(); } else { state = ST.TITLE; musicStart(); }
+        if (isMP()) { mode = "solo"; state = ST.LOBBY; hostSendLobby(); musicStart(); } else finishRun(true);
       }
       if (k === "Escape" && isMP()) leaveMP();
       break;
@@ -1738,8 +1742,9 @@ function renderTitle() {
   text(`${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · 2× Richtung = Ausweichen`, DW / 2, 345, "#a0a0b4", 15, "center");
   if (Math.floor(gameTime * 2) % 2) text("[ENTER] ODER KLICK: SOLO STARTEN", DW / 2, 395, "#ffffff", 24, "center");
   button(TITLE_BTNS[0], "[N] MULTIPLAYER", "#50c8ff");
-  button(TITLE_BTNS[1], "[O] OPTIONEN", "#50ff82");
-  button(TITLE_BTNS[2], "[ESC] BEENDEN", "#ff7050");
+  button(TITLE_BTNS[1], "[H] HIGHSCORES", "#ffd232");
+  button(TITLE_BTNS[2], "[O] OPTIONEN", "#50ff82");
+  button(TITLE_BTNS[3], "[ESC] BEENDEN", "#ff7050");
   if (netMsgT > 0) text(netMsg, DW / 2, 428, "#ff7050", 16, "center");
   text(CREDITS, DW - 14, 518, "#6b7896", 13, "right");
 }
@@ -1807,7 +1812,11 @@ function renderEnd(title, sub, col, bull) {
     text(`P&L: +$${me.score.toLocaleString("de-DE")}`, DW / 2, 210, "#50ff82", 24, "center");
     text(`Von dir liquidiert: ${me.kills}   ·   Marktbereinigung: ${marketKills}`, DW / 2, 255, "#c8c8d2", 18, "center");
   }
-  if (Math.floor(gameTime * 2) % 2) text(isHost() ? "[ENTER] WEITER" : "WARTE AUF DEN HOST …", DW / 2, 390, "#ffffff", 22, "center");
+  if (!isMP() && state === ST.DEAD) {
+    zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT (P&L ÷ 2)", "#50ff82", "enter", 16);
+    zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
+  } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
+  else if (Math.floor(gameTime * 2) % 2) text(isHost() ? "[ENTER] WEITER" : "WARTE AUF DEN HOST …", DW / 2, 390, "#ffffff", 22, "center");
   text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
 }
 function renderRoundEnd() {
@@ -2093,6 +2102,82 @@ function renderPrivacy() {
   text("Datenschutzhinweise von Yahoo: legal.yahoo.com/de/de/yahoo/privacy", DW / 2, 450, "#6b7896", 13, "center");
 }
 
+// ---------------------------------------------------------------- Highscores (Einzelspieler)
+// Gespeichert vom eingebauten Server in einer Datei im Benutzerordner; im reinen Browser als Notbehelf lokal.
+const HS_LOCAL_KEY = "margincall.highscores.v1";
+let hsList = [], hsNew = -1, hsName = "", hsEntry = null, hsReturn = ST.TITLE;
+async function hsLoad() {
+  try { const r = await fetch("/api/highscores", { cache: "no-store" }); if (!r.ok) throw 0; hsList = await r.json(); }
+  catch (e) { try { hsList = JSON.parse(localStorage.getItem(HS_LOCAL_KEY) || "[]"); } catch (e2) { hsList = []; } }
+  return hsList;
+}
+async function hsSave(entry) {
+  try {
+    const r = await fetch("/api/highscores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) });
+    if (!r.ok) throw 0;
+    hsList = await r.json();
+  } catch (e) {
+    hsList = [...hsList, { ...entry, date: Math.floor(Date.now() / 1000) }].sort((a, b) => b.score - a.score).slice(0, 10);
+    try { localStorage.setItem(HS_LOCAL_KEY, JSON.stringify(hsList)); } catch (e2) { }
+  }
+  hsNew = hsList.findIndex(h => h.name === entry.name && h.score === entry.score);
+}
+const hsQualifies = score => score > 0 && (hsList.length < 10 || score > hsList[hsList.length - 1].score);
+// Lauf beenden: bei Top-10-Platz Name eingeben, sonst direkt die Liste zeigen
+async function finishRun(won) {
+  musicStop();
+  await hsLoad();
+  hsEntry = { score: me.score, level: level + 1, won };
+  if (hsQualifies(me.score)) { hsName = settings.playerName || ""; state = ST.NAMEENTRY; }
+  else { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; }
+}
+async function hsSubmitName() {
+  const name = hsName.trim();
+  if (!name) return;
+  settings.playerName = name; saveSettings();
+  await hsSave({ ...hsEntry, name });
+  sfx("KACHING"); hsReturn = ST.TITLE; state = ST.HIGHSCORES;
+}
+function nameKey(k) {
+  if (k === "enter") { hsSubmitName(); return; }
+  if (k === "Escape") { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; return; }
+  if (k === "Backspace") { hsName = hsName.slice(0, -1); return; }
+  if (k.length === 1 && /[\p{L}\p{N} ._-]/u.test(k) && hsName.length < 12) hsName += k.toUpperCase();
+}
+function openHighscores() { hsNew = -1; hsReturn = state; state = ST.HIGHSCORES; hsLoad(); }
+function renderNameEntry() {
+  chartBackground("#145a2d", "#282828");
+  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 70, DW - 280, 400);
+  const place = hsList.filter(h => h.score >= hsEntry.score).length + 1;
+  text("NEUER HIGHSCORE!", DW / 2, 90, "#ffd232", 44, "center");
+  text(`PLATZ ${place}  ·  P&L +$${hsEntry.score.toLocaleString("de-DE")}  ·  ${hsEntry.won ? "SIEG" : "LEVEL " + hsEntry.level}`, DW / 2, 152, "#50ff82", 20, "center");
+  text("DEIN NAME", DW / 2, 206, "#8290b0", 15, "center");
+  g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 230, 400, 54);
+  text(hsName + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 242, "#ffffff", 30, "center");
+  text("bis 12 Zeichen", DW / 2, 292, "#6b7896", 13, "center");
+  zoneButton(250, 330, 220, 40, "[ENTER] SPEICHERN", "#50ff82", "enter");
+  zoneButton(490, 330, 220, 40, "[ESC] OHNE NAMEN", "#8290b0", "Escape");
+  text(CREDITS, DW / 2, 430, "#6b7896", 13, "center");
+}
+function renderHighscores() {
+  chartBackground("#145a2d", "#641919");
+  g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(100, 26, DW - 200, 480);
+  text("HIGHSCORES", DW / 2, 40, "#ffd232", 42, "center");
+  text("PLATZ", 140, 104, "#6b7896", 13); text("NAME", 220, 104, "#6b7896", 13);
+  text("P&L", 600, 104, "#6b7896", 13, "right"); text("ERREICHT", 700, 104, "#6b7896", 13, "center"); text("DATUM", 820, 104, "#6b7896", 13, "right");
+  if (!hsList.length) text("Noch keine Einträge – spiel eine Runde Solo!", DW / 2, 230, "#a0a0b4", 18, "center");
+  hsList.forEach((h, i) => {
+    const y = 126 + i * 30, isNew = i === hsNew;
+    if (isNew) { g.fillStyle = Math.floor(gameTime * 3) % 2 ? "#3a3210" : "#2a240c"; g.fillRect(120, y - 4, DW - 240, 28); }
+    const col = isNew ? "#ffd232" : i === 0 ? "#ffe680" : "#e6e6f0";
+    text(`${i + 1}.`, 140, y, col, 18); text(String(h.name), 220, y, col, 18);
+    text(`+$${Number(h.score).toLocaleString("de-DE")}`, 600, y, "#50ff82", 18, "right");
+    text(h.won ? "SIEG" : `LEVEL ${h.level}`, 700, y, h.won ? "#ffd232" : "#a0a0b4", 16, "center");
+    text(h.date ? new Date(h.date * 1000).toLocaleDateString("de-DE") : "", 820, y, "#8290b0", 15, "right");
+  });
+  zoneButton(370, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
+}
+
 // ---------------------------------------------------------------- Hosten / Beitreten / MP-Menue
 function renderMpChoice() {
   chartBackground("#123a26", "#3a1414");
@@ -2165,6 +2250,8 @@ function frame(now) {
   switch (state) {
     case ST.TITLE: gameTime += dt; renderTitle(); break;
     case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
+    case ST.NAMEENTRY: gameTime += dt; renderNameEntry(); break;
+    case ST.HIGHSCORES: gameTime += dt; renderHighscores(); break;
     case ST.LOBBY: gameTime += dt; renderLobby(); break;
     case ST.PLAY: updateGame(dt); if (state === ST.PLAY) { renderPlay(); if (mpMenu) renderMpMenu(); } break;
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;

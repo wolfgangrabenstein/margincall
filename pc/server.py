@@ -67,6 +67,49 @@ def get_markets():
     return data
 
 
+# ------------------------------------------------------------------ Highscores (Einzelspieler)
+_hs_lock = threading.Lock()
+
+
+def highscore_file():
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA", ".")
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(os.environ.get("MARGINCALL_DATA_DIR") or os.path.join(base, "MarginCall"), "highscores.json")
+
+
+def highscores_load():
+    try:
+        with open(highscore_file(), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def highscore_add(body):
+    with _hs_lock:
+        lst = highscores_load()
+        try:
+            e = json.loads(body)
+            name = "".join(c for c in str(e.get("name", "")) if c.isalnum() or c in " -_.")[:12].strip()
+            score = int(e.get("score", -1))
+            level = max(1, min(5, int(e.get("level", 1))))
+            if name and 0 <= score <= 100_000_000:
+                lst.append({"name": name, "score": score, "level": level, "won": bool(e.get("won")), "date": int(time.time())})
+                lst.sort(key=lambda x: -x["score"])
+                del lst[10:]
+                os.makedirs(os.path.dirname(highscore_file()), exist_ok=True)
+                with open(highscore_file(), "w", encoding="utf-8") as f:
+                    json.dump(lst, f)
+        except (ValueError, TypeError):
+            pass
+        return lst
+
+
 # ------------------------------------------------------------------ Multiplayer-Relay
 class WSConn:
     def __init__(self, handler):
@@ -202,6 +245,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, f.read(), "text/html; charset=utf-8")
         elif path == "/api/ping":
             self._send(200, b"ok", "text/plain")
+        elif path == "/api/highscores":
+            self._send(200, json.dumps(highscores_load()).encode(), "application/json")
         elif path == "/api/info":
             self._send(200, json.dumps({"ip": lan_ip(), "port": PORT}).encode(), "application/json")
         elif path == "/api/market":
@@ -210,6 +255,17 @@ class Handler(BaseHTTPRequestHandler):
             self.websocket()
         else:
             self._send(404, b"not found", "text/plain")
+
+    def do_POST(self):
+        if self.path.split("?")[0] != "/api/highscores":
+            self._send(404, b"not found", "text/plain")
+            return
+        n = int(self.headers.get("Content-Length", "0") or 0)
+        if not self.client_address[0].startswith("127.") or n > 4096:   # nur vom eigenen Rechner
+            self._send(403, b"forbidden", "text/plain")
+            return
+        body = self.rfile.read(n)
+        self._send(200, json.dumps(highscore_add(body)).encode(), "application/json")
 
     def websocket(self):
         key = self.headers.get("Sec-WebSocket-Key", "")
