@@ -42,8 +42,8 @@
 <div id="hint"></div>
 <div id="touch">
   <div class="pad">
-    <button data-k="w">W</button><button data-k="e">▲</button><button data-k="r">R</button>
-    <button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button>
+    <button data-k="a">A</button><button data-k="w">▲</button><button data-k="d">D</button>
+    <button data-k="ArrowLeft">⟲</button><button data-k="s">▼</button><button data-k="ArrowRight">⟳</button>
   </div>
   <button class="fire" data-k=" ">FEUER</button>
 </div>
@@ -1006,11 +1006,12 @@ const ACTIONS = [
   ["strafeL", "Seitwärts links"], ["strafeR", "Seitwärts rechts"], ["fire", "Feuern"], ["pause", "Pause"], ["music", "Musik an/aus"],
 ];
 const DEFAULTS = {
-  binds: { fwd: ["e", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["a", "ArrowLeft"], turnR: ["d", "ArrowRight"],
-    strafeL: ["w", null], strafeR: ["r", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null] },
+  // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
+  binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
+    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null] },
   mouseLook: true, sens: 5, invert: false,
 };
-const SETTINGS_KEY = "margincall.settings.v1";
+const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
 let settings = structuredClone(DEFAULTS);
 try {
   const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");

@@ -1,5 +1,21 @@
 # MARGIN CALL – Changelog
 
+## Version 3.4.1 – WASD am PC (15.10.2026)
+
+- **Neue Standardsteuerung am PC** nach dem üblichen Shooter-Schema:
+
+  | Aktion | Tasten |
+  |---|---|
+  | Vorwärts / Rückwärts | W / S (zusätzlich ↑ / ↓) |
+  | Seitwärts | A / D |
+  | Drehen | Maus oder ← / → |
+  | Feuern | Leertaste oder linke Maustaste |
+
+- **Ausweichen** per Doppeltipp funktioniert mit den neuen Tasten: W, S, A und D jeweils zweimal schnell antippen.
+- **Gespeicherte Belegung:** Die Tastenbelegung wird einmalig auf die neue Standardbelegung zurückgesetzt. Eigene Belegungen lassen sich wie bisher im Optionsmenü **[O]** einstellen.
+- **Touch-Knöpfe** auf dem Handy: oben A ▲ D, unten Drehen ⟲ ▼ ⟳.
+- Der **Cardputer** bleibt bei **E/S laufen, A/D drehen, W/R seitwärts**.
+
 ## Version 3.4 – Eigene App für Windows, macOS und Linux (15.10.2026)
 
 - **Kein Browser mehr:** MARGIN CALL ist jetzt eine eigenständige App mit eigenem Fenster. Es gibt eine Datei pro System:
