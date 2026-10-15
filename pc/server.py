@@ -111,6 +111,68 @@ def highscore_add(body):
         return lst
 
 
+# ------------------------------------------------------------------ Spielesuche im LAN (UDP-Broadcast)
+DISCOVERY_PORT = 47800
+INSTANCE_ID = f"{os.getpid()}-{time.time_ns()}"   # eindeutige Kennung dieses Spiel-Servers
+_hosting = {"t": 0, "info": None}
+_games = {}
+_games_lock = threading.Lock()
+
+
+def _clean(v, n):
+    return "".join(c for c in str(v or "") if c.isprintable())[:n]
+
+
+def discovery_listen():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        s.bind(("0.0.0.0", DISCOVERY_PORT))
+    except OSError:
+        return
+    while True:
+        data, (ip, _) = s.recvfrom(1024)
+        try:
+            v = json.loads(data)
+        except ValueError:
+            continue
+        if v.get("game") != "margincall" or not isinstance(v.get("port"), int):
+            continue
+        # Ein Spiel kann ueber mehrere Netzwerkadapter ankommen: per Kennung zusammenfassen,
+        # Adresse = die vom Host selbst gemeldete LAN-Adresse
+        host_ip = _clean(v.get("ip"), 40) or ip
+        key = _clean(v.get("id"), 40) or f"{host_ip}:{v['port']}"
+        entry = {"addr": f"{host_ip}:{v['port']}", "name": _clean(v.get("name"), 24), "mode": _clean(v.get("mode"), 32),
+                 "players": min(4, int(v.get("players", 1))), "version": _clean(v.get("version"), 12)}
+        with _games_lock:
+            _games[key] = (time.time(), entry)
+
+
+def discovery_announce():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    while True:
+        time.sleep(1)
+        info = _hosting["info"]
+        if not info or time.time() - _hosting["t"] > 4:
+            continue
+        msg = json.dumps({**info, "game": "margincall", "port": PORT, "version": "dev", "id": INSTANCE_ID, "ip": lan_ip()}).encode()
+        for target in ("255.255.255.255", ".".join(lan_ip().split(".")[:3] + ["255"])):
+            try:
+                s.sendto(msg, (target, DISCOVERY_PORT))
+            except OSError:
+                pass
+
+
+def games_list():
+    now = time.time()
+    with _games_lock:
+        for k in [k for k, (t, _) in _games.items() if now - t > 5]:
+            del _games[k]
+        return [e for k, (t, e) in _games.items() if k != INSTANCE_ID]   # eigenes Spiel nicht anzeigen
+
+
 # ------------------------------------------------------------------ Multiplayer-Relay
 class WSConn:
     def __init__(self, handler):
@@ -248,6 +310,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, b"ok", "text/plain")
         elif path == "/api/highscores":
             self._send(200, json.dumps(highscores_load()).encode(), "application/json")
+        elif path == "/api/games":
+            self._send(200, json.dumps(games_list()).encode(), "application/json")
         elif path == "/api/info":
             self._send(200, json.dumps({"ip": lan_ip(), "port": PORT}).encode(), "application/json")
         elif path == "/api/market":
@@ -258,7 +322,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        if self.path.split("?")[0] != "/api/highscores":
+        path = self.path.split("?")[0]
+        if path not in ("/api/highscores", "/api/host"):
             self._send(404, b"not found", "text/plain")
             return
         n = int(self.headers.get("Content-Length", "0") or 0)
@@ -266,6 +331,18 @@ class Handler(BaseHTTPRequestHandler):
             self._send(403, b"forbidden", "text/plain")
             return
         body = self.rfile.read(n)
+        if path == "/api/host":
+            try:
+                v = json.loads(body)
+            except ValueError:
+                v = {}
+            if v.get("active"):
+                _hosting.update(t=time.time(), info={"name": _clean(v.get("name"), 24), "mode": _clean(v.get("mode"), 32),
+                                                     "players": min(4, int(v.get("players", 1)))})
+            else:
+                _hosting.update(t=0, info=None)
+            self._send(200, b"ok", "text/plain")
+            return
         self._send(200, json.dumps(highscore_add(body)).encode(), "application/json")
 
     def websocket(self):
@@ -322,6 +399,8 @@ def main():
     print("  MARGIN CALL - Boersen-Shooter (PC-Version)")
     print("=" * 56)
     # Kurse werden erst geladen, wenn das Spiel sie anfragt (nur mit Zustimmung des Spielers).
+    threading.Thread(target=discovery_listen, daemon=True).start()
+    threading.Thread(target=discovery_announce, daemon=True).start()
     try:
         server = Server(("0.0.0.0", PORT), Handler)
     except OSError:

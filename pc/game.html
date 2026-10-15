@@ -522,6 +522,14 @@ function makePlayer(id, local) {
   return { id, name: id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU", local, team: (id + 1) % 2, avatar: local ? settings.avatar : "m", isPlayer: true,
     x: 0, y: 0, dirX: 1, dirY: 0, hp: 100, ammo: 30, score: 0, kills: 0, deaths: 0, dead: false, respawnT: 0, slowT: 0, flash: 0 };
 }
+const TEAM_COLOR_NAME = ["GRÜN", "ROT"];
+// list: Eintraege [id, team] aller Spieler, damit Teamkollegen eine Nummer bekommen
+function shownName(name, id, team, teamMode, list) {
+  if (!teamMode) return name;
+  const mates = list.filter(([, t]) => t === team).map(([i]) => i).sort((a, b) => a - b);
+  return `TRADER ${TEAM_COLOR_NAME[team]}${mates.length > 1 ? " " + (mates.indexOf(id) + 1) : ""}`;
+}
+const nameOf = pl => shownName(pl.name, pl.id, pl.team, mode === "team", players.map(p => [p.id, p.team]));
 const playerColor = pl => mode === "team" ? (pl.team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(Math.max(1, pl.id) - 1) % 4];
 const teamFaction = pl => pl.team === 0 ? F.BULL : F.BEAR;
 const playerSprite = pl => (pl.avatar === "f" ? S.AVF0 : S.AVM0) + (mode === "team" ? 4 + pl.team : (Math.max(1, pl.id) - 1) % 4);
@@ -654,7 +662,7 @@ function loadLevel(lv) {
   if (mode === "dm" || mode === "team") {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
     roundT = ROUND_TIME; teamScore = [0, 0];
-    players.forEach(p => { p.score = 0; p.kills = 0; });
+    players.forEach(p => { p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; });
   }
   const spots = startSpots();
   players.forEach((pl, i) => {
@@ -699,10 +707,10 @@ function damagePlayer(pl, d, why, attacker = null) {
     pl.deaths++; deathPenalty = Math.min(pl.score, Math.max(500, Math.floor(pl.score * .25))); pl.score -= deathPenalty;
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
   }
-  pl.dead = true; pl.respawnT = mode === "coop" ? 6 : 3;
+  pl.dead = true; pl.deaths = (pl.deaths || 0) + 1; pl.respawnT = mode === "coop" ? 6 : 3;
   sfxTo(pl, "CRASH");
   if (attacker && attacker.isPlayer) {
-    attacker.kills++; addScore(attacker, 500);
+    attacker.frags = (attacker.frags || 0) + 1; addScore(attacker, 500);
     sayAll(`${attacker.name} LIQUIDIERT ${pl.name}`, 2);
   } else sayTo(pl, "INSOLVENZ! NEUSTART GLEICH …", 3);
   if (mode === "coop") pl.score = Math.floor(pl.score * .9);
@@ -990,21 +998,24 @@ function netReceive(m) {
       case "shot": if (state === ST.PLAY) doShot(pl, m.x, m.y, m.dx, m.dy); break;
       case "team": if (state === ST.LOBBY) pl.team = m.team ? 1 : 0; break;
       case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
+      case "ready": if (state === ST.LOBBY) { pl.ready = !!m.ready; hostSendLobby(); } break;
+      case "chat": if (state === ST.LOBBY || state === ST.PLAY) addChat(pl.id, pl.name, m.text); break;
     }
     return;
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players;
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || [];
+    const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: players.map(p => [p.id, p.name, p.team, p.avatar]) });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12) });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
-  players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.dead = false; });
+  players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.dead = false; });
   newGame(); state = ST.PLAY; fireCd = .4; sfxAll("KACHING"); lockMouse();
 }
 const r2 = v => Math.round(v * 100) / 100;
@@ -1012,7 +1023,7 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
       if (!alt && [E.BEAR, E.BUBBLE, E.SLICK, E.BOT, E.ALGO].includes(e.type)) alt = (e.anim % .6) < .3 && (e.awake || e.type === E.BOT || e.type === E.ALGO);
@@ -1039,9 +1050,9 @@ function clientSnapshot(m) {
   [fakeT, glitchT, aiFaceT, invertT, crashT] = m.fx;
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths] of m.pl) {
     const p = players.find(q => q.id === id);
-    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, slowT: slow ? .2 : 0, avatar: avatar || "m" });
+    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, slowT: slow ? .2 : 0, avatar: avatar || "m" });
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -1055,11 +1066,12 @@ function clientSnapshot(m) {
 const ACTIONS = [
   ["fwd", "Vorwärts"], ["back", "Rückwärts"], ["turnL", "Links drehen"], ["turnR", "Rechts drehen"],
   ["strafeL", "Seitwärts links"], ["strafeR", "Seitwärts rechts"], ["fire", "Feuern"], ["pause", "Pause"], ["music", "Musik an/aus"],
+  ["chat", "Chat (Multiplayer)"],
 ];
 const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
-    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null] },
+    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null] },
   mouseLook: true, sens: 5, invert: false, avatar: "m",
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
@@ -1088,6 +1100,34 @@ function quitGame() {
   netNotice("DU KANNST DIESEN TAB JETZT SCHLIESSEN"); state = ST.TITLE; musicStop();
 }
 let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0, deathPenalty = 0;
+let chatLog = [], lobbyChat = [], chatTyping = false, chatText = "", rawKey = "", lobbyNote = "", lobbyNoteT = 0;
+let foundGames = [], joinSel = 0, gamesT = 0, advertising = false, advertiseT = 0, fsOn = false;
+const lobbyPlayers = () => players.map(p => [p.id, p.name, p.team, p.avatar, p.id === net.hostId || !!p.ready]);
+const allReady = () => players.every(p => p.id === net.hostId || p.ready);
+function addChat(id, name, txt) {
+  const clean = String(txt).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+  if (!clean) return;
+  chatLog.push([id, name, clean]); if (chatLog.length > 30) chatLog.shift();
+  if (state === ST.LOBBY) { sfx("HIT"); hostSendLobby(); }
+  else { sayAll(`» ${name.replace("TRADER ", "")}: ${clean}`, 4); sfxAll("HIT"); }
+}
+function chatKey(k) {
+  if (k === "enter") {
+    if (chatText.trim()) { if (isHost()) addChat(me.id, me.name, chatText); else netSend({ t: "chat", text: chatText.slice(0, 80) }); }
+    chatText = ""; chatTyping = false; return;
+  }
+  if (k === "Escape") { chatText = ""; chatTyping = false; return; }
+  if (k === "Backspace") { chatText = chatText.slice(0, -1); return; }
+  if (rawKey.length === 1 && chatText.length < 80) chatText += rawKey;
+}
+// Vollbild gezielt setzen (App: ganzes Fenster; Browser: Seite)
+function setFullscreen(on) {
+  fsOn = on; settings.fullscreen = on; saveSettings();
+  if (IN_APP) { location.href = `http://margincall.fullscreen-${on ? "on" : "off"}/`; return; }
+  if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { fsOn = false; netNotice("VOLLBILD NICHT MÖGLICH"); });
+  if (!on && document.fullscreenElement) document.exitFullscreen?.();
+}
+document.addEventListener("fullscreenchange", () => { if (!IN_APP) fsOn = !!document.fullscreenElement; });
 // Maussteuerung direkt einfangen (geht nur direkt nach einer Taste oder einem Klick des Spielers)
 function lockMouse() {
   if (!settings.mouseLook || document.pointerLockElement === screen) return;
@@ -1119,16 +1159,16 @@ function updateHint() {
   document.getElementById("hint").textContent =
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ` +
     `${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · F4 Vollbild · Esc in der Pause = Beenden`;
+    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · F4 Vollbild · Esc in der Pause = Beenden`;
 }
 
 // Optionsmenue
 const OPT_ROWS = [...ACTIONS.map(([id, name]) => ({ kind: "bind", id, name })),
   { kind: "mouseLook", name: "Maussteuerung" }, { kind: "sens", name: "Mausempfindlichkeit" }, { kind: "invert", name: "Maus invertieren" },
-  { kind: "music", name: "Musik" }, { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
+  { kind: "fullscreen", name: "Vollbild (F4)" }, { kind: "music", name: "Musik" }, { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
   { kind: "reset", name: "Standard wiederherstellen" }, { kind: "back", name: "Zurück" }];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 98, OPT_DY = 24;
+const OPT_Y0 = 94, OPT_DY = 22;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1144,6 +1184,7 @@ function optActivate() {
     case "bind": optWaiting = true; break;
     case "mouseLook": settings.mouseLook = !settings.mouseLook; saveSettings(); break;
     case "music": musicToggle(); break;
+    case "fullscreen": setFullscreen(!fsOn); break;
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
@@ -1163,7 +1204,7 @@ function optKey(k) {
     const d = k === "ArrowLeft" ? -1 : 1;
     if (row.kind === "bind") optCol = clamp(optCol + d, 0, 1);
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music" || row.kind === "fullscreen") optActivate();
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1196,8 +1237,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? "TASTE DRÜCKEN…" : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "music" ? musicOn : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "music" ? musicOn : row.kind === "fullscreen" ? fsOn : settings.invert;
       text(on ? "AN" : "AUS", 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "sens") {
       for (let k = 1; k <= 10; k++) { g.fillStyle = k <= settings.sens ? "#28c86e" : "#1e2846"; g.fillRect(520 + (k - 1) * 40, y + 1, 32, 14); }
@@ -1210,10 +1251,11 @@ function renderOptions() {
 }
 
 addEventListener("keydown", e => {
+  rawKey = e.key;
   const k = keyName(e);
   if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace", "F4"].includes(k)) e.preventDefault();
   if (!e.repeat) onKeyPress(k);
-  keys.add(k);
+  if (!chatTyping) keys.add(k);
 });
 addEventListener("keyup", e => keys.delete(keyName(e)));
 addEventListener("blur", () => keys.clear());
@@ -1257,17 +1299,14 @@ document.querySelectorAll("#touch [data-k]").forEach(b => {
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => b.addEventListener(ev, () => keys.delete(k)));
 });
 // F4: Vollbild an/aus. In der App schaltet das Fenster selbst um (Adresse wird von der App abgefangen).
-function toggleFullscreen() {
-  if (IN_APP) { location.href = "http://margincall.fullscreen/"; return; }
-  if (document.fullscreenElement) document.exitFullscreen?.();
-  else document.documentElement.requestFullscreen?.().catch(() => netNotice("VOLLBILD NICHT MÖGLICH"));
-}
+function toggleFullscreen() { setFullscreen(!fsOn); }
 function onKeyPress(k) {
   audioUnlock();
   if (k === "F4" && !(state === ST.OPTIONS && optWaiting)) { toggleFullscreen(); return; }
   if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "Escape") quitGame(); return; }
   if (state === ST.OPTIONS) { optKey(k); return; }
   if (state === ST.JOIN) { joinKey(k); return; }
+  if (chatTyping && (state === ST.LOBBY || state === ST.PLAY)) { chatKey(k); return; }
   if (state === ST.NAMEENTRY) { nameKey(k); return; }
   if (state === ST.HIGHSCORES) { if (k === "Escape" || k === "enter") { state = hsReturn === ST.HIGHSCORES ? ST.TITLE : hsReturn; if (state === ST.TITLE) musicStart(); } return; }
   if (state === ST.PLAY && mpMenu) {
@@ -1292,6 +1331,8 @@ function onKeyPress(k) {
     case ST.LOBBY:
       if (k === "Escape") { leaveMP(); break; }
       if (k === "o") { openOptions(); break; }
+      if (isBound("chat", k) || k === "t") { chatTyping = true; chatText = ""; break; }
+      if (k === "enter" && !isHost()) { me.ready = !me.ready; netSend({ t: "ready", ready: me.ready }); sfx(me.ready ? "KACHING" : "HIT"); break; }
       if (k === "c") {
         me.avatar = me.avatar === "f" ? "m" : "f"; settings.avatar = me.avatar; saveSettings(); sfx("HIT");
         if (isHost()) hostSendLobby(); else netSend({ t: "avatar", avatar: me.avatar });
@@ -1302,10 +1343,11 @@ function onKeyPress(k) {
       }
       if (isHost() && net.connected) {
         if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? 2 : 1)) % 3; sfx("HIT"); hostSendLobby(); }
-        if (k === "enter") hostStartGame();
+        if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = "NOCH NICHT ALLE MITSPIELER SIND BEREIT"; lobbyNoteT = 2.5; sfx("DECLINED"); } }
       }
       break;
     case ST.PLAY:
+      if (isMP() && isBound("chat", k)) { chatTyping = true; chatText = ""; keys.clear(); break; }
       dodgeTap(k);
       if (isBound("pause", k)) {
         if (isMP()) mpMenu = true; else state = ST.PAUSE;
@@ -1314,7 +1356,7 @@ function onKeyPress(k) {
       break;
     case ST.MPMENU:
       if (k === "h") enterLobby();
-      else if (k === "j") { joinText = ""; state = ST.JOIN; }
+      else if (k === "j") { joinText = ""; joinSel = 0; gamesT = 0; foundGames = []; state = ST.JOIN; }
       else if (k === "Escape") state = ST.TITLE;
       break;
     case ST.PAUSE:
@@ -1335,7 +1377,7 @@ function onKeyPress(k) {
       break;
     case ST.WIN:
       if (k === "enter" && isHost()) {
-        if (isMP()) { mode = "solo"; state = ST.LOBBY; hostSendLobby(); musicStart(); } else finishRun(true);
+        if (isMP()) { mode = "solo"; state = ST.LOBBY; players.forEach(p => p.ready = false); hostSendLobby(); musicStart(); } else finishRun(true);
       }
       if (k === "Escape" && isMP()) leaveMP();
       break;
@@ -1638,9 +1680,9 @@ function drawTicker(y) {
 function renderNameTags() {
   for (const [sx, top, pl] of nameTags) {
     const x = sx * SC, y = Math.max(30, top * SC - 22);
-    g.font = FONT(14); const w = g.measureText(pl.name).width + 12;
+    const nm = nameOf(pl); g.font = FONT(14); const w = g.measureText(nm).width + 12;
     g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(x - w / 2, y, w, 18);
-    text(pl.name, x, y + 2, rgbCss(playerColor(pl)), 14, "center");
+    text(nm, x, y + 2, rgbCss(playerColor(pl)), 14, "center");
     g.fillStyle = "#300"; g.fillRect(x - 20, y + 19, 40, 4);
     g.fillStyle = "#3ce664"; g.fillRect(x - 20, y + 19, 40 * pl.hp / 100, 4);
   }
@@ -1673,8 +1715,8 @@ function renderHUD() {
       text(`DU: TEAM ${me.team === 0 ? "BULLE" : "BÄR"} · ZIEL ${ROUND_TARGET} · ${(me.team === 0) === (levelChg >= 0) ? "MARKT-BONUS +25 % SCHADEN" : "KEIN MARKT-BONUS"}`, 560, HUD_Y + 60, "#a0a0b4", 14);
     } else {
       const rank = [...players].sort((a, b) => b.score - a.score);
-      rank.slice(0, 4).forEach((p, i) => text(`${i + 1}. ${p.name.replace("TRADER ", "")} ${p.score}`, 560 + i * 96, HUD_Y + 38, rgbCss(playerColor(p)), 13));
-      text(`DEATHMATCH · ZIEL ${ROUND_TARGET} P&L · ABSCHUSS = 500`, 560, HUD_Y + 60, "#a0a0b4", 14);
+      text(`FRAGS ${me.frags || 0}   ·   TODE ${me.deaths || 0}   ·   KILLS ${me.kills}`, 560, HUD_Y + 36, "#ffd232", 16);
+      rank.slice(0, 4).forEach((p, i) => text(`${i + 1}.${p.name.replace("TRADER ", "").slice(0, 6)} ${p.frags || 0}/${p.deaths || 0}`, 560 + i * 96, HUD_Y + 62, rgbCss(playerColor(p)), 12));
     }
   } else {
     const bx = 560, bw = 380, tot = bullsAlive + bearsAlive, gw2 = tot ? bw * bullsAlive / tot : bw / 2;
@@ -1701,6 +1743,14 @@ function renderHUD() {
   if (msgT > 0) {
     g.fillStyle = "rgba(0,0,0,.75)"; g.fillRect(0, 30, DW, 32);
     text(msg, DW / 2, 36, msg.startsWith("ALGO") ? "#ff5050" : "#ffdc3c", 21, "center");
+  }
+  if (chatTyping) {   // Chatfenster oben
+    g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(120, 66, DW - 240, 42);
+    g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(120, 66, DW - 240, 42);
+    const shown = chatText.length > 58 ? "…" + chatText.slice(-57) : chatText;
+    text("CHAT:", 134, 79, "#50c8ff", 15);
+    text(shown + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), 190, 78, "#ffffff", 17);
+    text("ENTER senden · ESC abbrechen", DW - 134, 112, "#8290b0", 12, "right");
   }
   if (me.dead) {
     g.fillStyle = "rgba(60,0,0,.55)"; g.fillRect(0, 26, DW, HUD_Y - 26);
@@ -1766,35 +1816,67 @@ function renderTitle() {
   button(TITLE_BTNS[3], "[ESC] BEENDEN", "#ff7050");
   if (netMsgT > 0) text(netMsg, DW / 2, 428, "#ff7050", 16, "center");
   text(CREDITS, DW - 14, 518, "#6b7896", 13, "right");
+  // Vollbild-Hinweis unten links (anklickbar)
+  const fsLabel = `[F4] VOLLBILD ${fsOn ? "AUS" : "AN"}`;
+  g.font = FONT(13); const fsW = g.measureText(fsLabel).width;
+  text(fsLabel, 14, 518, hovered(10, 512, fsW + 8, 22) ? "#ffffff" : "#8290b0", 13);
+  zone(10, 512, fsW + 8, 22, "F4");
 }
 function renderLobby() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(60, 20, DW - 120, DH - 40);
   text("MULTIPLAYER-LOBBY", DW / 2, 36, "#ffd232", 40, "center");
-  if (!net.connected) { text("VERBINDE MIT SPIEL-SERVER …", DW / 2, 220, "#dcdce6", 22, "center"); text("[ESC] ZURÜCK", DW / 2, 470, "#8290b0", 16, "center"); return; }
+  if (!net.connected) { text("VERBINDE MIT SPIEL-SERVER …", DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, "[ESC] ZURÜCK", "#8290b0", "Escape", 16); return; }
   const host = isHost();
-  const list = host ? players.map(p => [p.id, p.name, p.team, p.avatar]) : lobbyInfo;
-  const modeIdx = host ? lobbyMode : lobbyMode;
-  text("MODUS", 110, 100, "#6b7896", 14);
+  const list = host ? lobbyPlayers() : lobbyInfo;
+  const modeIdx = lobbyMode;
+  text("MODUS", 110, 96, "#6b7896", 14);
   if (host) {
-    zoneButton(104, 116, 34, 34, "◀", "#50c8ff", "ArrowLeft", 20);
-    text(MODES[modeIdx][1], 150, 120, "#50c8ff", 26);
-    g.font = FONT(26); zoneButton(162 + g.measureText(MODES[modeIdx][1]).width, 116, 34, 34, "▶", "#50c8ff", "ArrowRight", 20);
-  } else text(MODES[modeIdx][1], 110, 120, "#50c8ff", 26);
+    zoneButton(104, 112, 34, 34, "◀", "#50c8ff", "ArrowLeft", 20);
+    text(MODES[modeIdx][1], 150, 116, "#50c8ff", 26);
+    g.font = FONT(26); zoneButton(162 + g.measureText(MODES[modeIdx][1]).width, 112, 34, 34, "▶", "#50c8ff", "ArrowRight", 20);
+  } else text(MODES[modeIdx][1], 110, 116, "#50c8ff", 26);
   const desc = { coop: "Gemeinsam durch alle 5 Level. Gegner werden mit jedem Mitspieler stärker.",
     team: "Team Bulle gegen Team Bär – eure Tiere kämpfen mit. Steigt der Markt, trifft Team Bulle härter.",
     dm: "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L." }[MODES[modeIdx][0]];
-  text(desc, 110, 156, "#a0a0b4", 15);
-  text(`SPIELER (${list.length}/4)`, 110, 200, "#6b7896", 14);
+  text(desc, 110, 152, "#a0a0b4", 15);
+  // ---- Spielerliste (links)
+  text(`SPIELER (${list.length}/4)`, 110, 186, "#6b7896", 14);
   const isTeam = MODES[modeIdx][0] === "team";
-  list.forEach(([id, name, team, avatar], i) => {
-    const y = 224 + i * 40, col = isTeam ? (team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(id - 1) % 4];
+  list.forEach(([id, name, team, avatar, ready], i) => {
+    const y = 208 + i * 44, col = isTeam ? (team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(id - 1) % 4];
     const spr = (avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + team : (id - 1) % 4);
-    g.drawImage(spriteCanvas(spr), 104, y - 6, 36, 36);
-    text(`${name}${id === net.id ? "  (DU)" : ""}${id === net.hostId ? "  · HOST" : ""}`, 150, y + 3, "#e6e6f0", 20);
-    if (MODES[modeIdx][0] === "team") text(team === 0 ? "TEAM BULLE" : "TEAM BÄR", 760, y + 3, rgbCss(col), 18, "right");
+    g.drawImage(spriteCanvas(spr), 104, y - 4, 38, 38);
+    text(`${shownName(name, id, team, isTeam, list.map(e => [e[0], e[2]]))}${id === net.id ? " (DU)" : ""}`, 150, y, isTeam ? rgbCss(col) : "#e6e6f0", 16);
+    const isHostRow = id === net.hostId;
+    text(isHostRow ? "★ HOST" : ready ? "✔ BEREIT" : "✖ WARTET", 150, y + 20, isHostRow ? "#ffd232" : ready ? "#50ff82" : "#ff7050", 13);
+    if (isTeam) text(team === 0 ? "TEAM BULLE · GRÜN" : "TEAM BÄR · ROT", 470, y + 20, rgbCss(col), 13, "right");
   });
-  // eigene Figur gross (anklicken = wechseln)
+  // ---- Chat (Mitte)
+  const cx = 490, cy = 186, cw = 270, ch = 200;
+  g.fillStyle = "rgba(255,255,255,.04)"; g.fillRect(cx, cy, cw, ch);
+  g.strokeStyle = "#1e2846"; g.lineWidth = 1; g.strokeRect(cx, cy, cw, ch);
+  text("CHAT", cx + 8, cy + 6, "#6b7896", 13);
+  const chat = host ? chatLog : lobbyChat;
+  const lines = [];
+  for (const [cid, cname, ctext] of chat) {
+    const who = cname.replace("TRADER ", "");
+    const words = `${who}: ${ctext}`.match(/.{1,36}(\s|$)|\S+/g) || [];
+    words.forEach((w, j) => lines.push([j === 0 ? cid : -1, w.trim()]));
+  }
+  lines.slice(-8).forEach(([cid, l], i) => {
+    const c = cid > 0 ? rgbCss(isTeam ? [200, 200, 210] : PCOLOR[(cid - 1) % 4]) : "#c8c8d7";
+    text(l, cx + 8, cy + 26 + i * 17, cid === -1 ? "#c8c8d7" : c, 13);
+  });
+  const iy = cy + ch - 26;
+  g.fillStyle = chatTyping ? "rgba(80,200,255,.12)" : "rgba(0,0,0,.4)"; g.fillRect(cx + 4, iy, cw - 8, 22);
+  g.strokeStyle = chatTyping ? "#50c8ff" : "#2a3656"; g.strokeRect(cx + 4, iy, cw - 8, 22);
+  if (chatTyping) {
+    const shown = chatText.length > 32 ? "…" + chatText.slice(-31) : chatText;
+    text(shown + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), cx + 10, iy + 4, "#ffffff", 13);
+  } else text(`[${bindText("chat")}] Nachricht schreiben …`, cx + 10, iy + 4, "#6b7896", 13);
+  zone(cx + 4, iy, cw - 8, 22, "t");
+  // ---- eigene Figur (rechts, anklicken = wechseln)
   const mySpr = (me.avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + me.team : (Math.max(1, me.id) - 1) % 4);
   g.drawImage(spriteCanvas(mySpr), 790, 205, 96, 96);
   text("DEINE FIGUR", 838, 186, "#6b7896", 13, "center");
@@ -1802,22 +1884,31 @@ function renderLobby() {
   if (hovered(780, 180, 116, 170)) { g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(780, 180, 116, 170); }
   zone(780, 180, 116, 170, "c");
   zoneButton(784, 318, 108, 26, "[C] WECHSELN", "#50c8ff", "c", 13);
+  // ---- Knoepfe unten
   if (isTeam) {
-    zoneButton(250, 398, 220, 36, "[1] TEAM BULLE", me.team === 0 ? "#50ff82" : "#2a7a46", "1");
-    zoneButton(490, 398, 220, 36, "[2] TEAM BÄR", me.team === 1 ? "#ff5050" : "#7a2a2a", "2");
+    zoneButton(250, 400, 220, 34, "[1] TEAM BULLE", me.team === 0 ? "#50ff82" : "#2a7a46", "1", 16);
+    zoneButton(490, 400, 220, 34, "[2] TEAM BÄR", me.team === 1 ? "#ff5050" : "#7a2a2a", "2", 16);
   }
-  if (host) zoneButton(250, 442, 220, 36, "▶ SPIEL STARTEN", "#ffffff", "enter");
-  else text("WARTE AUF DEN HOST …", 360, 451, "#8290b0", 17, "center");
-  zoneButton(490, 442, 220, 36, "[ESC] VERLASSEN", "#ff7050", "Escape");
-  text(`Mitspieler: MARGIN CALL starten → [N] MULTIPLAYER → [J] BEITRETEN → ${isLocalOrigin() ? (myAddr || "deine IP") : location.host}   (oder im Browser: http://${isLocalOrigin() ? (myAddr || "deine IP") : location.host})`, DW / 2, 490, "#6b7896", 13, "center");
+  if (host) {
+    const ready = allReady();
+    zoneButton(250, 442, 220, 36, ready ? "▶ SPIEL STARTEN" : "WARTE AUF BEREIT …", ready ? "#ffffff" : "#6b7896", "enter", 16);
+  } else {
+    const r = me.ready;
+    zoneButton(250, 442, 220, 36, r ? "✔ BEREIT (ZURÜCK)" : "[ENTER] BEREIT", r ? "#50ff82" : "#ffd232", "enter", 16);
+  }
+  zoneButton(490, 442, 220, 36, "[ESC] VERLASSEN", "#ff7050", "Escape", 16);
+  if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
+  text(isLocalOrigin() ? `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`
+    : `Verbunden mit ${location.host}`, DW / 2, 492, "#6b7896", 13, "center");
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
   rank.forEach((p, i) => {
     const y = y0 + i * 30;
     g.fillStyle = rgbCss(playerColor(p)); g.fillRect(260, y, 18, 18);
-    text(`${i + 1}. ${p.name}${p.local ? " (DU)" : ""}`, 290, y, "#e6e6f0", 18);
-    text(`${p.score.toLocaleString("de-DE")} P&L · ${p.kills} K.O.`, 700, y, "#50ff82", 18, "right");
+    text(`${i + 1}. ${nameOf(p)}${p.local ? " (DU)" : ""}`, 290, y, mode === "team" ? rgbCss(playerColor(p)) : "#e6e6f0", 18);
+    text(mode === "dm" || mode === "team" ? `${p.score.toLocaleString("de-DE")} P&L · ${p.frags || 0} FRAGS · ${p.deaths || 0} TODE · ${p.kills} KILLS`
+      : `${p.score.toLocaleString("de-DE")} P&L · ${p.kills} KILLS · ${p.deaths || 0} TODE`, 760, y, "#50ff82", 16, "right");
   });
 }
 const CREDITS = "Made by Wolfgang Rabenstein";
@@ -2211,21 +2302,40 @@ function renderMpChoice() {
 }
 function renderJoin() {
   chartBackground("#123a26", "#3a1414");
-  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 120, DW - 320, 280);
-  text("SPIEL BEITRETEN", DW / 2, 140, "#ffd232", 36, "center");
-  text("Adresse des Hosts, z. B. 192.168.1.20:8080", DW / 2, 196, "#a0a0b4", 16, "center");
-  g.strokeStyle = "#50ff82"; g.lineWidth = 2; g.strokeRect(240, 230, DW - 480, 46);
-  text(joinText + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), 256, 242, "#ffffff", 24);
-  zoneButton(250, 316, 220, 40, "[ENTER] VERBINDEN", "#50ff82", "enter");
-  zoneButton(490, 316, 220, 40, "[ESC] ZURÜCK", "#8290b0", "Escape");
+  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 40, DW - 280, 460);
+  text("SPIEL BEITRETEN", DW / 2, 56, "#ffd232", 36, "center");
+  text("GEFUNDENE SPIELE IM NETZWERK", 170, 108, "#6b7896", 13);
+  if (!foundGames.length) {
+    const dots = ".".repeat(1 + Math.floor(gameTime * 2) % 3);
+    text(`Suche nach offenen Spielen${dots}`, DW / 2, 160, "#a0a0b4", 17, "center");
+    text("Der Host muss in seiner Lobby sein. Wird nichts gefunden, gib unten die Adresse ein.", DW / 2, 190, "#6b7896", 13, "center");
+  }
+  foundGames.slice(0, 5).forEach((gm, i) => {
+    const y = 128 + i * 44, sel = i === joinSel && !joinText;
+    const label = `${gm.name.replace("TRADER ", "")}  ·  ${gm.mode}  ·  ${gm.players}/4 SPIELER`;
+    zoneButton(170, y, DW - 340, 38, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "game:" + i, 16);
+    text(gm.addr, DW - 180, y + 12, "#6b7896", 12, "right");
+  });
+  text("ODER ADRESSE EINGEBEN", 170, 356, "#6b7896", 13);
+  g.strokeStyle = joinText ? "#50ff82" : "#2a3656"; g.lineWidth = 2; g.strokeRect(170, 374, DW - 340, 40);
+  text((joinText || (Math.floor(gameTime * 3) % 2 ? "" : "z. B. 192.168.1.20:8080")) + (joinText && Math.floor(gameTime * 3) % 2 ? "▌" : ""), 182, 384, joinText ? "#ffffff" : "#4a5672", 20);
+  zoneButton(250, 434, 220, 40, "[ENTER] VERBINDEN", "#50ff82", "enter");
+  zoneButton(490, 434, 220, 40, "[ESC] ZURÜCK", "#8290b0", "Escape");
+}
+function joinTo(addr) {
+  const host = addr.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!host) return;
+  location.href = appUrl(`http://${host.includes(":") ? host : host + ":8080"}`, "&join=1");
 }
 function joinKey(k) {
   if (k === "Escape") { state = ST.MPMENU; return; }
+  if (k.startsWith("game:")) { const gm = foundGames[+k.slice(5)]; if (gm) joinTo(gm.addr); return; }
+  if (k === "ArrowUp") { joinSel = Math.max(0, joinSel - 1); return; }
+  if (k === "ArrowDown") { joinSel = Math.min(Math.max(0, Math.min(5, foundGames.length) - 1), joinSel + 1); return; }
   if (k === "Backspace") { joinText = joinText.slice(0, -1); return; }
   if (k === "enter") {
-    const host = joinText.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    if (!host) return;
-    location.href = appUrl(`http://${host.includes(":") ? host : host + ":8080"}`, "&join=1");
+    if (joinText.trim()) joinTo(joinText);
+    else if (foundGames[joinSel]) joinTo(foundGames[joinSel].addr);
     return;
   }
   if (k.length === 1 && /[0-9a-z.:\-]/.test(k) && joinText.length < 40) joinText += k;
@@ -2265,8 +2375,22 @@ function frame(now) {
   // Host: Lobby-Status regelmaessig verteilen, Snapshots auch auf Endbildschirmen
   if (isHost() && net.connected) {
     if (state === ST.LOBBY && (lobbyT -= dt) <= 0) { lobbyT = .3; hostSendLobby(); }
-    if (isMP() && state !== ST.PLAY && state !== ST.LOBBY && performance.now() - lastSent > 200) { lastSent = performance.now(); hostSendSnapshot(); }
   }
+  lobbyNoteT -= dt;
+  // Spiel im LAN ankuendigen, solange der Host in der Lobby ist (nur in der App bzw. am eigenen Server)
+  const shouldAdvertise = isLocalOrigin() && net.connected && isHost() && state === ST.LOBBY;
+  if (shouldAdvertise && (advertiseT -= dt) <= 0) {
+    advertiseT = 1; advertising = true;
+    fetch("/api/host", { method: "POST", body: JSON.stringify({ active: true, name: me.name, mode: MODES[lobbyMode][1], players: players.length }) }).catch(() => { });
+  } else if (!shouldAdvertise && advertising) {
+    advertising = false; fetch("/api/host", { method: "POST", body: JSON.stringify({ active: false }) }).catch(() => { });
+  }
+  // Offene Spiele suchen, solange "Spiel beitreten" offen ist
+  if (state === ST.JOIN && (gamesT -= dt) <= 0) {
+    gamesT = 1;
+    fetch("/api/games", { cache: "no-store" }).then(r => r.json()).then(l => { foundGames = Array.isArray(l) ? l : []; }).catch(() => { });
+  }
+  if (isHost() && net.connected && isMP() && state !== ST.PLAY && state !== ST.LOBBY && performance.now() - lastSent > 200) { lastSent = performance.now(); hostSendSnapshot(); }
   switch (state) {
     case ST.TITLE: gameTime += dt; renderTitle(); break;
     case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
@@ -2305,6 +2429,7 @@ marketsFetch();
 setInterval(marketsFetch, 60000);
 fetch("/api/info", { cache: "no-store" }).then(r => r.json()).then(i => { myAddr = `${i.ip}:${i.port}`; }).catch(() => { });
 if (URLP.has("join")) enterLobby();
+if (IN_APP && settings.fullscreen) setFullscreen(true);
 requestAnimationFrame(frame);
 </script>
 

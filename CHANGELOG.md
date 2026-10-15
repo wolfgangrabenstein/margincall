@@ -1,5 +1,25 @@
 # MARGIN CALL – Changelog
 
+## Version 3.7.0 – Spielesuche, Lobby-Chat, Bereit-Knopf, Deathmatch-Statistik (16.10.2026)
+
+- **Spiele im Netzwerk finden:** **[N] Multiplayer → [J] Spiel beitreten** zeigt jetzt automatisch alle offenen Spiele im WLAN, mit Host, Modus und Spielerzahl.
+  - Ein Klick oder Enter genügt zum Beitreten, IP-Adresse und Port muss man nicht mehr eintippen.
+  - Die manuelle Adresseingabe bleibt als Notlösung erhalten.
+  - Ein Spiel wird angekündigt, solange der Host in der Lobby ist.
+- **Bereit-Knopf:** Mitspieler bestätigen in der Lobby mit **„Bereit“**. Der Host kann erst starten, wenn alle bereit sind. Die Spielerliste zeigt ✔ BEREIT bzw. ✖ WARTET.
+- **Chat in der Lobby:** **[T]** oder ein Klick ins Chatfeld öffnet die Eingabe, Enter sendet.
+- **Chat im Spiel:** **[T]** öffnet oben ein Chatfenster. Gesendete Nachrichten erscheinen bei allen als Meldung oben im Ticker, z. B. „» BLAU: gg wp“. Während du schreibst, bleibt deine Figur stehen.
+  - Die Chat-Taste ist im Optionsmenü frei belegbar.
+- **Deathmatch-Statistik:** Das HUD zeigt deine **Frags** (abgeschossene Mitspieler), **Tode** und **Kills** (erledigte Börsen-Gegner), dazu eine Rangliste aller Spieler mit Frags und Toden. Die Rundenabrechnung zeigt dieselben Werte.
+- **Vollbild:**
+  - Neue Zeile **„Vollbild (F4)“** im Optionsmenü.
+  - Die Einstellung wird gespeichert, die App startet dann gleich im Vollbild.
+  - Im Hauptmenü steht unten links **[F4] VOLLBILD**, auch anklickbar.
+- **Lobby neu aufgeteilt:** links die Spieler, in der Mitte der Chat, rechts die eigene Figur.
+- **Teamfarben im Team-Modus:** Spieler heißen nach der Farbe ihres Teams („TRADER GRÜN“ für Team Bulle, „TRADER ROT“ für Team Bär) und erscheinen in dieser Farbe.
+  - Das gilt in der Lobby (mit „TEAM BULLE · GRÜN“ / „TEAM BÄR · ROT“), auf den Namensschildern im Spiel und in der Abrechnung.
+  - Teamkollegen werden durchnummeriert, z. B. „GRÜN 1“ und „GRÜN 2“.
+
 ## Version 3.6.2 – Tode zählen, Maus sofort aktiv, Bärengebrüll (15.10.2026)
 
 - **Tode im Einzelspieler:**

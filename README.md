@@ -8,14 +8,14 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 
 ## Downloads
 
-Aktuelle Version **3.6.2** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.7.0** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.6.2-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.6.2/MarginCall-3.6.2-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.6.2-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.6.2/MarginCall-3.6.2-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.6.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.6.2/MarginCall-3.6.2-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.6.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.6.2/MarginCall-3.6.2-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.7.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.7.0/MarginCall-3.7.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.7.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.7.0/MarginCall-3.7.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.7.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.7.0/MarginCall-3.7.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.7.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.7.0/MarginCall-3.7.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.md)
 
@@ -47,14 +47,16 @@ Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/w
 | Optionen (Tastenbelegung) | O |
 | Spielfigur wählen (Multiplayer) | C in der Lobby |
 | Highscores | H im Titelbild |
+| Chat (Multiplayer) | T |
 
 Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiterhin: E/S laufen, A/D drehen, W/R seitwärts.
 
 ## Multiplayer (2–4 Spieler im selben Netzwerk)
 
 1. Ein Spieler wählt **[N] Multiplayer → [H] Spiel hosten**. Die Lobby zeigt die Adresse, z. B. `192.168.1.20:8080`.
-2. Die anderen wählen **[N] Multiplayer → [J] Spiel beitreten** und geben diese Adresse ein. Alternativ öffnen sie die Adresse im Browser.
-3. Der Host wählt den Modus (Koop, Team Bulle vs. Team Bär oder Deathmatch) und startet mit Enter.
+2. Die anderen wählen **[N] Multiplayer → [J] Spiel beitreten** und klicken das Spiel in der Liste an. Wird es nicht gefunden (manche Router blockieren das), geben sie die Adresse aus der Lobby des Hosts ein oder öffnen sie im Browser.
+3. Mitspieler klicken auf **Bereit**. In der Lobby kann man mit **T** chatten.
+4. Der Host wählt den Modus (Koop, Team Bulle vs. Team Bär oder Deathmatch) und startet, sobald alle bereit sind.
 
 ## Projektaufbau
 

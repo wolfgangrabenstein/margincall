@@ -35,7 +35,111 @@ pub fn start() -> u16 {
         }
     });
     // Kurse werden erst geladen, wenn das Spiel sie anfragt (nur mit Zustimmung des Spielers).
+    discovery_start(port);
     port
+}
+
+// ------------------------------------------------------------------ Spielesuche im LAN (UDP-Broadcast)
+// Ein Host in der Lobby kuendigt sein Spiel jede Sekunde per Broadcast an; jede App lauscht
+// und zeigt die gefundenen Spiele unter "Spiel beitreten" an.
+const DISCOVERY_PORT: u16 = 47800;
+static HOSTING: Mutex<Option<(Instant, Value)>> = Mutex::new(None);
+static GAMES: OnceLock<Mutex<BTreeMap<String, (Instant, Value)>>> = OnceLock::new();
+
+fn games() -> &'static Mutex<BTreeMap<String, (Instant, Value)>> {
+    GAMES.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+fn clean(v: &Value, max: usize) -> String {
+    v.as_str().unwrap_or("").chars().filter(|c| !c.is_control()).take(max).collect()
+}
+
+fn discovery_start(port: u16) {
+    // Lauschen (mehrere Apps auf einem Rechner duerfen denselben Port nutzen)
+    std::thread::spawn(|| {
+        use socket2::{Domain, Protocol, Socket, Type};
+        let sock = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let _ = sock.set_reuse_address(true);
+        let _ = sock.set_broadcast(true);
+        let addr: std::net::SocketAddr = ([0, 0, 0, 0], DISCOVERY_PORT).into();
+        if sock.bind(&addr.into()).is_err() {
+            return;
+        }
+        let udp: UdpSocket = sock.into();
+        let mut buf = [0u8; 1024];
+        while let Ok((n, from)) = udp.recv_from(&mut buf) {
+            let Ok(v) = serde_json::from_slice::<Value>(&buf[..n]) else { continue };
+            if v["game"] != "margincall" {
+                continue;
+            }
+            let Some(p) = v["port"].as_u64() else { continue };
+            // Ein Spiel kann ueber mehrere Netzwerkadapter ankommen: per Kennung zusammenfassen,
+            // Adresse = die vom Host selbst gemeldete LAN-Adresse
+            let reported = clean(&v["ip"], 40);
+            let host_ip = if reported.parse::<std::net::Ipv4Addr>().is_ok() { reported } else { from.ip().to_string() };
+            let id = clean(&v["id"], 40);
+            let key = if id.is_empty() { format!("{host_ip}:{p}") } else { id };
+            let entry = json!({
+                "addr": format!("{host_ip}:{p}"),
+                "name": clean(&v["name"], 24),
+                "mode": clean(&v["mode"], 32),
+                "players": v["players"].as_u64().unwrap_or(1).min(4),
+                "version": clean(&v["version"], 12),
+            });
+            games().lock().unwrap().insert(key, (Instant::now(), entry));
+        }
+    });
+    // Ankuendigen, solange das Spiel in der Lobby hostet
+    std::thread::spawn(move || {
+        let Ok(udp) = UdpSocket::bind("0.0.0.0:0") else { return };
+        let _ = udp.set_broadcast(true);
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+            let msg = {
+                let h = HOSTING.lock().unwrap();
+                match &*h {
+                    Some((t, info)) if t.elapsed() < Duration::from_secs(4) => {
+                        let mut m = info.clone();
+                        m["game"] = json!("margincall");
+                        m["port"] = json!(port);
+                        m["version"] = json!(env!("CARGO_PKG_VERSION"));
+                        m["id"] = json!(instance_id());
+                        m["ip"] = json!(lan_ip());
+                        Some(m.to_string())
+                    }
+                    _ => None,
+                }
+            };
+            let Some(msg) = msg else { continue };
+            let _ = udp.send_to(msg.as_bytes(), ("255.255.255.255", DISCOVERY_PORT));
+            // zusaetzlich an die Broadcast-Adresse des eigenen /24-Netzes (manche Router verwerfen 255.255.255.255)
+            if let Ok(ip) = lan_ip().parse::<std::net::Ipv4Addr>() {
+                let o = ip.octets();
+                let _ = udp.send_to(msg.as_bytes(), (std::net::Ipv4Addr::new(o[0], o[1], o[2], 255), DISCOVERY_PORT));
+            }
+        }
+    });
+}
+
+/// Eindeutige Kennung dieses Spiel-Servers (damit das eigene Spiel nicht in der Liste erscheint)
+fn instance_id() -> &'static str {
+    static ID: OnceLock<String> = OnceLock::new();
+    ID.get_or_init(|| {
+        let ns = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+        format!("{}-{}", std::process::id(), ns)
+    })
+}
+
+/// Gefundene Spiele der letzten 5 Sekunden, ohne das eigene
+fn games_json() -> String {
+    let own = instance_id();
+    let mut g = games().lock().unwrap();
+    g.retain(|_, (t, _)| t.elapsed() < Duration::from_secs(5));
+    let list: Vec<Value> = g.iter().filter(|(k, _)| k.as_str() != own).map(|(_, (_, v))| v.clone()).collect();
+    Value::from(list).to_string()
 }
 
 // ------------------------------------------------------------------ HTTP
@@ -83,6 +187,24 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             respond(&mut out, 200, "application/json", list.as_bytes())
         }
         "/api/highscores" => respond(&mut out, 200, "application/json", highscores_load().to_string().as_bytes()),
+        "/api/games" => respond(&mut out, 200, "application/json", games_json().as_bytes()),
+        "/api/host" if method == "POST" => {
+            // Lobby-Status des eigenen Spiels (nur vom eigenen Rechner); active=false beendet die Ankuendigung
+            let local = out.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
+            let len: usize = headers.get("content-length").and_then(|v| v.parse().ok()).unwrap_or(0);
+            if !local || len > 1024 {
+                return respond(&mut out, 403, "text/plain", b"forbidden");
+            }
+            let mut body = vec![0u8; len];
+            reader.read_exact(&mut body)?;
+            let v: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            *HOSTING.lock().unwrap() = if v["active"].as_bool() == Some(true) {
+                Some((Instant::now(), json!({ "name": clean(&v["name"], 24), "mode": clean(&v["mode"], 32), "players": v["players"].as_u64().unwrap_or(1).min(4) })))
+            } else {
+                None
+            };
+            respond(&mut out, 200, "text/plain", b"ok")
+        }
         "/ws" if is_ws => websocket(out, reader, &headers),
         _ => respond(&mut out, 404, "text/plain", b"not found"),
     }
