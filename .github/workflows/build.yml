@@ -61,10 +61,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p out
+          VER=$(node -p "require('./src-tauri/tauri.conf.json').version")
           case "${{ matrix.name }}" in
-            Windows) cp src-tauri/target/release/margincall.exe out/MarginCall-Windows.exe ;;
-            Linux)   cp src-tauri/target/release/bundle/appimage/*.AppImage out/MarginCall-Linux.AppImage ;;
-            macOS)   cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg out/MarginCall-macOS.dmg ;;
+            Windows) cp src-tauri/target/release/margincall.exe "out/MarginCall-$VER-Windows.exe" ;;
+            Linux)   cp src-tauri/target/release/bundle/appimage/*.AppImage "out/MarginCall-$VER-Linux.AppImage" ;;
+            macOS)   cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg "out/MarginCall-$VER-macOS.dmg" ;;
           esac
           ls -la out
 
@@ -94,7 +95,8 @@ jobs:
         run: |
           sed -i '/^build_dir\|^libdeps_dir/d' platformio.ini
           pio run
-          mkdir -p out && cp .pio/build/cardputer-adv/firmware.bin out/MarginCall-Cardputer.bin
+          VER=$(jq -r .version desktop/src-tauri/tauri.conf.json)
+          mkdir -p out && cp .pio/build/cardputer-adv/firmware.bin "out/MarginCall-$VER-Cardputer.bin"
       - uses: actions/upload-artifact@v4
         with:
           name: MarginCall-Cardputer
