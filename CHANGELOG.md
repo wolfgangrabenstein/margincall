@@ -1,5 +1,14 @@
 # MARGIN CALL – Changelog
 
+## Version 3.5.3 – Menüs mit der Maus (15.10.2026)
+
+- **Alles per Mausklick bedienbar:**
+  - Multiplayer: **Spiel hosten**, **Spiel beitreten**, **Verbinden**, **Zurück**
+  - Lobby: Spielmodus über die Pfeile **◀ ▶**, **Figurenwahl** durch Klick auf die Figur oder auf „Wechseln“, **Team Bulle** / **Team Bär**, **Spiel starten**, **Verlassen**
+  - Pausenmenü (**Weiter**, **Optionen**, **Beenden**), Multiplayer-Menü im Spiel und Datenschutz-Hinweis
+- **Hervorhebung:** Schaltflächen leuchten auf, wenn die Maus darüber ist, und der Mauszeiger wird zur Hand.
+- **Tastatur:** Alle Tastenkürzel funktionieren weiterhin.
+
 ## Version 3.5.2 – Musik in den Optionen (15.10.2026)
 
 - **Neuer Schalter „Musik“** im Optionsmenü **[O]**: Er schaltet die Musik ein und aus.
