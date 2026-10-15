@@ -31,15 +31,17 @@ Fertige Dateien gibt es unter **Releases** bzw. unter **Actions → letzter Lauf
 
 | | Standard |
 |---|---|
-| Laufen | E / S oder ↑ / ↓ |
-| Drehen | A / D oder ← / → oder Maus |
-| Seitwärts | W / R |
+| Laufen | W / S oder ↑ / ↓ |
+| Seitwärts | A / D |
+| Drehen | Maus (ins Bild klicken) oder ← / → |
 | Feuern | Leertaste oder linke Maustaste |
 | Ausweichen | Richtung doppelt antippen |
 | Pause | P oder Esc |
 | Musik | M |
 | Optionen (Tastenbelegung) | O |
 | Beenden | Q im Titelbild oder in der Pause |
+
+Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiterhin: E/S laufen, A/D drehen, W/R seitwärts.
 
 ## Multiplayer (2–4 Spieler im selben Netzwerk)
 
