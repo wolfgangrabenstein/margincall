@@ -85,6 +85,7 @@ fn discovery_start(port: u16) {
             let entry = json!({
                 "addr": format!("{host_ip}:{p}"),
                 "name": clean(&v["name"], 24),
+                "host": clean(&v["host"], 24),
                 "mode": clean(&v["mode"], 32),
                 "players": v["players"].as_u64().unwrap_or(1).min(4),
                 "version": clean(&v["version"], 12),
@@ -199,7 +200,7 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             reader.read_exact(&mut body)?;
             let v: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
             *HOSTING.lock().unwrap() = if v["active"].as_bool() == Some(true) {
-                Some((Instant::now(), json!({ "name": clean(&v["name"], 24), "mode": clean(&v["mode"], 32), "players": v["players"].as_u64().unwrap_or(1).min(4) })))
+                Some((Instant::now(), json!({ "name": clean(&v["name"], 24), "host": clean(&v["host"], 24), "mode": clean(&v["mode"], 32), "players": v["players"].as_u64().unwrap_or(1).min(4) })))
             } else {
                 None
             };

@@ -143,7 +143,8 @@ def discovery_listen():
         # Adresse = die vom Host selbst gemeldete LAN-Adresse
         host_ip = _clean(v.get("ip"), 40) or ip
         key = _clean(v.get("id"), 40) or f"{host_ip}:{v['port']}"
-        entry = {"addr": f"{host_ip}:{v['port']}", "name": _clean(v.get("name"), 24), "mode": _clean(v.get("mode"), 32),
+        entry = {"addr": f"{host_ip}:{v['port']}", "name": _clean(v.get("name"), 24), "host": _clean(v.get("host"), 24),
+                 "mode": _clean(v.get("mode"), 32),
                  "players": min(4, int(v.get("players", 1))), "version": _clean(v.get("version"), 12)}
         with _games_lock:
             _games[key] = (time.time(), entry)
@@ -337,7 +338,8 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 v = {}
             if v.get("active"):
-                _hosting.update(t=time.time(), info={"name": _clean(v.get("name"), 24), "mode": _clean(v.get("mode"), 32),
+                _hosting.update(t=time.time(), info={"name": _clean(v.get("name"), 24), "host": _clean(v.get("host"), 24),
+                                                     "mode": _clean(v.get("mode"), 32),
                                                      "players": min(4, int(v.get("players", 1)))})
             else:
                 _hosting.update(t=0, info=None)
