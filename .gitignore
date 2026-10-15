@@ -1,0 +1,8 @@
+.pio/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/out/
+sound_preview/
+__pycache__/
+*.pyc

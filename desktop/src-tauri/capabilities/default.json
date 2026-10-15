@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Hauptfenster: keine Rechte noetig, das Spiel spricht nur mit dem eingebauten HTTP-Server",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

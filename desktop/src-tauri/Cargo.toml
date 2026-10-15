@@ -1,0 +1,22 @@
+[package]
+name = "margincall"
+version = "3.4.0"
+description = "MARGIN CALL - Boersen-Shooter"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+sha1 = "0.10"
+base64 = "0.22"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
