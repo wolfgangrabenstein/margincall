@@ -264,12 +264,7 @@ def main():
     print("=" * 56)
     print("  MARGIN CALL - Boersen-Shooter (PC-Version)")
     print("=" * 56)
-    print("  Lade aktuelle Kurse ...")
-    data = get_markets()
-    for (label, _, _), m in zip(SYMBOLS, data["markets"]):
-        if m:
-            chg = (m["p"] - m["prev"]) / m["prev"] * 100
-            print(f"   {label:4} {m['p']:>12,.2f}  {chg:+.2f} %")
+    # Kurse werden erst geladen, wenn das Spiel sie anfragt (nur mit Zustimmung des Spielers).
     try:
         server = Server(("0.0.0.0", PORT), Handler)
     except OSError:

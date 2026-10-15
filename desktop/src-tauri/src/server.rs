@@ -34,9 +34,7 @@ pub fn start() -> u16 {
             });
         }
     });
-    std::thread::spawn(|| {
-        let _ = markets_json(); // Kurse schon beim Start laden
-    });
+    // Kurse werden erst geladen, wenn das Spiel sie anfragt (nur mit Zustimmung des Spielers).
     port
 }
 

@@ -1,5 +1,13 @@
 # MARGIN CALL – Changelog
 
+## Version 3.5.1 – Datenschutz und Open Source (15.10.2026)
+
+- **Live-Kurse nur mit Zustimmung:** Beim ersten Start erklärt ein Hinweis, dass die Kurse bei Yahoo Finance abgerufen werden. Mit **Enter** stimmst du zu, mit **N** spielst du mit simulierten Kursen.
+- **Neuer Schalter „Live-Kurse“** im Optionsmenü, jederzeit änderbar.
+- **Kein automatischer Abruf mehr:** Die App ruft beim Start nichts mehr von sich aus ab, sondern erst, wenn das Spiel Kurse anfragt.
+- **Open Source:** MARGIN CALL steht jetzt unter der **MIT-Lizenz**. Neu sind außerdem eine Code signing policy mit Datenschutzerklärung und ein Code of Conduct.
+- **Vorbereitung der Windows-Signatur** über die SignPath Foundation: Das Build-Skript reicht die EXE zur Signatur ein, sobald die SignPath-Zugangsdaten hinterlegt sind.
+
 ## Version 3.5.0 – Spielfiguren, Esc-Menü und Vollbild (15.10.2026)
 
 - **Zwei Spielfiguren im Multiplayer:** In der Lobby wechselst du mit **[C]** zwischen männlich und weiblich. Rechts in der Lobby siehst du deine Figur groß.
