@@ -6,14 +6,16 @@ Made by Wolfgang Rabenstein
 
 ## Downloads
 
-Fertige Dateien gibt es unter **Releases** bzw. unter **Actions → letzter Lauf → Artifacts**:
+Die aktuelle Version zum direkten Herunterladen:
 
-| Datei | System |
+| Download | System |
 |---|---|
-| `MarginCall-Windows.exe` | Windows 10/11 |
-| `MarginCall-macOS.dmg` | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| `MarginCall-Linux.AppImage` | Linux (x86_64) |
-| `MarginCall-Cardputer.bin` | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-Windows.exe) | Windows 10/11 |
+| [**MarginCall-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+
+Ältere Versionen und Änderungen: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · [CHANGELOG](CHANGELOG.md)
 
 ### Erster Start
 
