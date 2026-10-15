@@ -1,5 +1,21 @@
 # MARGIN CALL – Changelog
 
+## Version 3.6.2 – Tode zählen, Maus sofort aktiv, Bärengebrüll (15.10.2026)
+
+- **Tode im Einzelspieler:**
+  - Jeder Tod wird gezählt und kostet **25 % des P&L, mindestens 500 $**. Das bisherige Halbieren bei „Neuer Kredit“ entfällt dafür.
+  - Der Insolvenz-Bildschirm zeigt die wievielte Insolvenz es ist und wie hoch die Strafe war.
+  - Im HUD steht neben dem P&L ein ☠ mit der Zahl der Tode.
+  - Die Highscore-Liste hat eine neue Spalte **Tode**.
+- **Maussteuerung sofort aktiv:** Beim Spielstart, bei jedem neuen Level, nach „Neuer Kredit“ und nach der Pause muss man nicht mehr erst ins Bild klicken.
+  - Im Multiplayer gilt das für den Host. Mitspieler sehen einen Hinweis „Klick ins Bild für Maussteuerung“, weil der Browser das Einfangen der Maus dort erst nach einem eigenen Klick erlaubt.
+- **Der Bär brüllt:**
+  - wenn er dich auf der Jagd entdeckt,
+  - beim Zuschlagen,
+  - und zwischendurch, wie der Bulle beim Sturmangriff.
+
+  Das gilt am PC und auf dem Cardputer.
+
 ## Version 3.6.1 – Solo-Knopf im Startmenü (15.10.2026)
 
 - **Eigener Knopf „▶ SOLO SPIELEN“:** Der große, leicht pulsierende Knopf im Startmenü startet den Einzelspieler per Klick oder Enter.

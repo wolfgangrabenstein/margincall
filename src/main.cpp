@@ -971,8 +971,15 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
   const char* hitMsg = e.faction == F_BULL ? "BULLE RAMMT DICH! KURSSPRUNG" : "BAERENTATZE! KURSVERLUST";
   switch (e.type) {
     case E_BEAR:
+      // Gebruell auf der Jagd (spawnCd dient beim Baer als Gebruell-Timer)
+      e.spawnCd -= dt;
+      if (e.target == -1 && e.spawnCd <= 0 && d < 8) { e.spawnCd = 5 + frand() * 4; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
       if (d > 0.75f) moveEntity(e.x, e.y, nx * 1.5f * dt * spdMul, ny * 1.5f * dt * spdMul, 0.25f);
-      else if (e.cd <= 0) { e.cd = 1.0f; e.attackAnim = 0.3f; meleeHit(e, e.target, 12, 2, hitMsg); }
+      else if (e.cd <= 0) {
+        e.cd = 1.0f; e.attackAnim = 0.3f;
+        if (e.target == -1 && e.spawnCd < 3) { e.spawnCd = 3; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
+        meleeHit(e, e.target, 12, 2, hitMsg);
+      }
       break;
     case E_BULL:
       if (e.chargeT > 0) {   // Sturmangriff

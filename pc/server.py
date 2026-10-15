@@ -99,7 +99,8 @@ def highscore_add(body):
             score = int(e.get("score", -1))
             level = max(1, min(5, int(e.get("level", 1))))
             if name and 0 <= score <= 100_000_000:
-                lst.append({"name": name, "score": score, "level": level, "won": bool(e.get("won")), "date": int(time.time())})
+                deaths = max(0, min(999, int(e.get("deaths", 0))))
+                lst.append({"name": name, "score": score, "level": level, "won": bool(e.get("won")), "deaths": deaths, "date": int(time.time())})
                 lst.sort(key=lambda x: -x["score"])
                 del lst[10:]
                 os.makedirs(os.path.dirname(highscore_file()), exist_ok=True)

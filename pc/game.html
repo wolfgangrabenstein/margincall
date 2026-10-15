@@ -520,7 +520,7 @@ let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePr
 
 function makePlayer(id, local) {
   return { id, name: id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU", local, team: (id + 1) % 2, avatar: local ? settings.avatar : "m", isPlayer: true,
-    x: 0, y: 0, dirX: 1, dirY: 0, hp: 100, ammo: 30, score: 0, kills: 0, dead: false, respawnT: 0, slowT: 0, flash: 0 };
+    x: 0, y: 0, dirX: 1, dirY: 0, hp: 100, ammo: 30, score: 0, kills: 0, deaths: 0, dead: false, respawnT: 0, slowT: 0, flash: 0 };
 }
 const playerColor = pl => mode === "team" ? (pl.team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(Math.max(1, pl.id) - 1) % 4];
 const teamFaction = pl => pl.team === 0 ? F.BULL : F.BEAR;
@@ -597,7 +597,7 @@ function spawnEnemy(type, x, y) {
   const a = frand() * 6.283;
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop), maxhp: Math.round(ti.hp * coop), str, alive: true, awake: false, gone: false,
     halfDone: false, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
-    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, target: null });
+    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
   return e;
 }
 function lineOfSight(x0, y0, x1, y1) {
@@ -669,7 +669,7 @@ function loadLevel(lv) {
   sfxAll("BELL"); musicStart(); emit(["music", 1]);
 }
 function newGame() {
-  players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; });
+  players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.deaths = 0; });
   loadLevel(0);
 }
 
@@ -695,7 +695,10 @@ function damagePlayer(pl, d, why, attacker = null) {
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
   pl.hp = 0;
-  if (!isMP()) { state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return; }
+  if (!isMP()) {   // Solo: jeder Tod wird gezaehlt und kostet 25 % des P&L (mind. 500 $)
+    pl.deaths++; deathPenalty = Math.min(pl.score, Math.max(500, Math.floor(pl.score * .25))); pl.score -= deathPenalty;
+    state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
+  }
   pl.dead = true; pl.respawnT = mode === "coop" ? 6 : 3;
   sfxTo(pl, "CRASH");
   if (attacker && attacker.isPlayer) {
@@ -896,8 +899,14 @@ function updateEnemy(e, dt) {
   const hitMsg = e.f === F.BULL ? "BULLE RAMMT DICH! KURSSPRUNG" : "BÄRENTATZE! KURSVERLUST";
   switch (e.type) {
     case E.BEAR:
+      e.roarCd -= dt;
+      if (t.isPlayer && e.roarCd <= 0 && d < 8) { e.roarCd = 5 + frand() * 4; sfxNear("ROAR", e.x, e.y, 9); }   // Gebruell auf der Jagd
       if (d > .75) moveEntity(e, nx * 1.5 * dt * spd, ny * 1.5 * dt * spd, .25);
-      else if (e.cd <= 0) { e.cd = 1; e.attackAnim = .3; meleeHit(e, 12, 2, hitMsg); }
+      else if (e.cd <= 0) {
+        e.cd = 1; e.attackAnim = .3;
+        if (t.isPlayer && e.roarCd < 3) { e.roarCd = 3; sfxNear("ROAR", e.x, e.y, 9); }
+        meleeHit(e, 12, 2, hitMsg);
+      }
       break;
     case E.BULL:
       if (e.chargeT > 0) {
@@ -996,7 +1005,7 @@ function hostSendLobby() {
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
   players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.dead = false; });
-  newGame(); state = ST.PLAY; fireCd = .4; sfxAll("KACHING");
+  newGame(); state = ST.PLAY; fireCd = .4; sfxAll("KACHING"); lockMouse();
 }
 const r2 = v => Math.round(v * 100) / 100;
 function hostSendSnapshot() {
@@ -1078,7 +1087,12 @@ function quitGame() {
   if (typeof netDisconnect === "function") netDisconnect();
   netNotice("DU KANNST DIESEN TAB JETZT SCHLIESSEN"); state = ST.TITLE; musicStop();
 }
-let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0;
+let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0, deathPenalty = 0;
+// Maussteuerung direkt einfangen (geht nur direkt nach einer Taste oder einem Klick des Spielers)
+function lockMouse() {
+  if (!settings.mouseLook || document.pointerLockElement === screen) return;
+  try { const p = screen.requestPointerLock?.(); if (p && p.catch) p.catch(() => { }); } catch (e) { }
+}
 const pauseAge = () => (performance.now() - pausedAt) / 1000;
 // Bei Maussteuerung faengt der Browser das erste Esc ab und gibt nur die Maus frei: das gilt als Pause.
 document.addEventListener("pointerlockchange", () => {
@@ -1259,7 +1273,7 @@ function onKeyPress(k) {
   if (state === ST.PLAY && mpMenu) {
     if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
     else if (k === "l") leaveMP();
-    else if (isBound("pause", k)) mpMenu = false;
+    else if (isBound("pause", k)) { mpMenu = false; lockMouse(); }
     return;
   }
   if (isBound("music", k)) { musicToggle(); say(musicOn ? "MUSIK AN" : "MUSIK AUS", 1); return; }
@@ -1273,7 +1287,7 @@ function onKeyPress(k) {
       else if (k === "h") openHighscores();
       else if (k === "Escape") quitGame();
       else if (k === "n") { if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
-      else if (k === "enter") { mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); state = ST.PLAY; fireCd = .4; sfx("KACHING"); }
+      else if (k === "enter") { mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); }
       break;
     case ST.LOBBY:
       if (k === "Escape") { leaveMP(); break; }
@@ -1306,17 +1320,17 @@ function onKeyPress(k) {
     case ST.PAUSE:
       if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
       else if (k === "o") openOptions();
-      else if (isBound("pause", k) || k === "enter") state = ST.PLAY;
+      else if (isBound("pause", k) || k === "enter") { state = ST.PLAY; lockMouse(); }
       break;
     case ST.LEVELDONE:
-      if (k === "enter" && isHost()) { loadLevel(level + 1); players.forEach(p => p.ammo = Math.max(p.ammo, 15)); state = ST.PLAY; fireCd = .4; }
+      if (k === "enter" && isHost()) { loadLevel(level + 1); players.forEach(p => p.ammo = Math.max(p.ammo, 15)); state = ST.PLAY; fireCd = .4; lockMouse(); }
       break;
     case ST.ROUNDEND:
-      if (k === "enter" && isHost()) { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; }
+      if (k === "enter" && isHost()) { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; lockMouse(); }
       if (k === "Escape") leaveMP();
       break;
     case ST.DEAD:
-      if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); me.score = Math.floor(me.score / 2); loadLevel(level); state = ST.PLAY; fireCd = .4; }
+      if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
       else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
     case ST.WIN:
@@ -1646,7 +1660,9 @@ function renderHUD() {
   }
   text("CASH", 410, HUD_Y + 10, "#8290b0", 15);
   text(String(me.ammo), 410, HUD_Y + 32, me.ammo > 5 ? "#78e68c" : "#ff5050", 38);
-  text(`P&L +$${me.score.toLocaleString("de-DE")}`, 560, HUD_Y + 10, "#50ff82", 17);
+  text(`P&L +$${me.score.toLocaleString("de-DE")}${!isMP() && me.deaths ? `  ·  ☠ ${me.deaths}` : ""}`, 560, HUD_Y + 10, "#50ff82", 17);
+  if (settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && !me.dead)
+    text("KLICK INS BILD FÜR MAUSSTEUERUNG", DW / 2, HUD_Y - 30, "rgba(255,255,255,.75)", 15, "center");
   if (mode === "team" || mode === "dm") {
     text(`⏱ ${fmtTime(roundT)}`, DW - 14, HUD_Y + 10, roundT < 30 ? "#ff5050" : "#dcdce6", 17, "right");
     if (mode === "team") {
@@ -1813,10 +1829,10 @@ function renderEnd(title, sub, col, bull) {
   if (isMP()) { scoreboard(205); text(`Marktbereinigung: ${marketKills}`, DW / 2, 340, "#c8c8d2", 16, "center"); }
   else {
     text(`P&L: +$${me.score.toLocaleString("de-DE")}`, DW / 2, 210, "#50ff82", 24, "center");
-    text(`Von dir liquidiert: ${me.kills}   ·   Marktbereinigung: ${marketKills}`, DW / 2, 255, "#c8c8d2", 18, "center");
+    text(`Von dir liquidiert: ${me.kills}   ·   Tode: ${me.deaths}   ·   Marktbereinigung: ${marketKills}`, DW / 2, 255, "#c8c8d2", 18, "center");
   }
   if (!isMP() && state === ST.DEAD) {
-    zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT (P&L ÷ 2)", "#50ff82", "enter", 16);
+    zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT", "#50ff82", "enter", 16);
     zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
   } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
   else if (Math.floor(gameTime * 2) % 2) text(isHost() ? "[ENTER] WEITER" : "WARTE AUF DEN HOST …", DW / 2, 390, "#ffffff", 22, "center");
@@ -2130,7 +2146,7 @@ const hsQualifies = score => score > 0 && (hsList.length < 10 || score > hsList[
 async function finishRun(won) {
   musicStop();
   await hsLoad();
-  hsEntry = { score: me.score, level: level + 1, won };
+  hsEntry = { score: me.score, level: level + 1, won, deaths: me.deaths };
   if (hsQualifies(me.score)) { hsName = settings.playerName || ""; state = ST.NAMEENTRY; }
   else { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; }
 }
@@ -2153,7 +2169,7 @@ function renderNameEntry() {
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 70, DW - 280, 400);
   const place = hsList.filter(h => h.score >= hsEntry.score).length + 1;
   text("NEUER HIGHSCORE!", DW / 2, 90, "#ffd232", 44, "center");
-  text(`PLATZ ${place}  ·  P&L +$${hsEntry.score.toLocaleString("de-DE")}  ·  ${hsEntry.won ? "SIEG" : "LEVEL " + hsEntry.level}`, DW / 2, 152, "#50ff82", 20, "center");
+  text(`PLATZ ${place}  ·  P&L +$${hsEntry.score.toLocaleString("de-DE")}  ·  ${hsEntry.won ? "SIEG" : "LEVEL " + hsEntry.level}  ·  ☠ ${hsEntry.deaths}`, DW / 2, 152, "#50ff82", 20, "center");
   text("DEIN NAME", DW / 2, 206, "#8290b0", 15, "center");
   g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 230, 400, 54);
   text(hsName + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 242, "#ffffff", 30, "center");
@@ -2167,16 +2183,17 @@ function renderHighscores() {
   g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(100, 26, DW - 200, 480);
   text("HIGHSCORES", DW / 2, 40, "#ffd232", 42, "center");
   text("PLATZ", 140, 104, "#6b7896", 13); text("NAME", 220, 104, "#6b7896", 13);
-  text("P&L", 600, 104, "#6b7896", 13, "right"); text("ERREICHT", 700, 104, "#6b7896", 13, "center"); text("DATUM", 820, 104, "#6b7896", 13, "right");
+  text("P&L", 540, 104, "#6b7896", 13, "right"); text("ERREICHT", 625, 104, "#6b7896", 13, "center"); text("TODE", 715, 104, "#6b7896", 13, "center"); text("DATUM", 830, 104, "#6b7896", 13, "right");
   if (!hsList.length) text("Noch keine Einträge – spiel eine Runde Solo!", DW / 2, 230, "#a0a0b4", 18, "center");
   hsList.forEach((h, i) => {
     const y = 126 + i * 30, isNew = i === hsNew;
     if (isNew) { g.fillStyle = Math.floor(gameTime * 3) % 2 ? "#3a3210" : "#2a240c"; g.fillRect(120, y - 4, DW - 240, 28); }
     const col = isNew ? "#ffd232" : i === 0 ? "#ffe680" : "#e6e6f0";
     text(`${i + 1}.`, 140, y, col, 18); text(String(h.name), 220, y, col, 18);
-    text(`+$${Number(h.score).toLocaleString("de-DE")}`, 600, y, "#50ff82", 18, "right");
-    text(h.won ? "SIEG" : `LEVEL ${h.level}`, 700, y, h.won ? "#ffd232" : "#a0a0b4", 16, "center");
-    text(h.date ? new Date(h.date * 1000).toLocaleDateString("de-DE") : "", 820, y, "#8290b0", 15, "right");
+    text(`+$${Number(h.score).toLocaleString("de-DE")}`, 540, y, "#50ff82", 18, "right");
+    text(h.won ? "SIEG" : `LEVEL ${h.level}`, 625, y, h.won ? "#ffd232" : "#a0a0b4", 16, "center");
+    text(String(h.deaths ?? 0), 715, y, h.deaths ? "#ff7050" : "#a0a0b4", 16, "center");
+    text(h.date ? new Date(h.date * 1000).toLocaleDateString("de-DE") : "", 830, y, "#8290b0", 15, "right");
   });
   zoneButton(370, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
 }
@@ -2269,7 +2286,7 @@ function frame(now) {
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
     case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", "Level geschafft – der Kurs steigt", "#50ff82", true); break;
     case ST.ROUNDEND: gameTime += dt; renderRoundEnd(); break;
-    case ST.DEAD: gameTime += dt; renderEnd("INSOLVENZ", "Dein Depot ist auf null", "#ff3c3c", false); break;
+    case ST.DEAD: gameTime += dt; renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false); break;
     case ST.WIN: gameTime += dt; renderEnd("BULLENMARKT!", "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true); break;
   }
   requestAnimationFrame(frame);
