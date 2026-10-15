@@ -1,5 +1,11 @@
 # MARGIN CALL – Changelog
 
+## Version 3.6.1 – Solo-Knopf im Startmenü (15.10.2026)
+
+- **Eigener Knopf „▶ SOLO SPIELEN“:** Der große, leicht pulsierende Knopf im Startmenü startet den Einzelspieler per Klick oder Enter.
+- **Kein versehentlicher Start mehr:** Ein Klick irgendwo ins Titelbild startet kein Spiel mehr.
+- **Kürzere Statusanzeige:** Bei abgeschalteten Live-Kurse heißt es jetzt nur noch „SIMULIERT“. Der lange Text ragte im HUD über den Rand.
+
 ## Version 3.6.0 – Highscore-Liste (15.10.2026)
 
 - **Highscore-Liste für den Einzelspieler:** Sie zeigt die besten 10 Läufe mit Name, P&L, erreichtem Level bzw. „SIEG“ und Datum.

@@ -98,7 +98,7 @@ function marketsSimulate() {
 }
 async function marketsFetch() {
   if (settings.liveData !== true) {   // Datenschutz: ohne Zustimmung keine Anfrage an Yahoo Finance
-    marketStatus = "SIMULIERT (Live-Kurse aus)"; marketsSimulate(); buildTicker(); return;
+    marketStatus = "SIMULIERT"; marketsSimulate(); buildTicker(); return;
   }
   try {
     const r = await fetch("/api/market", { cache: "no-store" });
@@ -1223,7 +1223,7 @@ screen.addEventListener("mousedown", e => {
       const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
       if (b) { onKeyPress(b.key); return; }
     }
-    if ([ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
+    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
   if (state === ST.PLAY && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
@@ -1740,7 +1740,10 @@ function renderTitle() {
   const when = marketTime ? new Date(marketTime).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–";
   text(`Kursstand: ${when}  ·  ${marketStatus}`, DW / 2, 312, "#8290b0", 15, "center");
   text(`${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · 2× Richtung = Ausweichen`, DW / 2, 345, "#a0a0b4", 15, "center");
-  if (Math.floor(gameTime * 2) % 2) text("[ENTER] ODER KLICK: SOLO STARTEN", DW / 2, 395, "#ffffff", 24, "center");
+  // Hauptknopf: Einzelspieler starten (pulsiert leicht)
+  const pulse = .5 + .5 * Math.sin(gameTime * 4);
+  g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(300, 378, 360, 56);
+  zoneButton(300, 378, 360, 56, "▶  [ENTER] SOLO SPIELEN", "#ffd232", "enter", 24);
   button(TITLE_BTNS[0], "[N] MULTIPLAYER", "#50c8ff");
   button(TITLE_BTNS[1], "[H] HIGHSCORES", "#ffd232");
   button(TITLE_BTNS[2], "[O] OPTIONEN", "#50ff82");
