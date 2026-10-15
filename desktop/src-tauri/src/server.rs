@@ -130,7 +130,8 @@ fn highscore_add(body: &[u8]) -> String {
         let level = e["level"].as_i64().unwrap_or(1).clamp(1, 5);
         if !name.is_empty() && (0..=100_000_000).contains(&score) {
             let date = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-            list.push(json!({ "name": name, "score": score, "level": level, "won": e["won"].as_bool().unwrap_or(false), "date": date }));
+            let deaths = e["deaths"].as_i64().unwrap_or(0).clamp(0, 999);
+            list.push(json!({ "name": name, "score": score, "level": level, "won": e["won"].as_bool().unwrap_or(false), "deaths": deaths, "date": date }));
             list.sort_by(|a, b| b["score"].as_i64().cmp(&a["score"].as_i64()));
             list.truncate(HIGHSCORE_MAX);
             let file = highscore_file();
