@@ -6,16 +6,16 @@ Made by Wolfgang Rabenstein
 
 ## Downloads
 
-Die aktuelle Version zum direkten Herunterladen:
+**➜ [Neueste Version herunterladen](https://github.com/wolfgangrabenstein/margincall/releases/latest)** (unten auf der Seite unter „Assets“)
 
-| Download | System |
+| Datei | System |
 |---|---|
-| [**MarginCall-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-Windows.exe) | Windows 10/11 |
-| [**MarginCall-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/latest/download/MarginCall-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| `MarginCall-<Version>-Windows.exe` | Windows 10/11 |
+| `MarginCall-<Version>-macOS.dmg` | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| `MarginCall-<Version>-Linux.AppImage` | Linux (x86_64) |
+| `MarginCall-<Version>-Cardputer.bin` | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
-Ältere Versionen und Änderungen: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · [CHANGELOG](CHANGELOG.md)
+Die Versionsnummer steht im Dateinamen, z. B. `MarginCall-3.5.0-Windows.exe`. Ältere Versionen: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.md)
 
 ### Erster Start
 
@@ -38,10 +38,12 @@ Die aktuelle Version zum direkten Herunterladen:
 | Drehen | Maus (ins Bild klicken) oder ← / → |
 | Feuern | Leertaste oder linke Maustaste |
 | Ausweichen | Richtung doppelt antippen |
-| Pause | P oder Esc |
+| Pause | Esc oder P |
+| Beenden | Esc im Pausenmenü oder im Titelbild |
+| Vollbild | F4 |
 | Musik | M |
 | Optionen (Tastenbelegung) | O |
-| Beenden | Q im Titelbild oder in der Pause |
+| Spielfigur wählen (Multiplayer) | C in der Lobby |
 
 Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiterhin: E/S laufen, A/D drehen, W/R seitwärts.
 

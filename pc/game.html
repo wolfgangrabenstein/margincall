@@ -162,7 +162,7 @@ function storeWall(idx) {
 }
 const S = {}; ["BEAR0","BEAR1","SELL0","SELL1","BUB0","BUB1","SHARK0","SHARK1","BULL0","BULL1","BARON0","BARON1",
   "SLICK0","SLICK1","BOT0","BOT1","ALGO0","ALGO1","DEAD","PROJ","PROJ_OIL","LASER","CASH","DIV",
-  "TR0","TR1","TR2","TR3","TRBULL","TRBEAR"].forEach((n, i) => S[n] = i);
+  "AVM0","AVM1","AVM2","AVM3","AVMBULL","AVMBEAR","AVF0","AVF1","AVF2","AVF3","AVFBULL","AVFBEAR"].forEach((n, i) => S[n] = i);
 const sprTex = [];
 function storeSprite(idx) { sprTex[idx] = tmp.slice(); }
 
@@ -397,24 +397,50 @@ function genSprites() {
   tclear(N); tcirc(16, 21, 10, RGB(180, 120, 10)); tcirc(16, 21, 8.5, RGB(255, 200, 50));
   trect(14, 19, 4, 8, RGB(20, 170, 60)); ttri(10, 20, 22, 20, 16, 13, RGB(20, 170, 60)); tcirc(12, 16, 1.5, RGB(255, 255, 220));
   storeSprite(S.DIV);
-  // Spieler-Figuren: Trader im farbigen Anzug (Team-Modus: Hoerner bzw. Baerenohren)
-  const traders = [[S.TR0, PCOLOR[0], 0], [S.TR1, PCOLOR[1], 0], [S.TR2, PCOLOR[2], 0], [S.TR3, PCOLOR[3], 0],
-    [S.TRBULL, [40, 200, 90], 1], [S.TRBEAR, [220, 50, 50], 2]];
-  for (const [idx, [r, gg, b], deco] of traders) {
-    tclear(N);
-    const suit = RGB(r, gg, b), dark = RGB(r * .55, gg * .55, b * .55), skin = RGB(230, 188, 150);
-    trect(9, 13, 14, 15, suit); trect(9, 13, 2, 15, dark); trect(21, 13, 2, 15, dark);
-    ttri(13, 13, 19, 13, 16, 19, RGB(245, 245, 245)); trect(15, 14, 2, 6, RGB(25, 25, 30));
-    trect(6, 14, 3, 11, suit); trect(23, 14, 3, 11, suit);
-    trect(23, 16, 7, 3, RGB(60, 60, 70)); trect(28, 14, 3, 2, RGB(200, 160, 40));   // Bullen-Blaster
-    trect(10, 28, 5, 4, RGB(25, 25, 32)); trect(17, 28, 5, 4, RGB(25, 25, 32));
-    tcirc(16, 8, 5, skin); trect(11, 2, 10, 3, RGB(50, 35, 20));
-    tpx(14, 8, RGB(0, 0, 0)); tpx(18, 8, RGB(0, 0, 0)); trect(14, 11, 4, 1, RGB(170, 90, 80));
-    trect(4, 22, 7, 5, RGB(110, 70, 30));
-    if (deco === 1) { ttri(11, 4, 5, -1, 9, 6, RGB(245, 200, 60)); ttri(21, 4, 27, -1, 23, 6, RGB(245, 200, 60)); }
-    if (deco === 2) { tcirc(10, 3, 2.5, RGB(110, 70, 38)); tcirc(22, 3, 2.5, RGB(110, 70, 38)); }
-    storeSprite(idx);
-  }
+  // Spielerfiguren (nur Multiplayer): maennlich / weiblich, je 4 Spielerfarben + Team Bulle + Team Baer.
+  // Bewusst ganz anders als die NPCs: Streetwear statt Anzug, offene Farben, Headset, Sneaker bzw. Kleid.
+  const AV_COLORS = [[PCOLOR[0], 0], [PCOLOR[1], 0], [PCOLOR[2], 0], [PCOLOR[3], 0], [[40, 200, 90], 1], [[220, 50, 50], 2]];
+  for (const female of [false, true])
+    AV_COLORS.forEach(([[r, gg, b], deco], k) => {
+      tclear(N);
+      const main = RGB(r, gg, b), dark = RGB(r * .55, gg * .55, b * .55), white = RGB(245, 245, 245), black = RGB(15, 15, 18);
+      const gold = RGB(250, 205, 60), gun = RGB(60, 60, 72);
+      if (!female) {
+        const skin = RGB(205, 150, 110);
+        trect(8, 29, 7, 3, white); trect(17, 29, 7, 3, white); trect(8, 30, 7, 1, main); trect(17, 30, 7, 1, main);   // Sneaker
+        trect(10, 21, 5, 8, RGB(40, 62, 115)); trect(17, 21, 5, 8, RGB(40, 62, 115)); trect(15, 21, 2, 2, RGB(40, 62, 115));   // Jeans
+        trect(8, 12, 16, 10, main); trect(8, 20, 16, 2, dark); tellipse(16, 12, 6, 2.2, dark);   // Hoodie
+        trect(5, 13, 3, 9, main); trect(24, 13, 3, 5, main); tcirc(6.5, 22.5, 1.6, skin);
+        trect(15, 14, 2, 6, white); trect(13, 15, 6, 1, white); trect(13, 18, 6, 1, white); tpx(13, 16, white); tpx(18, 17, white);   // "$"
+        tline(12, 12, 16, 15, gold); tline(16, 15, 20, 12, gold);   // Goldkette
+        tcirc(16, 7, 5, skin);
+        trect(11, 1, 10, 4, dark); trect(8, 3, 4, 2, dark);   // Basecap (Schirm zur Seite)
+        tpx(14, 7, black); tpx(18, 7, black);
+        trect(12, 9, 8, 3, RGB(85, 55, 35)); trect(15, 10, 2, 1, RGB(160, 80, 70));   // Bart + Mund
+        trect(10, 4, 2, 5, black); tline(11, 8, 14, 11, black); tpx(14, 11, RGB(255, 60, 60));   // Headset
+        trect(24, 16, 7, 3, gun); trect(27, 14, 3, 2, gold); tcirc(25, 18.5, 1.4, skin);   // Blaster
+      } else {
+        const skin = RGB(240, 198, 168), hair = RGB(170, 62, 28);
+        tellipse(23, 12, 3, 7, hair); tellipse(24, 18, 2, 3, hair);   // Pferdeschwanz
+        trect(11, 28, 4, 4, black); trect(17, 28, 4, 4, black);   // Stiefel
+        trect(12, 23, 2, 5, skin); trect(18, 23, 2, 5, skin);
+        ttri(16, 13, 6, 25, 26, 25, main); trect(10, 13, 12, 7, main); trect(7, 23, 18, 2, dark);   // Kleid
+        trect(10, 18, 12, 1, gold);   // Guertel
+        ttri(13, 13, 19, 13, 16, 17, RGB(255, 235, 240));
+        trect(6, 14, 3, 8, skin); trect(23, 14, 3, 4, skin);
+        tellipse(16, 6.5, 6.5, 5.5, hair);
+        tcirc(16, 8, 4.4, skin);
+        trect(11, 3, 10, 2, hair); tpx(11, 5, hair); tpx(20, 5, hair);
+        trect(12, 2, 8, 1, black);   // Sonnenbrille im Haar
+        tpx(14, 8, black); tpx(18, 8, black); tpx(13, 7, black); tpx(19, 7, black);
+        trect(15, 10, 2, 1, RGB(210, 40, 70));   // Lippen
+        tcirc(11.3, 10, 1.1, gold); tcirc(20.7, 10, 1.1, gold);   // Creolen
+        trect(24, 15, 7, 3, gun); trect(27, 13, 3, 2, gold);   // Blaster
+      }
+      if (deco === 1) { ttri(11, 3, 5, -2, 9, 5, gold); ttri(21, 3, 27, -2, 23, 5, gold); }
+      if (deco === 2) { tcirc(10, 2.5, 2.5, RGB(110, 70, 38)); tcirc(22, 2.5, 2.5, RGB(110, 70, 38)); tcirc(10, 2.5, 1.2, RGB(200, 130, 120)); tcirc(22, 2.5, 1.2, RGB(200, 130, 120)); }
+      storeSprite((female ? S.AVF0 : S.AVM0) + k);
+    });
 }
 
 // ---------------------------------------------------------------- Level (identisch zur Firmware)
@@ -490,12 +516,23 @@ let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [],
 let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePrev = 0, lastSent = 0, clientSeq = -1;
 
 function makePlayer(id, local) {
-  return { id, name: id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU", local, team: (id + 1) % 2, isPlayer: true,
+  return { id, name: id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU", local, team: (id + 1) % 2, avatar: local ? settings.avatar : "m", isPlayer: true,
     x: 0, y: 0, dirX: 1, dirY: 0, hp: 100, ammo: 30, score: 0, kills: 0, dead: false, respawnT: 0, slowT: 0, flash: 0 };
 }
 const playerColor = pl => mode === "team" ? (pl.team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(Math.max(1, pl.id) - 1) % 4];
 const teamFaction = pl => pl.team === 0 ? F.BULL : F.BEAR;
-const playerSprite = pl => mode === "team" ? (pl.team === 0 ? S.TRBULL : S.TRBEAR) : S.TR0 + (Math.max(1, pl.id) - 1) % 4;
+const playerSprite = pl => (pl.avatar === "f" ? S.AVF0 : S.AVM0) + (mode === "team" ? 4 + pl.team : (Math.max(1, pl.id) - 1) % 4);
+const AVATAR_NAME = { m: "MÄNNLICH", f: "WEIBLICH" };
+const sprCanvasCache = {};
+function spriteCanvas(idx) {   // Sprite als kleines Canvas (fuer Vorschau in der Lobby)
+  if (!sprCanvasCache[idx]) {
+    const c = document.createElement("canvas"); c.width = c.height = 32;
+    const cx = c.getContext("2d"), im = cx.createImageData(32, 32);
+    new Uint32Array(im.data.buffer).set(sprTex[idx]); cx.putImageData(im, 0, 0);
+    sprCanvasCache[idx] = c;
+  }
+  return sprCanvasCache[idx];
+}
 const alivePlayers = () => players.filter(p => !p.dead);
 
 const say = (s, t = 2) => { msg = s; msgT = t; };
@@ -923,6 +960,7 @@ function netReceive(m) {
     case "welcome":
       net.id = m.id; net.hostId = m.host; net.connected = true;
       players = [me = makePlayer(m.id, true)];
+      if (m.id !== m.host) netSend({ t: "avatar", avatar: me.avatar });
       return;
     case "peers": {
       const hostLeft = net.hostId && m.host !== net.hostId;
@@ -939,6 +977,7 @@ function netReceive(m) {
       case "me": if (!pl.dead) { pl.x = m.x; pl.y = m.y; pl.dirX = m.dx; pl.dirY = m.dy; } break;
       case "shot": if (state === ST.PLAY) doShot(pl, m.x, m.y, m.dx, m.dy); break;
       case "team": if (state === ST.LOBBY) pl.team = m.team ? 1 : 0; break;
+      case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
     }
     return;
   }
@@ -949,7 +988,7 @@ function netReceive(m) {
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: players.map(p => [p.id, p.name, p.team]) });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: players.map(p => [p.id, p.name, p.team, p.avatar]) });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
@@ -961,7 +1000,7 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
       if (!alt && [E.BEAR, E.BUBBLE, E.SLICK, E.BOT, E.ALGO].includes(e.type)) alt = (e.anim % .6) < .3 && (e.awake || e.type === E.BOT || e.type === E.ALGO);
@@ -988,9 +1027,9 @@ function clientSnapshot(m) {
   [fakeT, glitchT, aiFaceT, invertT, crashT] = m.fx;
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar] of m.pl) {
     const p = players.find(q => q.id === id);
-    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, slowT: slow ? .2 : 0 });
+    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, slowT: slow ? .2 : 0, avatar: avatar || "m" });
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -1009,7 +1048,7 @@ const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
     strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null] },
-  mouseLook: true, sens: 5, invert: false,
+  mouseLook: true, sens: 5, invert: false, avatar: "m",
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
 let settings = structuredClone(DEFAULTS);
@@ -1036,7 +1075,14 @@ function quitGame() {
   if (typeof netDisconnect === "function") netDisconnect();
   netNotice("DU KANNST DIESEN TAB JETZT SCHLIESSEN"); state = ST.TITLE; musicStop();
 }
-let myAddr = "", joinText = "", mpMenu = false;
+let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0;
+const pauseAge = () => (performance.now() - pausedAt) / 1000;
+// Bei Maussteuerung faengt der Browser das erste Esc ab und gibt nur die Maus frei: das gilt als Pause.
+document.addEventListener("pointerlockchange", () => {
+  if (document.pointerLockElement || state !== ST.PLAY || mpMenu || (me && me.dead)) return;
+  if (isMP()) mpMenu = true; else state = ST.PAUSE;
+  pausedAt = performance.now();
+});
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { } updateHint(); }
 
 const keys = new Set();
@@ -1056,7 +1102,7 @@ function updateHint() {
   document.getElementById("hint").textContent =
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ` +
     `${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-    `${bindText("music")} Musik · 2× Richtung = Ausweichen · O Optionen`;
+    `${bindText("music")} Musik · 2× Richtung = Ausweichen · O Optionen · F4 Vollbild · Esc in der Pause = Beenden`;
 }
 
 // Optionsmenue
@@ -1145,7 +1191,7 @@ function renderOptions() {
 
 addEventListener("keydown", e => {
   const k = keyName(e);
-  if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace"].includes(k)) e.preventDefault();
+  if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace", "F4"].includes(k)) e.preventDefault();
   if (!e.repeat) onKeyPress(k);
   keys.add(k);
 });
@@ -1153,7 +1199,7 @@ addEventListener("keyup", e => keys.delete(keyName(e)));
 addEventListener("blur", () => keys.clear());
 screen.addEventListener("contextmenu", e => e.preventDefault());
 // Schaltflaechen im Titelbild (Koordinaten im 960x540-Raster)
-const TITLE_BTNS = [{ x: 90, y: 455, w: 240, h: 44, key: "n" }, { x: 360, y: 455, w: 240, h: 44, key: "o" }, { x: 630, y: 455, w: 240, h: 44, key: "q" }];
+const TITLE_BTNS = [{ x: 90, y: 455, w: 240, h: 44, key: "n" }, { x: 360, y: 455, w: 240, h: 44, key: "o" }, { x: 630, y: 455, w: 240, h: 44, key: "Escape" }];
 screen.addEventListener("mousedown", e => {
   e.preventDefault();
   audioUnlock();
@@ -1181,28 +1227,39 @@ document.querySelectorAll("#touch [data-k]").forEach(b => {
   b.addEventListener("pointerdown", e => { e.preventDefault(); audioUnlock(); keys.add(k); onKeyPress(k === " " ? "enter" : k); });
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => b.addEventListener(ev, () => keys.delete(k)));
 });
+// F4: Vollbild an/aus. In der App schaltet das Fenster selbst um (Adresse wird von der App abgefangen).
+function toggleFullscreen() {
+  if (IN_APP) { location.href = "http://margincall.fullscreen/"; return; }
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  else document.documentElement.requestFullscreen?.().catch(() => netNotice("VOLLBILD NICHT MÖGLICH"));
+}
 function onKeyPress(k) {
   audioUnlock();
-  if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "q") quitGame(); return; }
+  if (k === "F4" && !(state === ST.OPTIONS && optWaiting)) { toggleFullscreen(); return; }
+  if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "Escape") quitGame(); return; }
   if (state === ST.OPTIONS) { optKey(k); return; }
   if (state === ST.JOIN) { joinKey(k); return; }
   if (state === ST.PLAY && mpMenu) {
-    if (k === "q") quitGame();
+    if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
     else if (k === "l") leaveMP();
-    else if (k === "Escape" || isBound("pause", k)) mpMenu = false;
+    else if (isBound("pause", k)) mpMenu = false;
     return;
   }
   if (isBound("music", k)) { musicToggle(); say(musicOn ? "MUSIK AN" : "MUSIK AUS", 1); return; }
   switch (state) {
     case ST.TITLE:
       if (k === "o") openOptions();
-      else if (k === "q") quitGame();
+      else if (k === "Escape") quitGame();
       else if (k === "n") { if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter") { mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); state = ST.PLAY; fireCd = .4; sfx("KACHING"); }
       break;
     case ST.LOBBY:
       if (k === "Escape") { leaveMP(); break; }
       if (k === "o") { openOptions(); break; }
+      if (k === "c") {
+        me.avatar = me.avatar === "f" ? "m" : "f"; settings.avatar = me.avatar; saveSettings(); sfx("HIT");
+        if (isHost()) hostSendLobby(); else netSend({ t: "avatar", avatar: me.avatar });
+      }
       if (k === "1" || k === "2") {
         if (isHost()) { me.team = k === "1" ? 0 : 1; hostSendLobby(); } else { me.team = k === "1" ? 0 : 1; netSend({ t: "team", team: me.team }); }
         sfx("HIT");
@@ -1215,8 +1272,8 @@ function onKeyPress(k) {
     case ST.PLAY:
       dodgeTap(k);
       if (isBound("pause", k)) {
-        if (isMP()) { mpMenu = true; document.exitPointerLock?.(); }
-        else { state = ST.PAUSE; document.exitPointerLock?.(); }
+        if (isMP()) mpMenu = true; else state = ST.PAUSE;
+        pausedAt = performance.now(); document.exitPointerLock?.();
       }
       break;
     case ST.MPMENU:
@@ -1225,7 +1282,7 @@ function onKeyPress(k) {
       else if (k === "Escape") state = ST.TITLE;
       break;
     case ST.PAUSE:
-      if (k === "q") quitGame();
+      if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
       else if (k === "o") openOptions();
       else if (isBound("pause", k) || k === "enter") state = ST.PLAY;
       break;
@@ -1652,7 +1709,7 @@ function renderTitle() {
   if (Math.floor(gameTime * 2) % 2) text("[ENTER] ODER KLICK: SOLO STARTEN", DW / 2, 395, "#ffffff", 24, "center");
   button(TITLE_BTNS[0], "[N] MULTIPLAYER", "#50c8ff");
   button(TITLE_BTNS[1], "[O] OPTIONEN", "#50ff82");
-  button(TITLE_BTNS[2], "[Q] BEENDEN", "#ff7050");
+  button(TITLE_BTNS[2], "[ESC] BEENDEN", "#ff7050");
   if (netMsgT > 0) text(netMsg, DW / 2, 428, "#ff7050", 16, "center");
   text(CREDITS, DW - 14, 518, "#6b7896", 13, "right");
 }
@@ -1662,7 +1719,7 @@ function renderLobby() {
   text("MULTIPLAYER-LOBBY", DW / 2, 36, "#ffd232", 40, "center");
   if (!net.connected) { text("VERBINDE MIT SPIEL-SERVER …", DW / 2, 220, "#dcdce6", 22, "center"); text("[ESC] ZURÜCK", DW / 2, 470, "#8290b0", 16, "center"); return; }
   const host = isHost();
-  const list = host ? players.map(p => [p.id, p.name, p.team]) : lobbyInfo;
+  const list = host ? players.map(p => [p.id, p.name, p.team, p.avatar]) : lobbyInfo;
   const modeIdx = host ? lobbyMode : lobbyMode;
   text("MODUS", 110, 100, "#6b7896", 14);
   text(`${host ? "◀ " : ""}${MODES[modeIdx][1]}${host ? " ▶" : ""}`, 110, 120, "#50c8ff", 26);
@@ -1671,14 +1728,22 @@ function renderLobby() {
     dm: "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L." }[MODES[modeIdx][0]];
   text(desc, 110, 156, "#a0a0b4", 15);
   text(`SPIELER (${list.length}/4)`, 110, 200, "#6b7896", 14);
-  list.forEach(([id, name, team], i) => {
-    const y = 224 + i * 40, col = MODES[modeIdx][0] === "team" ? (team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(id - 1) % 4];
-    g.fillStyle = rgbCss(col); g.fillRect(110, y, 26, 26);
+  const isTeam = MODES[modeIdx][0] === "team";
+  list.forEach(([id, name, team, avatar], i) => {
+    const y = 224 + i * 40, col = isTeam ? (team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(id - 1) % 4];
+    const spr = (avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + team : (id - 1) % 4);
+    g.drawImage(spriteCanvas(spr), 104, y - 6, 36, 36);
     text(`${name}${id === net.id ? "  (DU)" : ""}${id === net.hostId ? "  · HOST" : ""}`, 150, y + 3, "#e6e6f0", 20);
     if (MODES[modeIdx][0] === "team") text(team === 0 ? "TEAM BULLE" : "TEAM BÄR", 760, y + 3, rgbCss(col), 18, "right");
   });
   const help = [];
-  if (MODES[modeIdx][0] === "team") help.push("[1] TEAM BULLE · [2] TEAM BÄR");
+  // eigene Figur gross
+  const mySpr = (me.avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + me.team : (Math.max(1, me.id) - 1) % 4);
+  g.drawImage(spriteCanvas(mySpr), 790, 205, 96, 96);
+  text("DEINE FIGUR", 838, 186, "#6b7896", 13, "center");
+  text(AVATAR_NAME[me.avatar] || "", 838, 306, "#ffd232", 15, "center");
+  text("[C] WECHSELN", 838, 326, "#50c8ff", 13, "center");
+  if (isTeam) help.push("[1] TEAM BULLE · [2] TEAM BÄR");
   help.push(host ? "←/→ MODUS · [ENTER] SPIEL STARTEN · [ESC] VERLASSEN" : "WARTE AUF DEN HOST … · [ESC] VERLASSEN");
   help.forEach((h, i) => text(h, DW / 2, 420 + i * 26, i === help.length - 1 && host ? "#ffffff" : "#8290b0", 17, "center"));
   text(`Mitspieler: MARGIN CALL starten → [N] MULTIPLAYER → [J] BEITRETEN → ${isLocalOrigin() ? (myAddr || "deine IP") : location.host}   (oder im Browser: http://${isLocalOrigin() ? (myAddr || "deine IP") : location.host})`, DW / 2, 486, "#6b7896", 13, "center");
@@ -2004,8 +2069,8 @@ function renderMpMenu() {
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(250, 150, 460, 160);
   text("MULTIPLAYER-MENÜ", DW / 2, 166, "#ffd232", 26, "center");
   text("Das Spiel läuft weiter!", DW / 2, 202, "#ff7050", 16, "center");
-  text("[L] SPIEL VERLASSEN · [Q] BEENDEN", DW / 2, 236, "#ffffff", 18, "center");
-  text(`[${bindText("pause")}] ZURÜCK INS SPIEL`, DW / 2, 268, "#8290b0", 16, "center");
+  text("[L] SPIEL VERLASSEN · [ESC] BEENDEN", DW / 2, 236, "#ffffff", 18, "center");
+  text("[P] ZURÜCK INS SPIEL", DW / 2, 268, "#8290b0", 16, "center");
 }
 
 // ---------------------------------------------------------------- Hauptschleife
@@ -2025,7 +2090,7 @@ function frame(now) {
     g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 170, DW, 170);
     text(IN_APP ? "DER HOST HAT DAS SPIEL BEENDET" : "SPIEL-SERVER BEENDET", DW / 2, 190, "#ff5050", 36, "center");
     text("Die Verbindung ist weg. Musik und Spiel sind angehalten.", DW / 2, 248, "#dcdce6", 18, "center");
-    text(IN_APP ? "[H] ZURÜCK ZU MEINEM SPIEL · [Q] BEENDEN" : "Starte MARGIN CALL neu oder schließe diesen Tab.", DW / 2, 282, "#ffffff", 18, "center");
+    text(IN_APP ? "[H] ZURÜCK ZU MEINEM SPIEL · [ESC] BEENDEN" : "Starte MARGIN CALL neu oder schließe diesen Tab.", DW / 2, 282, "#ffffff", 18, "center");
     last = now; requestAnimationFrame(frame); return;
   }
   // Host: Lobby-Status regelmaessig verteilen, Snapshots auch auf Endbildschirmen
@@ -2042,7 +2107,7 @@ function frame(now) {
     case ST.PAUSE:
       g.fillStyle = "#000"; g.fillRect(260, 170, 440, 110);
       text("HANDEL AUSGESETZT", DW / 2, 190, "#ffd232", 28, "center");
-      text(`[${bindText("pause")}] WEITER · [O] OPTIONEN · [Q] BEENDEN`, DW / 2, 236, "#dcdce6", 18, "center");
+      text("[P] WEITER · [O] OPTIONEN · [ESC] BEENDEN", DW / 2, 236, "#dcdce6", 18, "center");
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
     case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", "Level geschafft – der Kurs steigt", "#50ff82", true); break;

@@ -1,5 +1,23 @@
 # MARGIN CALL – Changelog
 
+## Version 3.5.0 – Spielfiguren, Esc-Menü und Vollbild (15.10.2026)
+
+- **Zwei Spielfiguren im Multiplayer:** In der Lobby wechselst du mit **[C]** zwischen männlich und weiblich. Rechts in der Lobby siehst du deine Figur groß.
+  - **Männlich:** Hoodie in deiner Spielerfarbe mit „$“-Aufdruck, Goldkette, Basecap, Headset, Bart, Jeans und Sneaker.
+  - **Weiblich:** langer roter Pferdeschwanz, Kleid in deiner Spielerfarbe mit Goldgürtel, goldene Creolen, Sonnenbrille im Haar und Stiefel.
+  - Beide Figuren sehen bewusst ganz anders aus als die Gegner im Anzug.
+  - Im Team-Modus tragen sie die Teamfarbe, dazu Hörner (Team Bulle) oder Bärenohren (Team Bär).
+  - Die Wahl wird gespeichert und beim Beitreten zu einem Host mitgenommen.
+- **Esc pausiert das Spiel.**
+  - **Esc im Pausenmenü beendet das Spiel.** Damit ein einzelner Esc-Druck nicht gleich beendet, reagiert das Menü erst nach einer kurzen Pause.
+  - **P** pausiert und setzt fort wie bisher.
+  - Bei Maussteuerung reicht ein Esc: Der erste Druck gibt die Maus frei und pausiert gleichzeitig.
+  - Im Multiplayer öffnen Esc und P das Multiplayer-Menü. Esc darin beendet, **[L]** verlässt das Spiel, **P** führt zurück.
+  - Im Titelbild beendet **Esc** das Spiel.
+- **Q beendet das Spiel nicht mehr.**
+- **F4** schaltet den Vollbildmodus ein und aus.
+- **Versionsnummer im Dateinamen:** Die Downloads heißen jetzt z. B. `MarginCall-3.5.0-Windows.exe`, `MarginCall-3.5.0-macOS.dmg`, `MarginCall-3.5.0-Linux.AppImage` und `MarginCall-3.5.0-Cardputer.bin`.
+
 ## Version 3.4.1 – WASD am PC (15.10.2026)
 
 - **Neue Standardsteuerung am PC** nach dem üblichen Shooter-Schema:
