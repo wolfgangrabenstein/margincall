@@ -1111,10 +1111,10 @@ function updateHint() {
 // Optionsmenue
 const OPT_ROWS = [...ACTIONS.map(([id, name]) => ({ kind: "bind", id, name })),
   { kind: "mouseLook", name: "Maussteuerung" }, { kind: "sens", name: "Mausempfindlichkeit" }, { kind: "invert", name: "Maus invertieren" },
-  { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
+  { kind: "music", name: "Musik" }, { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
   { kind: "reset", name: "Standard wiederherstellen" }, { kind: "back", name: "Zurück" }];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 100, OPT_DY = 25;
+const OPT_Y0 = 98, OPT_DY = 24;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1129,6 +1129,7 @@ function optActivate() {
   switch (row.kind) {
     case "bind": optWaiting = true; break;
     case "mouseLook": settings.mouseLook = !settings.mouseLook; saveSettings(); break;
+    case "music": musicToggle(); break;
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
@@ -1148,7 +1149,7 @@ function optKey(k) {
     const d = k === "ArrowLeft" ? -1 : 1;
     if (row.kind === "bind") optCol = clamp(optCol + d, 0, 1);
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music") optActivate();
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1181,8 +1182,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? "TASTE DRÜCKEN…" : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "music" ? musicOn : settings.invert;
       text(on ? "AN" : "AUS", 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "sens") {
       for (let k = 1; k <= 10; k++) { g.fillStyle = k <= settings.sens ? "#28c86e" : "#1e2846"; g.fillRect(520 + (k - 1) * 40, y + 1, 32, 14); }
@@ -2022,7 +2023,7 @@ function musicSchedule() {
 }
 function musicStart() { musicKill(); musicReset(); musicRunning = true; }
 function musicStop() { musicRunning = false; musicKill(); }
-function musicToggle() { musicOn = !musicOn; musicSchedule(); }
+function musicToggle() { musicOn = !musicOn; settings.music = musicOn; saveSettings(); musicSchedule(); }
 setInterval(musicSchedule, 60);
 
 // Tab im Hintergrund: alle Toene anhalten
@@ -2148,6 +2149,7 @@ function frame(now) {
 }
 
 players = [me = makePlayer(0, true)];
+musicOn = settings.music !== false;   // gespeicherte Musik-Einstellung
 updateHint();
 marketsSimulate();
 genWalls(); genSprites();

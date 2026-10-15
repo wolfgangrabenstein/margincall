@@ -1,5 +1,10 @@
 # MARGIN CALL – Changelog
 
+## Version 3.5.2 – Musik in den Optionen (15.10.2026)
+
+- **Neuer Schalter „Musik“** im Optionsmenü **[O]**: Er schaltet die Musik ein und aus.
+- **Gespeichert:** Die Einstellung bleibt auch nach einem Neustart erhalten, ebenso wenn du die Musik mit der Taste **M** umschaltest.
+
 ## Version 3.5.1 – Datenschutz und Open Source (15.10.2026)
 
 - **Live-Kurse nur mit Zustimmung:** Beim ersten Start erklärt ein Hinweis, dass die Kurse bei Yahoo Finance abgerufen werden. Mit **Enter** stimmst du zu, mit **N** spielst du mit simulierten Kursen.
