@@ -508,7 +508,8 @@ const zbuf = new Float32Array(RW);
 // mode: "solo" | "coop" | "team" | "dm".  Im Multiplayer rechnet nur der Host das Spiel.
 const MODES = [["coop", "KOOP"], ["team", "TEAM BULLE VS. TEAM BÄR"], ["dm", "DEATHMATCH"]];
 const PNAMES = ["GRÜN", "BLAU", "ORANGE", "PINK"];
-const ROUND_TIME = 240, ROUND_TARGET = 3000;
+const ROUND_TIME = 240, ROUND_TARGET = 3000, ROUND_BREAK = 5;   // Rundenpause in Sekunden
+function nextRound() { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; }
 let mode = "solo";
 const net = { ws: null, id: 0, hostId: 0, connected: false };
 const isMP = () => mode !== "solo";
@@ -519,13 +520,14 @@ let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [],
 let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePrev = 0, lastSent = 0, clientSeq = -1;
 
 function makePlayer(id, local) {
-  return { id, name: id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU", local, team: (id + 1) % 2, avatar: local ? settings.avatar : "m", isPlayer: true,
+  const def = id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU";
+  return { id, name: local && id && settings.nickname ? settings.nickname : def, local, team: (id + 1) % 2, avatar: local ? settings.avatar : "m", isPlayer: true,
     x: 0, y: 0, dirX: 1, dirY: 0, hp: 100, ammo: 30, score: 0, kills: 0, deaths: 0, dead: false, respawnT: 0, slowT: 0, flash: 0 };
 }
 const TEAM_COLOR_NAME = ["GRÜN", "ROT"];
 // list: Eintraege [id, team] aller Spieler, damit Teamkollegen eine Nummer bekommen
 function shownName(name, id, team, teamMode, list) {
-  if (!teamMode) return name;
+  if (!teamMode || !/^TRADER (GRÜN|BLAU|ORANGE|PINK)$/.test(name)) return name;
   const mates = list.filter(([, t]) => t === team).map(([i]) => i).sort((a, b) => a - b);
   return `TRADER ${TEAM_COLOR_NAME[team]}${mates.length > 1 ? " " + (mates.indexOf(id) + 1) : ""}`;
 }
@@ -980,7 +982,7 @@ function netReceive(m) {
     case "welcome":
       net.id = m.id; net.hostId = m.host; net.connected = true;
       players = [me = makePlayer(m.id, true)];
-      if (m.id !== m.host) netSend({ t: "avatar", avatar: me.avatar });
+      if (m.id !== m.host) { netSend({ t: "avatar", avatar: me.avatar }); netSend({ t: "nick", name: me.name }); }
       return;
     case "peers": {
       const hostLeft = net.hostId && m.host !== net.hostId;
@@ -998,6 +1000,7 @@ function netReceive(m) {
       case "shot": if (state === ST.PLAY) doShot(pl, m.x, m.y, m.dx, m.dy); break;
       case "team": if (state === ST.LOBBY) pl.team = m.team ? 1 : 0; break;
       case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
+      case "nick": { const n = cleanName(m.name, 12); if (n) { pl.name = n; hostSendLobby(); } break; }
       case "ready": if (state === ST.LOBBY) { pl.ready = !!m.ready; hostSendLobby(); } break;
       case "chat": if (state === ST.LOBBY || state === ST.PLAY) addChat(pl.id, pl.name, m.text); break;
     }
@@ -1005,13 +1008,13 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || [];
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || "";
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12) });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName() });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
@@ -1023,7 +1026,7 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
       if (!alt && [E.BEAR, E.BUBBLE, E.SLICK, E.BOT, E.ALGO].includes(e.type)) alt = (e.anim % .6) < .3 && (e.awake || e.type === E.BOT || e.type === E.ALGO);
@@ -1050,9 +1053,9 @@ function clientSnapshot(m) {
   [fakeT, glitchT, aiFaceT, invertT, crashT] = m.fx;
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname] of m.pl) {
     const p = players.find(q => q.id === id);
-    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, slowT: slow ? .2 : 0, avatar: avatar || "m" });
+    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m" });
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -1066,12 +1069,12 @@ function clientSnapshot(m) {
 const ACTIONS = [
   ["fwd", "Vorwärts"], ["back", "Rückwärts"], ["turnL", "Links drehen"], ["turnR", "Rechts drehen"],
   ["strafeL", "Seitwärts links"], ["strafeR", "Seitwärts rechts"], ["fire", "Feuern"], ["pause", "Pause"], ["music", "Musik an/aus"],
-  ["chat", "Chat (Multiplayer)"],
+  ["chat", "Chat (Multiplayer)"], ["scores", "Statistik (halten)"],
 ];
 const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
-    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null] },
+    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], scores: ["Tab", null] },
   mouseLook: true, sens: 5, invert: false, avatar: "m",
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
@@ -1100,7 +1103,7 @@ function quitGame() {
   netNotice("DU KANNST DIESEN TAB JETZT SCHLIESSEN"); state = ST.TITLE; musicStop();
 }
 let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0, deathPenalty = 0;
-let chatLog = [], lobbyChat = [], chatTyping = false, chatText = "", rawKey = "", lobbyNote = "", lobbyNoteT = 0;
+let lobbyGame = "", chatLog = [], lobbyChat = [], chatTyping = false, chatText = "", rawKey = "", lobbyNote = "", lobbyNoteT = 0;
 let foundGames = [], joinSel = 0, gamesT = 0, advertising = false, advertiseT = 0, fsOn = false;
 const lobbyPlayers = () => players.map(p => [p.id, p.name, p.team, p.avatar, p.id === net.hostId || !!p.ready]);
 const allReady = () => players.every(p => p.id === net.hostId || p.ready);
@@ -1159,7 +1162,7 @@ function updateHint() {
   document.getElementById("hint").textContent =
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ` +
     `${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · F4 Vollbild · Esc in der Pause = Beenden`;
+    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · Esc in der Pause = Beenden`;
 }
 
 // Optionsmenue
@@ -1168,7 +1171,7 @@ const OPT_ROWS = [...ACTIONS.map(([id, name]) => ({ kind: "bind", id, name })),
   { kind: "fullscreen", name: "Vollbild (F4)" }, { kind: "music", name: "Musik" }, { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
   { kind: "reset", name: "Standard wiederherstellen" }, { kind: "back", name: "Zurück" }];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 94, OPT_DY = 22;
+const OPT_Y0 = 92, OPT_DY = 21;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1304,6 +1307,7 @@ function onKeyPress(k) {
   audioUnlock();
   if (k === "F4" && !(state === ST.OPTIONS && optWaiting)) { toggleFullscreen(); return; }
   if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "Escape") quitGame(); return; }
+  if (edit) { editKey(k); return; }
   if (state === ST.OPTIONS) { optKey(k); return; }
   if (state === ST.JOIN) { joinKey(k); return; }
   if (chatTyping && (state === ST.LOBBY || state === ST.PLAY)) { chatKey(k); return; }
@@ -1332,7 +1336,9 @@ function onKeyPress(k) {
       if (k === "Escape") { leaveMP(); break; }
       if (k === "o") { openOptions(); break; }
       if (isBound("chat", k) || k === "t") { chatTyping = true; chatText = ""; break; }
-      if (k === "enter" && !isHost()) { me.ready = !me.ready; netSend({ t: "ready", ready: me.ready }); sfx(me.ready ? "KACHING" : "HIT"); break; }
+      if (k === "e" && !isHost()) { me.ready = !me.ready; netSend({ t: "ready", ready: me.ready }); sfx(me.ready ? "KACHING" : "HIT"); break; }
+      if (k === "k") { editNick(); break; }
+      if (k === "g" && isHost()) { editGameName(); break; }
       if (k === "c") {
         me.avatar = me.avatar === "f" ? "m" : "f"; settings.avatar = me.avatar; saveSettings(); sfx("HIT");
         if (isHost()) hostSendLobby(); else netSend({ t: "avatar", avatar: me.avatar });
@@ -1355,7 +1361,9 @@ function onKeyPress(k) {
       }
       break;
     case ST.MPMENU:
-      if (k === "h") enterLobby();
+      if (k === "k") editNick();
+      else if (k === "g") editGameName();
+      else if (k === "h") enterLobby();
       else if (k === "j") { joinText = ""; joinSel = 0; gamesT = 0; foundGames = []; state = ST.JOIN; }
       else if (k === "Escape") state = ST.TITLE;
       break;
@@ -1368,7 +1376,7 @@ function onKeyPress(k) {
       if (k === "enter" && isHost()) { loadLevel(level + 1); players.forEach(p => p.ammo = Math.max(p.ammo, 15)); state = ST.PLAY; fireCd = .4; lockMouse(); }
       break;
     case ST.ROUNDEND:
-      if (k === "enter" && isHost()) { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; lockMouse(); }
+      if (k === "enter" && isHost()) { nextRound(); lockMouse(); }
       if (k === "Escape") leaveMP();
       break;
     case ST.DEAD:
@@ -1524,7 +1532,7 @@ function updateGame(dt) {
     roundT -= dt;
     const top = mode === "team" ? Math.max(...teamScore) : Math.max(...players.map(p => p.score));
     if (roundT <= 0 || top >= ROUND_TARGET) {
-      state = ST.ROUNDEND; musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
+      state = ST.ROUNDEND; roundT = ROUND_BREAK; musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
     }
   }
   if (isMP() && performance.now() - lastSent > 50) { lastSent = performance.now(); hostSendSnapshot(); }
@@ -1693,7 +1701,9 @@ function renderHUD() {
   g.fillStyle = "#080c1a"; g.fillRect(0, HUD_Y, DW, DH - HUD_Y);
   g.fillStyle = isMP() ? rgbCss(playerColor(me)) : "#28c86e"; g.fillRect(0, HUD_Y, DW, 2);
   text("DEPOT", 14, HUD_Y + 10, "#8290b0", 15);
-  text(`${me.hp} %`, 14, HUD_Y + 32, me.hp > 60 ? "#3ce664" : me.hp > 30 ? "#ffc828" : "#ff3c3c", 38);
+  // 0 % gibt es nicht: wer bei 0 ist, ist pleite (bis zum Neustart im Multiplayer)
+  if (me.dead || me.hp <= 0) text("PLEITE", 14, HUD_Y + 36, "#ff3c3c", 30);
+  else text(`${Math.max(1, Math.ceil(me.hp))} %`, 14, HUD_Y + 32, me.hp > 60 ? "#3ce664" : me.hp > 30 ? "#ffc828" : "#ff3c3c", 38);
   const gx = 170, gy = HUD_Y + 12, gw = 210, gh = 64;
   g.strokeStyle = "#1e2846"; g.lineWidth = 2; g.strokeRect(gx, gy, gw, gh);
   for (let i = 1; i < hist.length; i++) {
@@ -1825,7 +1835,12 @@ function renderTitle() {
 function renderLobby() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(60, 20, DW - 120, DH - 40);
-  text("MULTIPLAYER-LOBBY", DW / 2, 36, "#ffd232", 40, "center");
+  text("MULTIPLAYER-LOBBY", DW / 2, 30, "#ffd232", 36, "center");
+  if (net.connected) {
+    const gname = isHost() ? myGameName() : lobbyGame;
+    text(`„${gname}“${isHost() ? "  ✎ [G]" : ""}`, DW / 2, 70, "#c8c8d7", 15, "center");
+    if (isHost()) { g.font = FONT(15); const w = g.measureText(`„${gname}“  ✎ [G]`).width; zone(DW / 2 - w / 2, 66, w, 22, "g"); }
+  }
   if (!net.connected) { text("VERBINDE MIT SPIEL-SERVER …", DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, "[ESC] ZURÜCK", "#8290b0", "Escape", 16); return; }
   const host = isHost();
   const list = host ? lobbyPlayers() : lobbyInfo;
@@ -1884,6 +1899,7 @@ function renderLobby() {
   if (hovered(780, 180, 116, 170)) { g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(780, 180, 116, 170); }
   zone(780, 180, 116, 170, "c");
   zoneButton(784, 318, 108, 26, "[C] WECHSELN", "#50c8ff", "c", 13);
+  zoneButton(784, 350, 108, 26, "[K] NICKNAME", "#ffd232", "k", 13);
   // ---- Knoepfe unten
   if (isTeam) {
     zoneButton(250, 400, 220, 34, "[1] TEAM BULLE", me.team === 0 ? "#50ff82" : "#2a7a46", "1", 16);
@@ -1894,7 +1910,7 @@ function renderLobby() {
     zoneButton(250, 442, 220, 36, ready ? "▶ SPIEL STARTEN" : "WARTE AUF BEREIT …", ready ? "#ffffff" : "#6b7896", "enter", 16);
   } else {
     const r = me.ready;
-    zoneButton(250, 442, 220, 36, r ? "✔ BEREIT (ZURÜCK)" : "[ENTER] BEREIT", r ? "#50ff82" : "#ffd232", "enter", 16);
+    zoneButton(250, 442, 220, 36, r ? "✔ BEREIT ([E] ZURÜCK)" : "[E] BEREIT", r ? "#50ff82" : "#ffd232", "e", 16);
   }
   zoneButton(490, 442, 220, 36, "[ESC] VERLASSEN", "#ff7050", "Escape", 16);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
@@ -1905,10 +1921,10 @@ function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
   rank.forEach((p, i) => {
     const y = y0 + i * 30;
-    g.fillStyle = rgbCss(playerColor(p)); g.fillRect(260, y, 18, 18);
-    text(`${i + 1}. ${nameOf(p)}${p.local ? " (DU)" : ""}`, 290, y, mode === "team" ? rgbCss(playerColor(p)) : "#e6e6f0", 18);
+    g.fillStyle = rgbCss(playerColor(p)); g.fillRect(70, y, 18, 18);
+    text(`${i + 1}. ${nameOf(p)}${p.local ? " (DU)" : ""}`, 98, y, mode === "team" ? rgbCss(playerColor(p)) : "#e6e6f0", 18);
     text(mode === "dm" || mode === "team" ? `${p.score.toLocaleString("de-DE")} P&L · ${p.frags || 0} FRAGS · ${p.deaths || 0} TODE · ${p.kills} KILLS`
-      : `${p.score.toLocaleString("de-DE")} P&L · ${p.kills} KILLS · ${p.deaths || 0} TODE`, 760, y, "#50ff82", 16, "right");
+      : `${p.score.toLocaleString("de-DE")} P&L · ${p.kills} KILLS · ${p.deaths || 0} TODE`, DW - 60, y, "#50ff82", 16, "right");
   });
 }
 const CREDITS = "Made by Wolfgang Rabenstein";
@@ -1926,8 +1942,15 @@ function renderEnd(title, sub, col, bull) {
     zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT", "#50ff82", "enter", 16);
     zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
   } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
+  else if (state === ST.ROUNDEND) {   // Countdown bis zum naechsten Level
+    const t = Math.max(0, Math.ceil(roundT));
+    text(`NÄCHSTES LEVEL IN ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
+    g.fillStyle = "#1e2846"; g.fillRect(330, 414, 300, 6);
+    g.fillStyle = "#ffd232"; g.fillRect(330, 414, 300 * Math.max(0, roundT) / ROUND_BREAK, 6);
+    if (isHost()) zoneButton(380, 422, 200, 24, "[ENTER] SOFORT WEITER", "#8290b0", "enter", 13);
+  }
   else if (Math.floor(gameTime * 2) % 2) text(isHost() ? "[ENTER] WEITER" : "WARTE AUF DEN HOST …", DW / 2, 390, "#ffffff", 22, "center");
-  text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
+  if (state !== ST.ROUNDEND) text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
 }
 function renderRoundEnd() {
   if (mode === "team") {
@@ -2289,16 +2312,55 @@ function renderHighscores() {
   zoneButton(370, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
 }
 
+// ---------------------------------------------------------------- Texteingabe (Nickname, Spielname)
+let edit = null;   // { title, value, max, done(value) }
+const cleanName = (v, max) => String(v || "").replace(/[^\p{L}\p{N} ._\-!?&]/gu, "").replace(/\s+/g, " ").trim().slice(0, max);
+const defaultNick = () => me && me.id ? `TRADER ${PNAMES[(me.id - 1) % 4]}` : "TRADER";
+const myNick = () => settings.nickname || defaultNick();
+const myGameName = () => settings.gameName || `Spiel von ${myNick()}`;
+function openEdit(title, value, max, done) { edit = { title, value, max, done }; }
+function editKey(k) {
+  if (k === "enter") { const v = cleanName(edit.value, edit.max); const d = edit.done; edit = null; d(v); return; }
+  if (k === "Escape") { edit = null; return; }
+  if (k === "Backspace") { edit.value = edit.value.slice(0, -1); return; }
+  if (rawKey.length === 1 && /[\p{L}\p{N} ._\-!?&]/u.test(rawKey) && edit.value.length < edit.max) edit.value += rawKey;
+}
+function renderEdit() {
+  g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
+  g.fillStyle = "#0b1120"; g.fillRect(230, 170, 500, 200);
+  g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(230, 170, 500, 200);
+  text(edit.title, DW / 2, 188, "#ffd232", 22, "center");
+  g.strokeStyle = "#50c8ff"; g.strokeRect(260, 228, 440, 44);
+  text(edit.value + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 238, "#ffffff", 24, "center");
+  text(`bis ${edit.max} Zeichen · leer lassen = Standard`, DW / 2, 280, "#6b7896", 13, "center");
+  zoneButton(260, 310, 210, 40, "[ENTER] SPEICHERN", "#50ff82", "enter", 16);
+  zoneButton(490, 310, 210, 40, "[ESC] ABBRECHEN", "#8290b0", "Escape", 16);
+}
+function editNick() {
+  openEdit("DEIN NICKNAME", settings.nickname || "", 12, v => {
+    settings.nickname = v; saveSettings();
+    if (me && net.connected) {
+      me.name = myNick();
+      if (isHost()) hostSendLobby(); else netSend({ t: "nick", name: me.name });
+    }
+  });
+}
+function editGameName() { openEdit("SPIELNAME", settings.gameName || "", 24, v => { settings.gameName = v; saveSettings(); if (isHost() && net.connected) hostSendLobby(); }); }
+
 // ---------------------------------------------------------------- Hosten / Beitreten / MP-Menue
 function renderMpChoice() {
   chartBackground("#123a26", "#3a1414");
-  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 90, DW - 320, 340);
-  text("MULTIPLAYER", DW / 2, 110, "#ffd232", 40, "center");
-  zoneButton(300, 172, 360, 44, "[H] SPIEL HOSTEN", "#50c8ff", "h", 24);
-  text(`Mitspieler treten bei über: ${myAddr || "…"}`, DW / 2, 226, "#a0a0b4", 16, "center");
-  zoneButton(300, 272, 360, 44, "[J] SPIEL BEITRETEN", "#50ff82", "j", 24);
-  text("Adresse des Hosts eingeben (steht in seiner Lobby)", DW / 2, 326, "#a0a0b4", 16, "center");
-  zoneButton(390, 374, 180, 34, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
+  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 50, DW - 320, 440);
+  text("MULTIPLAYER", DW / 2, 64, "#ffd232", 40, "center");
+  text("DEIN NICKNAME", 300, 120, "#6b7896", 13);
+  zoneButton(300, 136, 360, 32, `${myNick()}   ✎ [K]`, "#ffd232", "k", 18);
+  text("SPIELNAME (WENN DU HOSTEST)", 300, 178, "#6b7896", 13);
+  zoneButton(300, 194, 360, 32, `${myGameName()}   ✎ [G]`, "#c8c8d7", "g", 18);
+  zoneButton(300, 252, 360, 44, "[H] SPIEL HOSTEN", "#50c8ff", "h", 24);
+  text(`Mitspieler finden dein Spiel unter „Beitreten“ (Adresse: ${myAddr || "…"})`, DW / 2, 304, "#a0a0b4", 14, "center");
+  zoneButton(300, 336, 360, 44, "[J] SPIEL BEITRETEN", "#50ff82", "j", 24);
+  text("Offene Spiele im Netzwerk werden automatisch gesucht", DW / 2, 388, "#a0a0b4", 14, "center");
+  zoneButton(390, 432, 180, 34, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
 }
 function renderJoin() {
   chartBackground("#123a26", "#3a1414");
@@ -2312,7 +2374,7 @@ function renderJoin() {
   }
   foundGames.slice(0, 5).forEach((gm, i) => {
     const y = 128 + i * 44, sel = i === joinSel && !joinText;
-    const label = `${gm.name.replace("TRADER ", "")}  ·  ${gm.mode}  ·  ${gm.players}/4 SPIELER`;
+    const label = `${gm.name}${gm.host ? "  ·  " + gm.host : ""}  ·  ${gm.mode}  ·  ${gm.players}/4`;
     zoneButton(170, y, DW - 340, 38, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "game:" + i, 16);
     text(gm.addr, DW - 180, y + 12, "#6b7896", 12, "right");
   });
@@ -2349,6 +2411,36 @@ function renderMpMenu() {
   zoneButton(368, 268, 224, 30, "[P] ZURÜCK INS SPIEL", "#8290b0", "p", 15);
 }
 
+// ---------------------------------------------------------------- Statistik-Einblendung (Tab gedrueckt halten)
+function renderScoreOverlay() {
+  const mp = isMP(), rows = mp ? [...players].sort((a, b) => b.score - a.score) : [me];
+  const h = mp ? 92 + rows.length * 34 : 200, y0 = Math.max(40, (HUD_Y - h) / 2);
+  g.fillStyle = "rgba(4,8,18,.9)"; g.fillRect(150, y0, DW - 300, h);
+  g.strokeStyle = "#28c86e"; g.lineWidth = 2; g.strokeRect(150, y0, DW - 300, h);
+  if (!mp) {
+    text("DEIN LAUF", DW / 2, y0 + 14, "#ffd232", 26, "center");
+    [["P&L", `+$${me.score.toLocaleString("de-DE")}`, "#50ff82"], ["LEVEL", `${level + 1} / ${NUM_LEVELS}`, "#e6e6f0"],
+     ["KILLS", String(me.kills), "#e6e6f0"], ["TODE", String(me.deaths || 0), me.deaths ? "#ff7050" : "#e6e6f0"],
+     ["MARKTBEREINIGUNG", String(marketKills), "#a0a0b4"]].forEach(([k, v, c], i) => {
+      text(k, 260, y0 + 56 + i * 26, "#8290b0", 16); text(v, DW - 260, y0 + 56 + i * 26, c, 18, "right");
+    });
+    return;
+  }
+  const pvp = mode === "dm" || mode === "team";
+  text(mode === "team" ? `TEAM BULLE ${teamScore[0]}  :  ${teamScore[1]} TEAM BÄR` : mode === "dm" ? "DEATHMATCH" : "KOOP", DW / 2, y0 + 12, "#ffd232", 22, "center");
+  const cols = pvp ? [["P&L", 560], ["FRAGS", 650], ["TODE", 730], ["KILLS", 800]] : [["P&L", 600], ["KILLS", 700], ["TODE", 790]];
+  text("SPIELER", 180, y0 + 50, "#6b7896", 13);
+  cols.forEach(([c, x]) => text(c, x, y0 + 50, "#6b7896", 13, "right"));
+  rows.forEach((p, i) => {
+    const y = y0 + 72 + i * 34;
+    if (p.local) { g.fillStyle = "rgba(255,210,50,.1)"; g.fillRect(160, y - 5, DW - 320, 30); }
+    g.fillStyle = rgbCss(playerColor(p)); g.fillRect(180, y, 16, 16);
+    text(`${i + 1}. ${nameOf(p)}${p.local ? " (DU)" : ""}${p.dead ? " ☠" : ""}`, 206, y, "#e6e6f0", 17);
+    const vals = pvp ? [`+$${p.score}`, p.frags || 0, p.deaths || 0, p.kills] : [`+$${p.score}`, p.kills, p.deaths || 0];
+    vals.forEach((v, j) => text(String(v), cols[j][1], y, j === 0 ? "#50ff82" : "#e6e6f0", 17, "right"));
+  });
+}
+
 // ---------------------------------------------------------------- Hauptschleife
 let last = performance.now(), lobbyT = 0;
 function renderPlay() {
@@ -2356,6 +2448,7 @@ function renderPlay() {
   lg.putImageData(img, 0, 0); if (!me.dead) renderWeapon();
   g.drawImage(low, 0, 0, RW, VH, 0, 0, DW, HUD_Y);
   renderHUD();
+  if (down("scores") && !chatTyping) renderScoreOverlay();
 }
 function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
@@ -2381,7 +2474,7 @@ function frame(now) {
   const shouldAdvertise = isLocalOrigin() && net.connected && isHost() && state === ST.LOBBY;
   if (shouldAdvertise && (advertiseT -= dt) <= 0) {
     advertiseT = 1; advertising = true;
-    fetch("/api/host", { method: "POST", body: JSON.stringify({ active: true, name: me.name, mode: MODES[lobbyMode][1], players: players.length }) }).catch(() => { });
+    fetch("/api/host", { method: "POST", body: JSON.stringify({ active: true, name: myGameName(), host: me.name, mode: MODES[lobbyMode][1], players: players.length }) }).catch(() => { });
   } else if (!shouldAdvertise && advertising) {
     advertising = false; fetch("/api/host", { method: "POST", body: JSON.stringify({ active: false }) }).catch(() => { });
   }
@@ -2409,10 +2502,14 @@ function frame(now) {
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
     case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", "Level geschafft – der Kurs steigt", "#50ff82", true); break;
-    case ST.ROUNDEND: gameTime += dt; renderRoundEnd(); break;
+    case ST.ROUNDEND:
+      gameTime += dt;
+      if (isHost()) { roundT -= dt; if (roundT <= 0) { nextRound(); break; } }   // automatisch weiter nach der Pause
+      renderRoundEnd(); break;
     case ST.DEAD: gameTime += dt; renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false); break;
     case ST.WIN: gameTime += dt; renderEnd("BULLENMARKT!", "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true); break;
   }
+  if (edit) { clickZones = []; renderEdit(); }
   requestAnimationFrame(frame);
 }
 

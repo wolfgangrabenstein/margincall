@@ -1,5 +1,23 @@
 # MARGIN CALL – Changelog
 
+## Version 3.8.0 – Nicknames, Spielnamen, Rundenpause, Tab-Statistik (16.10.2026)
+
+- **Nickname für den Multiplayer:** Im Multiplayer-Menü und in der Lobby mit **[K]** (oder Klick) änderbar, bis 12 Zeichen.
+  - Der Nickname erscheint in Lobby, Chat, Namensschildern, Meldungen und Statistik.
+  - Er wird gespeichert und beim Beitreten mitgenommen.
+- **Spielname:** Der Host benennt sein Spiel mit **[G]**, z. B. „Börsenparty“.
+  - Der Name steht in der Lobby unter dem Titel.
+  - In der Spieleliste unter „Beitreten“ erscheinen Spielname und Host.
+- **Rundenpause im Deathmatch und Team-Modus:** Nach Rundenende kommt eine **Pause von 5 Sekunden** mit der Statistik aller Spieler und einem Countdown „Nächstes Level in 5 s“. Danach startet das nächste Level automatisch, der Host kann mit Enter sofort weiter.
+- **Statistik im Spiel:** Solange du **Tab** gedrückt hältst, siehst du eine Tabelle aller Spieler mit P&L, Frags, Toden und Kills.
+  - Im Solo-Modus zeigt sie deinen Lauf mit P&L, Level, Kills, Toden und Marktbereinigung.
+  - Die Taste ist im Optionsmenü belegbar.
+- **Bereit mit E:** Mitspieler melden sich in der Lobby mit **E** bereit. Enter und Leertaste ändern den Bereit-Status nicht mehr.
+- **Behoben:**
+  - Das Depot zeigt nie mehr „0 %“: Bist du ausgeschaltet, steht dort bis zum Wiedereinstieg **PLEITE**.
+  - In der Rundenabrechnung überlappten Namen und Statistik.
+  - Der Hinweis zum Weiterspielen lag über den Credits.
+
 ## Version 3.7.0 – Spielesuche, Lobby-Chat, Bereit-Knopf, Deathmatch-Statistik (16.10.2026)
 
 - **Spiele im Netzwerk finden:** **[N] Multiplayer → [J] Spiel beitreten** zeigt jetzt automatisch alle offenen Spiele im WLAN, mit Host, Modus und Spielerzahl.
