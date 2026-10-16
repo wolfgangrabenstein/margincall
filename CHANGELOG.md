@@ -1,5 +1,14 @@
 # MARGIN CALL – Changelog
 
+## Version 3.10.0 – Online-Rangliste vorbereitet, ruhigeres Licht (16.10.2026)
+
+- **Licht flackert nur noch beim ALGO-Angriff:** Bisher flackerte es bei jeder starken Kursbewegung und während der ganzen Manipulation mehrmals pro Sekunde. Jetzt flackert es nur in den ersten 0,7 Sekunden, wenn ALGO-9000 zuschlägt (auch beim Kippen von Pump & Dump). Im Multiplayer flackert es bei allen gleichzeitig.
+- **Online-Rangliste (startet, sobald der Server läuft):** Neben der lokalen Top 10 gibt es eine weltweite Rangliste.
+  - **Reiter im Highscore-Menü:** [1] Lokal, [2] Online gesamt (Top 100), [3] Online heute. Umschalten mit 1–3 oder ←/→, blättern mit ↑/↓.
+  - **Eigener Platz:** Nach dem Eintragen springt die Liste zu deinem Eintrag und zeigt z. B. „DEIN PLATZ: 23 VON 41“, auch außerhalb der Top 100.
+  - **Freiwillig:** Nach jedem Lauf schaltest du mit **Tab** „Auch online eintragen“ ein. Die Einstellung wird gemerkt und ist auch unter *Optionen → Online-Rangliste* änderbar. Übertragen werden nur Name, Punkte, Level, Sieg, Tode und Spielversion.
+  - **Server:** ein Cloudflare Worker im Ordner `worker/`. Solange er nicht eingerichtet ist, bleibt alles Online im Spiel ausgeblendet. Anleitung: [worker/README.md](worker/README.md).
+
 ## Version 3.9.0 – ALGO-9000 manipuliert den Kurs, Einzelaktien im Ticker (16.10.2026)
 
 - **ALGO-9000 verschiebt den Spielkurs:** Jeder Angriff legt für 15–24 Sekunden einen Auf- oder Abschlag auf den echten Kurs des Levels. Alles, was am Kurs hängt, reagiert sofort darauf: das Verhältnis von Bullen zu Bären, ihre Stärke und im Team-Modus der Schadensbonus. Kurz vor Ende läuft die Manipulation langsam aus.
