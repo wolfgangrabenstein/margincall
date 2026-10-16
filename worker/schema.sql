@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS scores (
   deaths INTEGER NOT NULL DEFAULT 0,
   ver    TEXT    NOT NULL DEFAULT '',
   day    TEXT    NOT NULL,          -- YYYY-MM-DD (Europe/Vienna)
-  ts     INTEGER NOT NULL           -- Unix-Zeit in Sekunden
+  ts     INTEGER NOT NULL,          -- Unix-Zeit in Sekunden
+  hc     INTEGER NOT NULL DEFAULT 0 -- 1 = Hardcore (eigene Rangliste)
 );
-CREATE INDEX IF NOT EXISTS scores_score ON scores (score DESC);
-CREATE INDEX IF NOT EXISTS scores_day   ON scores (day, score DESC);
+CREATE INDEX IF NOT EXISTS scores_hc_score ON scores (hc, score DESC);
+CREATE INDEX IF NOT EXISTS scores_hc_day   ON scores (hc, day, score DESC);

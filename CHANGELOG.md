@@ -1,5 +1,18 @@
 # MARGIN CALL – Changelog
 
+## Version 3.11.0 – Hardcore-Modus, fairere Bosse (16.10.2026)
+
+- **Hardcore-Modus:** Im Hauptmenü mit **X** (oder dem roten Knopf) starten, nur im Solo-Spiel.
+  - **Ein Tod beendet den Lauf:** Statt „Neuer Kredit“ kommt **GAME OVER**, danach wird die Punktzahl eingetragen.
+  - **Härtere Gegner:** 60 % mehr Energie, sie feuern 35 % öfter, ihre Geschosse fliegen 25 % schneller, und sie richten 50 % mehr Schaden an. ALGO-9000 greift häufiger an.
+  - **Knapper Nachschub:** Start mit 20 statt 30 Cash, kein Auffüllen zwischen den Levels, 40 % weniger Beute. Cash gibt +7 statt +10, eine Dividende +15 % statt +20 %, verstreutes Bargeld liegt seltener herum.
+  - **Belohnung:** Alle Punkte zählen 1,5-fach.
+  - **Eigene Ranglisten:** Hardcore hat eine eigene lokale Top 10 und eigene Online-Listen (gesamt und heute). Im Highscore-Menü schaltest du mit **X** zwischen Normal und Hardcore um.
+- **Bosse lassen sich nicht mehr hinter Sockeln austricksen:** Stand man halb hinter einer Kante, traf man den breiten Boss noch, er schoss aber gar nicht zurück, weil er nur seine Mittellinie prüfte. Jetzt prüfen Bosse und alle Fernkämpfer ihre ganze Breite und schießen von der freien Seite.
+- **Erledigte Gegner verschwinden nach 7 statt nach 25 Sekunden.**
+- **Esc führt erst ins Hauptmenü:** Aus Pause und Multiplayer-Menü bringt Esc dich ins Hauptmenü, ganz beendet wird das Spiel nur von dort.
+- **Cardputer:** Hardcore (X im Titelbild), der Boss-Fix und die 7 Sekunden gibt es auch dort; Ranglisten gibt es auf dem Cardputer nicht.
+
 ## Version 3.10.1 – Online-Rangliste ist live (16.10.2026)
 
 - **Die Online-Rangliste ist freigeschaltet.** Nach einem Solo-Lauf mit **Tab** „Auch online eintragen“ wählen. Im Highscore-Menü (**H**) siehst du dann unter [2] und [3] die weltweite Gesamt- und Tagesrangliste mit deinem Platz.

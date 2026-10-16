@@ -54,7 +54,7 @@
 // Live-Kurse kommen vom lokalen Spiel-Server (MarginCall.exe) unter /api/market.
 // =====================================================================================
 
-const APP_VERSION = "3.10.1";
+const APP_VERSION = "3.11.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -664,7 +664,7 @@ function spawnEnemy(type, x, y) {
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
   const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
-  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop), maxhp: Math.round(ti.hp * coop), str, alive: true, awake: false, gone: false,
+  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.6 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.6 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
   return e;
@@ -673,6 +673,16 @@ function lineOfSight(x0, y0, x1, y1) {
   const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy), steps = Math.floor(d * 5) + 1;
   for (let i = 1; i < steps; i++) { const t = i / steps; if (solidCell(Math.floor(x0 + dx * t), Math.floor(y0 + dy * t))) return false; }
   return true;
+}
+// Schussposition fuer Fernkaempfer: Mitte oder Rand des Gegners (so breit wie seine Trefferzone), von der aus das
+// Ziel frei sichtbar ist. Sonst trifft man breite Bosse halb hinter einer Kante, waehrend deren Schuesse dort haengen bleiben.
+function fireOrigin(e, tx, ty) {
+  const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, qx = -dy / d, qy = dx / d, r = .32 * TYPES[e.type].scale;
+  for (const k of [0, -.5, .5, -1, 1]) {
+    const ox = e.x + qx * r * k, oy = e.y + qy * r * k;
+    if (!solidCell(Math.floor(ox), Math.floor(oy)) && lineOfSight(ox, oy, tx, ty)) return [ox, oy, Math.atan2(ty - oy, tx - ox)];
+  }
+  return null;
 }
 // freie Zelle, weit weg und ausser Sicht aller Spieler
 function findHiddenCell(minDist) {
@@ -761,17 +771,23 @@ function moveEntity(o, mx, my, r) {
 
 function addScore(pl, pts) {
   if (!pl) return;
+  pts = Math.round(pts * (HC() ? 1.5 : 1));
   pl.score += pts;
   if (mode === "team") teamScore[pl.team] += pts;
 }
 function damagePlayer(pl, d, why, attacker = null) {
   if (!pl || pl.dead || (state !== ST.PLAY)) return;
+  if (HC()) d *= 1.5;
   pl.hp -= Math.round(d);
   if (pl.local) hurtT = .35; else emit(["hurt", pl.id]);
   sfxTo(pl, "PHONE");
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
   pl.hp = 0;
+  if (HC()) {   // Hardcore: Insolvenz ist endgueltig, der Lauf endet
+    pl.deaths++; deathPenalty = 0;
+    state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
+  }
   if (!isMP()) {   // Solo: jeder Tod wird gezaehlt und kostet 25 % des P&L (mind. 500 $)
     pl.deaths++; deathPenalty = Math.min(pl.score, Math.max(500, Math.floor(pl.score * .25))); pl.score -= deathPenalty;
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
@@ -793,6 +809,7 @@ function respawnPlayer(pl) {
 }
 function spawnProj(x, y, ang, spd, dmg, f, spr) {
   if (projs.length > 60) return;
+  if (HC()) spd *= 1.25;
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
@@ -813,7 +830,7 @@ function killEnemy(e, byPlayer) {
   sfxNear(e.type === E.BUBBLE ? "POP" : e.type === E.SLICK ? "OIL" : "STAMP", e.x, e.y, 10);
   const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
-  else if (frand() < chance) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
+  else if (frand() < chance * (HC() ? .6 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -928,7 +945,7 @@ function meleeHit(e, dmgP, dmgE, why) {
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
 function updateEnemy(e, dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul(); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.35 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   const spd = crashT > 0 ? 1.4 : 1, animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
@@ -941,17 +958,17 @@ function updateEnemy(e, dt) {
   const tx = t.x, ty = t.y, dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, nx = dx / d, ny = dy / d, ang = Math.atan2(dy, dx);
 
   if (!animal) {
-    const los = d < 12 && lineOfSight(e.x, e.y, tx, ty);
+    const fo = d < 12 ? fireOrigin(e, tx, ty) : null, los = !!fo;
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
       case E.SHARK:
         if (d > 3 || !los) moveEntity(e, nx * 1.2 * dt, ny * 1.2 * dt, .35);
         if (d < .9 && e.cd <= 0) { e.cd = 1; damagePlayer(t, 20, "FEINDLICHE ÜBERNAHME!"); }
-        if (los && e.cd <= 0) { e.cd = 1.3; e.attackAnim = .4; for (let k = -1; k <= 1; k++) spawnProj(e.x, e.y, ang + k * .18, 4, 10, F.NEUTRAL, S.PROJ); sfxNear("ZAP", e.x, e.y, 12); }
+        if (los && e.cd <= 0) { e.cd = 1.3; e.attackAnim = .4; for (let k = -1; k <= 1; k++) spawnProj(fo[0], fo[1], fo[2] + k * .18, 4, 10, F.NEUTRAL, S.PROJ); sfxNear("ZAP", e.x, e.y, 12); }
         return;
       case E.BARON:
         if (d > 4.5 || !los) moveEntity(e, nx * dt, ny * dt, .25); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
-        if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(e.x, e.y, ang, 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
+        if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], fo[2], 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
         return;
       case E.SLICK:
         if (d > .7) moveEntity(e, nx * .9 * dt * spd, ny * .9 * dt * spd, .25);
@@ -961,12 +978,12 @@ function updateEnemy(e, dt) {
         const w = Math.sin(e.anim * 3) * .6;
         if (d > 3.2 || !los) moveEntity(e, (nx - ny * w) * 2 * dt, (ny + nx * w) * 2 * dt, .2);
         else moveEntity(e, -ny * w * 1.5 * dt, nx * w * 1.5 * dt, .2);
-        if (los && e.cd <= 0 && d < 10) { e.cd = 1.3 + frand() * .5; e.attackAnim = .25; spawnProj(e.x, e.y, ang + (frand() - .5) * .1, 6, 6, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 10); }
+        if (los && e.cd <= 0 && d < 10) { e.cd = 1.3 + frand() * .5; e.attackAnim = .25; spawnProj(fo[0], fo[1], fo[2] + (frand() - .5) * .1, 6, 6, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 10); }
         return;
       }
       case E.ALGO:
         e.spawnCd -= dt;
-        if (los && e.cd <= 0) { e.cd = 1.2; e.attackAnim = .5; for (let k = -2; k <= 2; k++) spawnProj(e.x, e.y, ang + k * .14, 5, 8, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 14); }
+        if (los && e.cd <= 0) { e.cd = 1.2; e.attackAnim = .5; for (let k = -2; k <= 2; k++) spawnProj(fo[0], fo[1], fo[2] + k * .14, 5, 8, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 14); }
         if (e.spawnCd <= 0) { e.spawnCd = 8; spawnNear(E.BOT, 2); }
         if (!e.halfDone && e.hp < e.maxhp / 2) { e.halfDone = true; aiEvent(1); }
         return;
@@ -999,7 +1016,10 @@ function updateEnemy(e, dt) {
       break;
     case E.SELLER:
       if (d > 4) moveEntity(e, nx * 1.1 * dt, ny * 1.1 * dt, .25); else if (d < 2.2) moveEntity(e, -nx * .9 * dt, -ny * .9 * dt, .25);
-      if (e.cd <= 0 && d < 10 && lineOfSight(e.x, e.y, tx, ty)) { e.cd = 1.6 + frand(); e.attackAnim = .3; spawnProj(e.x, e.y, ang + (frand() - .5) * .12, 4.5, 8, F.BEAR, S.PROJ); sfxNear("ZAP", e.x, e.y, 10); }
+      if (e.cd <= 0 && d < 10) {
+        const fo = fireOrigin(e, tx, ty);
+        if (fo) { e.cd = 1.6 + frand(); e.attackAnim = .3; spawnProj(fo[0], fo[1], fo[2] + (frand() - .5) * .12, 4.5, 8, F.BEAR, S.PROJ); sfxNear("ZAP", e.x, e.y, 10); }
+      }
       break;
     case E.BUBBLE: {
       const w = Math.sin(e.anim * 5) * .8;
@@ -1165,11 +1185,18 @@ if (URLP.get("cfg")) {
 }
 const appUrl = (base, extra = "") => `${base}/?app=1&home=${HOME_PORT}&cfg=${encodeURIComponent(JSON.stringify(settings))}${extra}`;
 function goHome() { location.href = appUrl(`http://127.0.0.1:${HOME_PORT}`); }
+function backToTitle() {   // Esc im Spiel: immer erst ins Hauptmenue, ganz beendet wird nur von dort
+  if (isMP()) { leaveMP(); return; }
+  mpMenu = false; state = ST.TITLE; musicStart(); document.exitPointerLock?.();
+}
 function quitGame() {
   if (IN_APP) { location.href = "http://margincall.quit/"; return; }
   if (typeof netDisconnect === "function") netDisconnect();
   netNotice("DU KANNST DIESEN TAB JETZT SCHLIESSEN"); state = ST.TITLE; musicStop();
 }
+// Hardcore (nur Solo): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – und ein Tod beendet den Lauf
+let hardcore = false;
+const HC = () => hardcore && !isMP();
 let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0, deathPenalty = 0;
 let lobbyGame = "", chatLog = [], lobbyChat = [], chatTyping = false, chatText = "", rawKey = "", lobbyNote = "", lobbyNoteT = 0;
 let foundGames = [], joinSel = 0, gamesT = 0, advertising = false, advertiseT = 0, fsOn = false;
@@ -1230,7 +1257,7 @@ function updateHint() {
   document.getElementById("hint").textContent =
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ` +
     `${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · Esc in der Pause = Beenden`;
+    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · Esc in der Pause = Hauptmenü`;
 }
 
 // Optionsmenue
@@ -1384,7 +1411,7 @@ function onKeyPress(k) {
   if (state === ST.NAMEENTRY) { nameKey(k); return; }
   if (state === ST.HIGHSCORES) { highscoreKey(k); return; }
   if (state === ST.PLAY && mpMenu) {
-    if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
+    if (k === "Escape") { if (pauseAge() > .4) backToTitle(); }
     else if (k === "l") leaveMP();
     else if (isBound("pause", k)) { mpMenu = false; lockMouse(); }
     return;
@@ -1400,7 +1427,10 @@ function onKeyPress(k) {
       else if (k === "h") openHighscores();
       else if (k === "Escape") quitGame();
       else if (k === "n") { if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
-      else if (k === "enter") { mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); }
+      else if (k === "enter" || k === "x") {   // X = Hardcore
+        hardcore = k === "x"; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
+        state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say("HARDCORE: EINE INSOLVENZ UND ES IST VORBEI", 3);
+      }
       break;
     case ST.LOBBY:
       if (k === "Escape") { leaveMP(); break; }
@@ -1438,19 +1468,20 @@ function onKeyPress(k) {
       else if (k === "Escape") state = ST.TITLE;
       break;
     case ST.PAUSE:
-      if (k === "Escape") { if (pauseAge() > .4) quitGame(); }
+      if (k === "Escape") { if (pauseAge() > .4) backToTitle(); }
       else if (k === "o") openOptions();
       else if (isBound("pause", k) || k === "enter") { state = ST.PLAY; lockMouse(); }
       break;
     case ST.LEVELDONE:
-      if (k === "enter" && isHost()) { loadLevel(level + 1); players.forEach(p => p.ammo = Math.max(p.ammo, 15)); state = ST.PLAY; fireCd = .4; lockMouse(); }
+      if (k === "enter" && isHost()) { loadLevel(level + 1); if (!HC()) players.forEach(p => p.ammo = Math.max(p.ammo, 15)); state = ST.PLAY; fireCd = .4; lockMouse(); }
       break;
     case ST.ROUNDEND:
       if (k === "enter" && isHost()) { nextRound(); lockMouse(); }
       if (k === "Escape") leaveMP();
       break;
     case ST.DEAD:
-      if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
+      if (HC()) { if (k === "enter" || k === "h") finishRun(false); }   // Hardcore: kein neuer Kredit
+      else if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
       else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
     case ST.WIN:
@@ -1546,8 +1577,8 @@ function updateGame(dt) {
     if (!it.active) continue;
     for (const pl of players) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
-      if (it.type === 0) { if (pl.ammo >= 99) continue; pl.ammo = Math.min(99, pl.ammo + 10); sayTo(pl, "CASHFLOW +10", 1.2); }
-      else { if (pl.hp >= 100) continue; pl.hp = Math.min(100, pl.hp + 20); sayTo(pl, "DIVIDENDE AUSGESCHÜTTET +20 %", 1.2); }
+      if (it.type === 0) { if (pl.ammo >= 99) continue; const n = HC() ? 7 : 10; pl.ammo = Math.min(99, pl.ammo + n); sayTo(pl, `CASHFLOW +${n}`, 1.2); }
+      else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `DIVIDENDE AUSGESCHÜTTET +${n} %`, 1.2); }
       it.active = false; addScore(pl, 25);
       if (pl.local) pickT = .25; else emit(["pick", pl.id]);
       sfxTo(pl, it.type === 0 ? "KACHING" : "COINS");
@@ -1566,7 +1597,7 @@ function updateGame(dt) {
   bullsAlive = bearsAlive = 0;
   for (const e of enemies) {
     if (e.gone) continue;
-    if (!e.alive) { e.deadT += dt; if (e.deadT > 25) e.gone = true; continue; }
+    if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
     if (e.f === F.BULL) bullsAlive++; else if (e.f === F.BEAR) bearsAlive++;
     updateEnemy(e, dt);
     if (state !== ST.PLAY) return;
@@ -1585,14 +1616,14 @@ function updateGame(dt) {
   cashT -= dt;
   if (cashT <= 0) {
     const broke = players.some(p => !p.dead && p.ammo <= 3);
-    cashT = broke ? 15 + frand() * 10 : 45 + frand() * 30;
+    cashT = (broke ? 15 + frand() * 10 : 45 + frand() * 30) * (HC() ? 1.6 : 1);
     if (items.filter(i => i.active && i.stray).length < 2) {
       const c = findHiddenCell(6);
       if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true });
     }
   }
   aiT -= dt;
-  if (aiT <= 0) { aiT = level === NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30; aiEvent(); }
+  if (aiT <= 0) { aiT = (level === NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (HC() ? .7 : 1); aiEvent(); }
 
   for (const p of projs) {
     if (!p.active) continue;
@@ -1831,7 +1862,7 @@ function renderHUD() {
     const m = levelMarket();
     const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
     if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
-    else text(`${ml} ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}  ·  ${marketStatus}${mode === "coop" ? `  ·  KOOP ${players.length} SPIELER` : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
+    else text(`${ml} ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}  ·  ${marketStatus}${mode === "coop" ? `  ·  KOOP ${players.length} SPIELER` : ""}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   if (pickT > 0) { g.strokeStyle = "rgba(60,255,120,.9)"; g.lineWidth = 6; g.strokeRect(3, 3, DW - 6, HUD_Y - 6); }
@@ -1915,8 +1946,9 @@ function renderTitle() {
   text(`${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · 2× Richtung = Ausweichen`, DW / 2, 345, "#a0a0b4", 15, "center");
   // Hauptknopf: Einzelspieler starten (pulsiert leicht)
   const pulse = .5 + .5 * Math.sin(gameTime * 4);
-  g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(300, 378, 360, 56);
-  zoneButton(300, 378, 360, 56, "▶  [ENTER] SOLO SPIELEN", "#ffd232", "enter", 24);
+  g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(170, 378, 360, 56);
+  zoneButton(170, 378, 360, 56, "▶  [ENTER] SOLO SPIELEN", "#ffd232", "enter", 24);
+  zoneButton(550, 378, 240, 56, "☠  [X] HARDCORE", "#ff5050", "x", 22);
   button(TITLE_BTNS[0], "[N] MULTIPLAYER", "#50c8ff");
   button(TITLE_BTNS[1], "[H] HIGHSCORES", "#ffd232");
   button(TITLE_BTNS[2], "[O] OPTIONEN", "#50ff82");
@@ -2036,8 +2068,11 @@ function renderEnd(title, sub, col, bull) {
     text(`Von dir liquidiert: ${me.kills}   ·   Tode: ${me.deaths}   ·   Marktbereinigung: ${marketKills}`, DW / 2, 255, "#c8c8d2", 18, "center");
   }
   if (!isMP() && state === ST.DEAD) {
-    zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT", "#50ff82", "enter", 16);
-    zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
+    if (HC()) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
+    else {
+      zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT", "#50ff82", "enter", 16);
+      zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
+    }
   } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
   else if (state === ST.ROUNDEND) {   // Countdown bis zum naechsten Level
     const t = Math.max(0, Math.ceil(roundT));
@@ -2336,19 +2371,22 @@ function renderPrivacy() {
 // Gespeichert vom eingebauten Server in einer Datei im Benutzerordner; im reinen Browser als Notbehelf lokal.
 const HS_LOCAL_KEY = "margincall.highscores.v1";
 let hsList = [], hsNew = -1, hsName = "", hsEntry = null, hsReturn = ST.TITLE;
+let hsHC = false;   // angezeigte bzw. aktuelle Liste: normal oder Hardcore (getrennte Ranglisten)
+const hsApi = () => hsHC ? "/api/highscores-hc" : "/api/highscores";
+const hsLocalKey = () => hsHC ? HS_LOCAL_KEY + ".hardcore" : HS_LOCAL_KEY;
 async function hsLoad() {
-  try { const r = await fetch("/api/highscores", { cache: "no-store" }); if (!r.ok) throw 0; hsList = await r.json(); }
-  catch (e) { try { hsList = JSON.parse(localStorage.getItem(HS_LOCAL_KEY) || "[]"); } catch (e2) { hsList = []; } }
+  try { const r = await fetch(hsApi(), { cache: "no-store" }); if (!r.ok) throw 0; hsList = await r.json(); }
+  catch (e) { try { hsList = JSON.parse(localStorage.getItem(hsLocalKey()) || "[]"); } catch (e2) { hsList = []; } }
   return hsList;
 }
 async function hsSave(entry) {
   try {
-    const r = await fetch("/api/highscores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) });
+    const r = await fetch(hsApi(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) });
     if (!r.ok) throw 0;
     hsList = await r.json();
   } catch (e) {
     hsList = [...hsList, { ...entry, date: Math.floor(Date.now() / 1000) }].sort((a, b) => b.score - a.score).slice(0, 10);
-    try { localStorage.setItem(HS_LOCAL_KEY, JSON.stringify(hsList)); } catch (e2) { }
+    try { localStorage.setItem(hsLocalKey(), JSON.stringify(hsList)); } catch (e2) { }
   }
   hsNew = hsList.findIndex(h => h.name === entry.name && h.score === entry.score);
 }
@@ -2363,7 +2401,7 @@ async function hsOnlineLoad(scope) {
   if (!ONLINE_HS_URL) return;
   const o = hsOnline[scope]; o.status = "LÄDT…";
   try {
-    const r = await fetch(`${ONLINE_HS_URL}/scores?scope=${scope}&limit=100`, { cache: "no-store" });
+    const r = await fetch(`${ONLINE_HS_URL}/scores?scope=${scope}&hc=${hsHC ? 1 : 0}&limit=100`, { cache: "no-store" });
     if (!r.ok) throw 0;
     o.list = await r.json(); o.status = "";
   } catch (e) { o.status = "KEINE VERBINDUNG ZUR ONLINE-RANGLISTE"; }
@@ -2375,11 +2413,12 @@ async function hsOnlineSubmit(entry) {
     hsMine = await r.json();
   } catch (e) { hsMine = null; }
 }
+const hsMyRank = () => hsMine && hsMine.hc === hsHC ? (hsTab === 2 ? hsMine.dayRank : hsMine.rank) : null;
 function hsSetTab(t) {
   hsTab = (t + HS_TABS.length) % HS_TABS.length; hsScroll = 0;
   if (hsTab > 0) {
     hsOnlineLoad(hsScope()).then(() => {   // eigenen Platz ins Bild scrollen
-      const rank = hsMine && (hsTab === 2 ? hsMine.dayRank : hsMine.rank);
+      const rank = hsMyRank();
       if (rank && rank <= hsOnline[hsScope()].list.length) hsScroll = Math.max(0, Math.min(rank - 5, hsOnline[hsScope()].list.length - 10));
     });
   }
@@ -2387,6 +2426,7 @@ function hsSetTab(t) {
 function highscoreKey(k) {
   if (k === "Escape" || k === "enter") { state = hsReturn === ST.HIGHSCORES ? ST.TITLE : hsReturn; if (state === ST.TITLE) musicStart(); }
   else if (k === "1" || k === "2" || k === "3") hsSetTab(+k - 1);
+  else if (k === "x") { hsHC = !hsHC; hsNew = -1; hsLoad(); hsSetTab(hsTab); sfx("HIT"); }   // Normal <-> Hardcore
   else if (k === "ArrowRight") hsSetTab(hsTab + 1);
   else if (k === "ArrowLeft") hsSetTab(hsTab - 1);
   else if (hsTab > 0 && (k === "ArrowDown" || k === "ArrowUp" || k === "PageDown" || k === "PageUp")) {
@@ -2397,9 +2437,9 @@ function highscoreKey(k) {
 // Lauf beenden: Name eingeben bei Top-10-Platz oder wenn online eingetragen werden kann, sonst direkt die Liste
 async function finishRun(won) {
   musicStop();
+  hsHC = hardcore; hsMine = null; hsTab = 0; hsScroll = 0;
   await hsLoad();
   hsEntry = { score: me.score, level: level + 1, won, deaths: me.deaths };
-  hsMine = null; hsTab = 0; hsScroll = 0;
   if (hsQualifies(me.score) || (ONLINE_HS_URL && me.score > 0)) { hsName = settings.playerName || ""; state = ST.NAMEENTRY; }
   else { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; }
 }
@@ -2409,7 +2449,7 @@ async function hsSubmitName() {
   settings.playerName = name; saveSettings();
   if (hsQualifies(hsEntry.score)) await hsSave({ ...hsEntry, name }); else hsNew = -1;
   const online = ONLINE_HS_URL && settings.onlineScores === true;
-  if (online) await hsOnlineSubmit({ ...hsEntry, name, ver: APP_VERSION });
+  if (online) await hsOnlineSubmit({ ...hsEntry, name, ver: APP_VERSION, hc: hsHC });
   sfx("KACHING"); hsReturn = ST.TITLE; state = ST.HIGHSCORES;
   if (online) hsSetTab(1);
 }
@@ -2428,7 +2468,7 @@ function renderNameEntry() {
   chartBackground("#145a2d", "#282828");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 70, DW - 280, 400);
   const local = hsQualifies(hsEntry.score), place = hsList.filter(h => h.score >= hsEntry.score).length + 1;
-  text(local ? "NEUER HIGHSCORE!" : "LAUF BEENDET", DW / 2, 90, "#ffd232", 44, "center");
+  text(local ? (hsHC ? "NEUER HARDCORE-HIGHSCORE!" : "NEUER HIGHSCORE!") : "LAUF BEENDET", DW / 2, 90, hsHC ? "#ff5050" : "#ffd232", hsHC && local ? 36 : 44, "center");
   text(`${local ? `PLATZ ${place}  ·  ` : ""}P&L +$${hsEntry.score.toLocaleString("de-DE")}  ·  ${hsEntry.won ? "SIEG" : "LEVEL " + hsEntry.level}  ·  ☠ ${hsEntry.deaths}`, DW / 2, 152, "#50ff82", 20, "center");
   text("DEIN NAME", DW / 2, 196, "#8290b0", 15, "center");
   g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 220, 400, 54);
@@ -2446,7 +2486,7 @@ function renderNameEntry() {
 function renderHighscores() {
   chartBackground("#145a2d", "#641919");
   g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(100, 26, DW - 200, 480);
-  text("HIGHSCORES", DW / 2, 34, "#ffd232", 36, "center");
+  text(hsHC ? "☠ HARDCORE-HIGHSCORES" : "HIGHSCORES", DW / 2, 34, hsHC ? "#ff5050" : "#ffd232", 36, "center");
   if (HS_TABS.length > 1) HS_TABS.forEach((t, i) => {   // Reiter
     const x = 160 + i * 220, sel = i === hsTab;
     g.fillStyle = sel ? "#1e5a32" : "rgba(0,0,0,.6)"; g.fillRect(x, 76, 200, 26);
@@ -2467,20 +2507,21 @@ function renderHighscores() {
     text(t ? (hsTab === 2 ? new Date(t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : new Date(t * 1000).toLocaleDateString("de-DE")) : "", 830, y, "#8290b0", 14, "right");
   };
   if (hsTab === 0) {
-    if (!hsList.length) text("Noch keine Einträge – spiel eine Runde Solo!", DW / 2, 230, "#a0a0b4", 18, "center");
+    if (!hsList.length) text(hsHC ? "Noch keine Einträge – trau dich an Hardcore!" : "Noch keine Einträge – spiel eine Runde Solo!", DW / 2, 230, "#a0a0b4", 18, "center");
     hsList.forEach((h, i) => row(132 + i * 29, i + 1, h, i === hsNew));
   } else if (!ONLINE_HS_URL) {
     text("Die Online-Rangliste ist noch nicht eingerichtet.", DW / 2, 230, "#a0a0b4", 18, "center");
   } else {
-    const o = hsOnline[hsScope()], rank = hsMine && (hsTab === 2 ? hsMine.dayRank : hsMine.rank), total = hsMine && (hsTab === 2 ? hsMine.dayTotal : hsMine.total);
+    const o = hsOnline[hsScope()], rank = hsMyRank(), total = rank && (hsTab === 2 ? hsMine.dayTotal : hsMine.total);
     if (o.status) text(o.status, DW / 2, 230, "#a0a0b4", 18, "center");
     else if (!o.list.length) text(hsTab === 2 ? "Heute noch keine Einträge – sei der Erste!" : "Noch keine Einträge.", DW / 2, 230, "#a0a0b4", 18, "center");
-    else o.list.slice(hsScroll, hsScroll + 10).forEach((h, i) => row(132 + i * 29, hsScroll + i + 1, h, hsMine && h.id === hsMine.id));
+    else o.list.slice(hsScroll, hsScroll + 10).forEach((h, i) => row(132 + i * 29, hsScroll + i + 1, h, !!hsMyRank() && h.id === hsMine.id));
     if (o.list.length > 10) text(`${hsScroll + 1}–${Math.min(o.list.length, hsScroll + 10)} von ${o.list.length}  ·  ↑↓ blättern`, 830, 424, "#6b7896", 12, "right");
     if (rank) text(`DEIN PLATZ: ${rank} VON ${total}${rank > o.list.length ? "  (außerhalb der Top 100)" : ""}`, 140, 424, "#ffd232", 15);
     else if (settings.onlineScores !== true) text("Eintragen: im Optionsmenü oder nach dem Lauf „Auch online eintragen“ wählen.", 140, 424, "#6b7896", 12);
   }
-  zoneButton(370, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
+  zoneButton(250, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
+  zoneButton(490, 452, 220, 38, hsHC ? "[X] ZU NORMAL" : "[X] ZU ☠ HARDCORE", hsHC ? "#ffd232" : "#ff5050", "x", 16);
 }
 
 // ---------------------------------------------------------------- Texteingabe (Nickname, Spielname)
@@ -2578,7 +2619,7 @@ function renderMpMenu() {
   text("MULTIPLAYER-MENÜ", DW / 2, 166, "#ffd232", 26, "center");
   text("Das Spiel läuft weiter!", DW / 2, 202, "#ff7050", 16, "center");
   zoneButton(268, 226, 205, 34, "[L] VERLASSEN", "#ffffff", "l", 16);
-  zoneButton(487, 226, 205, 34, "[ESC] BEENDEN", "#ff7050", "Escape", 16);
+  zoneButton(487, 226, 205, 34, "[ESC] HAUPTMENÜ", "#ff7050", "Escape", 16);
   zoneButton(368, 268, 224, 30, "[P] ZURÜCK INS SPIEL", "#8290b0", "p", 15);
 }
 
@@ -2669,7 +2710,7 @@ function frame(now) {
       text("HANDEL AUSGESETZT", DW / 2, 178, "#ffd232", 28, "center");
       zoneButton(250, 228, 145, 40, "[P] WEITER", "#50ff82", "p", 16);
       zoneButton(408, 228, 145, 40, "[O] OPTIONEN", "#50c8ff", "o", 16);
-      zoneButton(566, 228, 145, 40, "[ESC] BEENDEN", "#ff7050", "Escape", 16);
+      zoneButton(566, 228, 145, 40, "[ESC] HAUPTMENÜ", "#ff7050", "Escape", 16);
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
     case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", "Level geschafft – der Kurs steigt", "#50ff82", true); break;
@@ -2677,7 +2718,10 @@ function frame(now) {
       gameTime += dt;
       if (isHost()) { roundT -= dt; if (roundT <= 0) { nextRound(); break; } }   // automatisch weiter nach der Pause
       renderRoundEnd(); break;
-    case ST.DEAD: gameTime += dt; renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false); break;
+    case ST.DEAD: gameTime += dt;
+      if (HC()) renderEnd("GAME OVER", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei", "#ff3c3c", false);
+      else renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false);
+      break;
     case ST.WIN: gameTime += dt; renderEnd("BULLENMARKT!", "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true); break;
   }
   if (edit) { clickZones = []; renderEdit(); }

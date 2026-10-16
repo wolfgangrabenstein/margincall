@@ -91,28 +91,29 @@ def get_markets():
 _hs_lock = threading.Lock()
 
 
-def highscore_file():
+def highscore_file(hc=False):   # Hardcore hat eine eigene Liste
     if sys.platform == "win32":
         base = os.environ.get("APPDATA", ".")
     elif sys.platform == "darwin":
         base = os.path.expanduser("~/Library/Application Support")
     else:
         base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-    return os.path.join(os.environ.get("MARGINCALL_DATA_DIR") or os.path.join(base, "MarginCall"), "highscores.json")
+    return os.path.join(os.environ.get("MARGINCALL_DATA_DIR") or os.path.join(base, "MarginCall"),
+                        "highscores-hardcore.json" if hc else "highscores.json")
 
 
-def highscores_load():
+def highscores_load(hc=False):
     try:
-        with open(highscore_file(), encoding="utf-8") as f:
+        with open(highscore_file(hc), encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, list) else []
     except (OSError, ValueError):
         return []
 
 
-def highscore_add(body):
+def highscore_add(body, hc=False):
     with _hs_lock:
-        lst = highscores_load()
+        lst = highscores_load(hc)
         try:
             e = json.loads(body)
             name = "".join(c for c in str(e.get("name", "")) if c.isalnum() or c in " -_.")[:12].strip()
@@ -123,8 +124,8 @@ def highscore_add(body):
                 lst.append({"name": name, "score": score, "level": level, "won": bool(e.get("won")), "deaths": deaths, "date": int(time.time())})
                 lst.sort(key=lambda x: -x["score"])
                 del lst[10:]
-                os.makedirs(os.path.dirname(highscore_file()), exist_ok=True)
-                with open(highscore_file(), "w", encoding="utf-8") as f:
+                os.makedirs(os.path.dirname(highscore_file(hc)), exist_ok=True)
+                with open(highscore_file(hc), "w", encoding="utf-8") as f:
                     json.dump(lst, f)
         except (ValueError, TypeError):
             pass
@@ -329,8 +330,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, f.read(), "text/html; charset=utf-8")
         elif path == "/api/ping":
             self._send(200, b"ok", "text/plain")
-        elif path == "/api/highscores":
-            self._send(200, json.dumps(highscores_load()).encode(), "application/json")
+        elif path in ("/api/highscores", "/api/highscores-hc"):
+            self._send(200, json.dumps(highscores_load(path.endswith("-hc"))).encode(), "application/json")
         elif path == "/api/games":
             self._send(200, json.dumps(games_list()).encode(), "application/json")
         elif path == "/api/info":
@@ -344,7 +345,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/highscores", "/api/host"):
+        if path not in ("/api/highscores", "/api/highscores-hc", "/api/host"):
             self._send(404, b"not found", "text/plain")
             return
         n = int(self.headers.get("Content-Length", "0") or 0)
@@ -365,7 +366,7 @@ class Handler(BaseHTTPRequestHandler):
                 _hosting.update(t=0, info=None)
             self._send(200, b"ok", "text/plain")
             return
-        self._send(200, json.dumps(highscore_add(body)).encode(), "application/json")
+        self._send(200, json.dumps(highscore_add(body, path.endswith("-hc"))).encode(), "application/json")
 
     def websocket(self):
         key = self.headers.get("Sec-WebSocket-Key", "")

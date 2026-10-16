@@ -1,10 +1,11 @@
 // MARGIN CALL – Online-Rangliste (Cloudflare Worker + D1)
 //
-//   GET  /scores?scope=all|day&limit=100   Top-Liste (Gesamt bzw. heute)
-//   POST /scores  {name, score, level, won, deaths, ver}
+//   GET  /scores?scope=all|day&hc=0|1&limit=100   Top-Liste (Gesamt bzw. heute; normal bzw. Hardcore)
+//   POST /scores  {name, score, level, won, deaths, ver, hc}
 //        -> {id, rank, total, dayRank, dayTotal}
 //
-// Gespeichert werden nur Name, Punkte, Level, Sieg, Tode, Spielversion und Zeitpunkt –
+// Normal und Hardcore sind getrennte Ranglisten (Spalte hc).
+// Gespeichert werden nur Name, Punkte, Level, Sieg, Tode, Modus, Spielversion und Zeitpunkt –
 // keine IP-Adressen. Der Tag richtet sich nach der Zeitzone Europe/Vienna.
 
 const MAX_SCORE = 50_000_000;
@@ -24,11 +25,11 @@ const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Vienna"
 const cleanName = v => String(v || "").replace(/[^\p{L}\p{N} ._\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 12).toUpperCase();
 const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi ? v : null;
 
-async function top(env, scope, limit) {
-  const where = scope === "day" ? "WHERE day = ?1" : "";
+async function top(env, scope, hc, limit) {
+  const where = scope === "day" ? "WHERE hc = ?1 AND day = ?2" : "WHERE hc = ?1";
   const stmt = env.DB.prepare(
     `SELECT id, name, score, level, won, deaths, ts FROM scores ${where} ORDER BY score DESC, ts ASC LIMIT ${limit}`);
-  const { results } = await (scope === "day" ? stmt.bind(today()) : stmt).all();
+  const { results } = await (scope === "day" ? stmt.bind(hc, today()) : stmt.bind(hc)).all();
   return results.map(r => ({ ...r, won: !!r.won }));
 }
 
@@ -45,19 +46,20 @@ async function add(env, request) {
   // Plausibilitaet: ein Sieg setzt Level 5 voraus
   const won = e.won === true && level === 5 ? 1 : 0;
   const ver = String(e.ver || "").replace(/[^0-9.]/g, "").slice(0, 12);
+  const hc = e.hc === true ? 1 : 0;
 
   if (ip) { recent.set(ip, now); if (recent.size > 5000) recent.clear(); }
   const day = today();
   const row = await env.DB.prepare(
-    "INSERT INTO scores (name, score, level, won, deaths, ver, day, ts) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING id")
-    .bind(name, score, level, won, deaths, ver, day, Math.floor(now / 1000)).first();
+    "INSERT INTO scores (name, score, level, won, deaths, ver, day, ts, hc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING id")
+    .bind(name, score, level, won, deaths, ver, day, Math.floor(now / 1000), hc).first();
 
-  // Platz = Anzahl besserer Eintraege + 1 (bei Gleichstand zaehlt der fruehere)
+  // Platz = Anzahl besserer Eintraege im selben Modus + 1 (bei Gleichstand zaehlt der fruehere)
   const [all, dayR] = await env.DB.batch([
-    env.DB.prepare("SELECT (SELECT COUNT(*) FROM scores WHERE score > ?1) + 1 AS rank, (SELECT COUNT(*) FROM scores) AS total").bind(score),
-    env.DB.prepare("SELECT (SELECT COUNT(*) FROM scores WHERE day = ?2 AND score > ?1) + 1 AS rank, (SELECT COUNT(*) FROM scores WHERE day = ?2) AS total").bind(score, day),
+    env.DB.prepare("SELECT (SELECT COUNT(*) FROM scores WHERE hc = ?2 AND score > ?1) + 1 AS rank, (SELECT COUNT(*) FROM scores WHERE hc = ?2) AS total").bind(score, hc),
+    env.DB.prepare("SELECT (SELECT COUNT(*) FROM scores WHERE hc = ?3 AND day = ?2 AND score > ?1) + 1 AS rank, (SELECT COUNT(*) FROM scores WHERE hc = ?3 AND day = ?2) AS total").bind(score, day, hc),
   ]);
-  return json({ id: row.id, rank: all.results[0].rank, total: all.results[0].total, dayRank: dayR.results[0].rank, dayTotal: dayR.results[0].total });
+  return json({ id: row.id, hc: !!hc, rank: all.results[0].rank, total: all.results[0].total, dayRank: dayR.results[0].rank, dayTotal: dayR.results[0].total });
 }
 
 export default {
@@ -67,7 +69,7 @@ export default {
     if (url.pathname === "/scores" && request.method === "GET") {
       const scope = url.searchParams.get("scope") === "day" ? "day" : "all";
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "100", 10) || 100));
-      return json(await top(env, scope, limit));
+      return json(await top(env, scope, url.searchParams.get("hc") === "1" ? 1 : 0, limit));
     }
     if (url.pathname === "/scores" && request.method === "POST") return add(env, request);
     if (url.pathname === "/") return json({ name: "MARGIN CALL Online-Rangliste", day: today() });
