@@ -1119,7 +1119,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       // Gebruell auf der Jagd (spawnCd dient beim Baer als Gebruell-Timer)
       e.spawnCd -= dt;
       if (e.target == -1 && e.spawnCd <= 0 && d < 8) { e.spawnCd = 5 + frand() * 4; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
-      if (d > 0.75f) moveEntity(e.x, e.y, nx * 1.5f * dt * spdMul, ny * 1.5f * dt * spdMul, 0.25f);
+      if (d > 0.75f) { float ps = e.pir >= 0 ? 1.15f : 1.0f; moveEntity(e.x, e.y, nx * 1.5f * dt * spdMul * ps, ny * 1.5f * dt * spdMul * ps, 0.25f); }
       else if (e.cd <= 0) {
         e.cd = 1.0f; e.attackAnim = 0.3f;
         if (e.target == -1 && e.spawnCd < 3) { e.spawnCd = 3; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
@@ -1168,7 +1168,7 @@ static void centerText(const char* s, int y, int size, uint16_t col);
 // Nach dem Sieg ueber ALGO-9000: eine Tropeninsel im Freien. Statt Raycasting zeichnet ein kleiner Low-Poly-Renderer
 // flach schattierte Dreiecke, nach Entfernung sortiert (Maleralgorithmus, kein Tiefenpuffer -> wenig RAM).
 // Die Insel liegt auf dem normalen 20x20-Raster: Wasser ('~') ist fuer Bewegung und Baeren eine Wand.
-static constexpr int ISLE_TIME = 75, ISLE_COINS = 30, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
+static constexpr int ISLE_TIME = 45, ISLE_COINS = 42, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
 static constexpr long ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
 static float isleT, isleSpawnT, creditsT;
 static int isleCoins;
@@ -1280,6 +1280,9 @@ static void isleBuildObjects() {
     for (int i = 0; i < 3; i++) isleAddObj(b[i], b[(i + 1) % 3], top, 135, 128, 118);
   }
 }
+static void makePirate(Enemy& e) {   // Piraten: 60 % mehr Energie, 15 % schneller (Tempo in updateEnemy)
+  e.pir = rnd() % 3; e.hp = (int16_t)roundf(e.hp * 1.6f);
+}
 static void startIsland() {
   island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5;
   for (int j = 0; j < ISLE_N; j++) for (int i = 0; i < ISLE_N; i++) isleV[j * ISLE_N + i] = isleShape(i + ISLE_MIN, j + ISLE_MIN);
@@ -1296,7 +1299,7 @@ static void startIsland() {
     float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
     isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
   }
-  for (int k = 0; k < 5; k++) { float x, y; if (isleFreeCell(7, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { enemies[i].awake = true; enemies[i].pir = rnd() % 3; } } }
+  for (int k = 0; k < 5; k++) { float x, y; if (isleFreeCell(7, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { makePirate(enemies[i]); enemies[i].awake = true; } } }
   state = ST_PLAY; fireCd = 0.4f; musicStart();
   { char b[48]; snprintf(b, sizeof(b), L("TAX HAVEN! %d S - GRAB THE GOLD", "STEUEROASE! %d S - SAMMLE DAS GOLD"), ISLE_TIME); say(b, 3.0f); }
 }
@@ -1304,7 +1307,7 @@ static void startIsland() {
 // Echtzeit mit dem Low-Poly-Renderer, Kamerafahrt im Bogen auf die Yacht zu; ENTER ueberspringt.
 static constexpr float OUTRO_LEN = 13, OUTRO_X = 10, OUTRO_Y = 23.2f;
 static float outroT, isleEyeZ = -1;   // isleEyeZ >= 0: feste Augenhoehe statt Gelaende
-static constexpr int MAX_EXTRA_TRI = 170;
+static constexpr int MAX_EXTRA_TRI = 200;
 static IsleTri isleExtra[MAX_EXTRA_TRI]; static int nIsleExtra;
 static void oTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
   if (nIsleExtra >= MAX_EXTRA_TRI) return;
@@ -1369,8 +1372,16 @@ static void outroScene(float t) {
   float P[6][3] = {{hx + r, hy, hzz}, {hx - r, hy, hzz}, {hx, hy + r, hzz}, {hx, hy - r, hzz}, {hx, hy, hzz + r}, {hx, hy, hzz - r}};
   const int E[4][2] = {{0, 2}, {2, 1}, {1, 3}, {3, 0}};
   for (auto& e : E) { oTri(P[e[0]], P[e[1]], P[4], 90, 60, 35); oTri(P[e[0]], P[e[1]], P[5], 235, 190, 150); }
-  { float a[3] = {hx - 0.19f, hy + 0.17f, hzz - 0.03f}, b[3] = {hx + 0.19f, hy + 0.17f, hzz - 0.03f}, c[3] = {hx + 0.19f, hy + 0.17f, hzz + 0.07f}, e[3] = {hx - 0.19f, hy + 0.17f, hzz + 0.07f};
-    oQuad(a, b, c, e, 10, 10, 12); }   // Sonnenbrille
+  // Meme-Sonnenbrille ("Deal with it"): Pixelbloecke mit weissen Glanzpixeln, schwebt gegen Ende auf das Gesicht herab
+  if (t > 7.6f) {
+    static const int8_t RUNS[13][4] = {{0, 0, 21, 0}, {1, 0, 9, 0}, {1, 12, 21, 0}, {2, 1, 8, 0}, {2, 13, 20, 0}, {3, 2, 7, 0}, {3, 14, 19, 0}, {1, 2, 3, 1}, {1, 14, 15, 1}, {2, 3, 4, 1}, {2, 15, 16, 1}, {3, 4, 4, 1}, {3, 16, 16, 1}};
+    const float drop = min(1.0f, (t - 7.6f) / 1.2f), gp = 0.019f, gx = hx - 11 * gp, gy = hy + 0.205f, gz = hzz + 0.06f + (1 - drop) * 0.9f;
+    for (auto& rr : RUNS) {
+      float y = gy + rr[3] * 0.006f, z0 = gz - (rr[0] + 1) * gp, z1 = gz - rr[0] * gp, xa = gx + rr[1] * gp, xb = gx + (rr[2] + 1) * gp;
+      float a[3] = {xa, y, z0}, b[3] = {xb, y, z0}, c[3] = {xb, y, z1}, e[3] = {xa, y, z1};
+      if (rr[3]) oQuad(a, b, c, e, 250, 250, 250); else oQuad(a, b, c, e, 10, 10, 12);
+    }
+  }
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   float ph = fmodf(t, 4) / 4, lift = ph < 0.3f ? sinf(ph / 0.3f * 3.1416f) : 0;
   float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.1f, hy + 0.2f, hzz - 0.05f}, hand[3];
@@ -1420,7 +1431,7 @@ static void updateIsland(float dt) {
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren ruecken nach
     isleSpawnT = hardcore ? 4.5f : 6;
-    float x, y; if (bearsAlive < (hardcore ? 10 : 8) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].pir = rnd() % 3; }
+    float x, y; if (bearsAlive < (hardcore ? 10 : 8) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) makePirate(enemies[i]); }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);

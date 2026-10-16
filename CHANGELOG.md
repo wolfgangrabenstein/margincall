@@ -1,5 +1,14 @@
 # MARGIN CALL – Changelog
 
+## Version 3.17.0 – „Deal with it“ und eine knallharte Steueroase (16.10.2026)
+
+- **Meme-Sonnenbrille in der Schlussszene:** Der Spieler bekommt die bekannte „Deal with it“-Pixelbrille, schwarze Blöcke mit weißen Glanzpixeln. Sie schwebt wie im Meme von oben auf sein Gesicht herab, kurz bevor „EARLY RETIREMENT.“ erscheint.
+- **Steueroase deutlich härter:**
+  - Nur noch 45 statt 75 Sekunden.
+  - 42 statt 30 Goldmünzen.
+  - Die Piraten halten 60 % mehr aus und sind 15 % schneller.
+  - Alle Münzen zu holen ist damit fast unmöglich.
+
 ## Version 3.16.1 – Online-Rangliste mit einem Knopfdruck (16.10.2026)
 
 - **Online eintragen ist jetzt vorausgewählt.** Nach einem Lauf stellt **„[ENTER] Speichern & online stellen“** Name und Punkte in die Online-Rangliste. Es wird weiterhin nichts automatisch übertragen: Jeder Upload braucht diesen ausdrücklich beschrifteten Knopf.
