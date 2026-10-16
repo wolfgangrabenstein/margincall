@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.16.1";
+const APP_VERSION = "3.17.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1045,7 +1045,7 @@ function updateEnemy(e, dt) {
     case E.BEAR:
       e.roarCd -= dt;
       if (t.isPlayer && e.roarCd <= 0 && d < 8) { e.roarCd = 5 + frand() * 4; sfxNear("ROAR", e.x, e.y, 9); }   // Gebruell auf der Jagd
-      if (d > .75) moveEntity(e, nx * 1.5 * dt * spd, ny * 1.5 * dt * spd, .25);
+      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; moveEntity(e, nx * 1.5 * dt * spd * ps, ny * 1.5 * dt * spd * ps, .25); }
       else if (e.cd <= 0) {
         e.cd = 1; e.attackAnim = .3;
         if (t.isPlayer && e.roarCd < 3) { e.roarCd = 3; sfxNear("ROAR", e.x, e.y, 9); }
@@ -1907,7 +1907,7 @@ function renderWeapon() {
 // Low-Poly-Renderer flach schattierte Dreiecke, sortiert nach Entfernung (Maleralgorithmus, kein Tiefenpuffer –
 // genauso laeuft es auf dem Cardputer). Die Insel liegt auf dem normalen 20x20-Raster: Wasser ist fuer Bewegung,
 // Baeren und Schuesse eine Wand, so funktionieren Kollision, Gegner-KI und Schiessen unveraendert.
-const ISLE_TIME = 75, ISLE_COINS = 30, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
+const ISLE_TIME = 45, ISLE_COINS = 42, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
 const ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 15;   // Hoehengitter -6..26, Sichtweite in Feldern
 let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleResult = "";
 let creditsT = 0;
@@ -2000,9 +2000,13 @@ function startIsland() {
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
   const taken = isleBuildObjects();
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
-  for (let k = 0; k < 5; k++) { const c = isleFreeCell(7); if (c) { const e = spawnEnemy(E.BEAR, c[0], c[1]); e.awake = true; e.pir = rnd() % 3; } }
+  for (let k = 0; k < 5; k++) { const c = isleFreeCell(7); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
   state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
+}
+function makePirate(e) {   // Piraten: 60 % mehr Energie, 15 % schneller (Tempo in updateEnemy)
+  e.pir = rnd() % 3; e.hp = Math.round(e.hp * 1.6); e.maxhp = Math.round(e.maxhp * 1.6);
+  return e;
 }
 function updateIsland(dt) {
   isleT -= dt;
@@ -2016,7 +2020,7 @@ function updateIsland(dt) {
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
     isleSpawnT = HC() ? 4.5 : 6;
-    if (bearsAlive < (HC() ? 10 : 8)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]).pir = rnd() % 3; }
+    if (bearsAlive < (HC() ? 10 : 8)) { const c = isleFreeCell(8); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])); }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);
@@ -2204,9 +2208,14 @@ function outroScene(t) {
   const hx = cx, hy = Y - .48, hzz = D + 1.0, r = .2;
   const P = [[hx + r, hy, hzz], [hx - r, hy, hzz], [hx, hy + r, hzz], [hx, hy - r, hzz], [hx, hy, hzz + r], [hx, hy, hzz - r]];
   for (const [a, b] of [[0, 2], [2, 1], [1, 3], [3, 0]]) { tri(P[a], P[b], P[4], [90, 60, 35]); tri(P[a], P[b], P[5], skin); }
-  quad([hx - .19, hy + .17, hzz - .03], [hx + .19, hy + .17, hzz - .03], [hx + .19, hy + .17, hzz + .07], [hx - .19, hy + .17, hzz + .07], [10, 10, 12]);   // Sonnenbrille
-  quad([hx - .15, hy + .175, hzz], [hx - .03, hy + .175, hzz], [hx - .03, hy + .175, hzz + .05], [hx - .15, hy + .175, hzz + .05], [60, 40, 120]);
-  quad([hx + .03, hy + .175, hzz], [hx + .15, hy + .175, hzz], [hx + .15, hy + .175, hzz + .05], [hx + .03, hy + .175, hzz + .05], [60, 40, 120]);
+  // Meme-Sonnenbrille („Deal with it“): Pixelbloecke mit weissen Glanzpixeln, schwebt gegen Ende auf das Gesicht herab
+  if (t > 7.6) {
+    const drop = Math.min(1, (t - 7.6) / 1.2), gp = .019, gx = hx - 11 * gp, gy = hy + .205, gz = hzz + .06 + (1 - drop) * .9;
+    for (const [rw, c0, c1, wh] of [[0,0,21,0],[1,0,9,0],[1,12,21,0],[2,1,8,0],[2,13,20,0],[3,2,7,0],[3,14,19,0],[1,2,3,1],[1,14,15,1],[2,3,4,1],[2,15,16,1],[3,4,4,1],[3,16,16,1]]) {
+      const y = gy + wh * .006, z0 = gz - (rw + 1) * gp, z1 = gz - rw * gp, col = wh ? [460, 460, 460] : [10, 10, 12];   // Glanzpixel ueberbelichtet, damit sie trotz Schattierung weiss bleiben
+      quad([gx + c0 * gp, y, z0], [gx + (c1 + 1) * gp, y, z0], [gx + (c1 + 1) * gp, y, z1], [gx + c0 * gp, y, z1], col);
+    }
+  }
   quad([hx - .06, hy + .18, hzz - .1], [hx + .06, hy + .18, hzz - .1], [hx + .05, hy + .18, hzz - .07], [hx - .05, hy + .18, hzz - .07], [190, 60, 60]);   // Grinsen
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   const ph = (t % 4) / 4, lift = ph < .3 ? Math.sin(ph / .3 * Math.PI) : 0;
