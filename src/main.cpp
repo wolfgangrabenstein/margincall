@@ -877,10 +877,11 @@ static bool moveEntity(float& x, float& y, float mx, float my, float r) {
   return ok;
 }
 
+static int hurtAmt;   // Staerke des letzten Treffers (fuer roten Blitz und Schadenszahl)
 static void damagePlayer(int d, const char* why) {
   if (state != ST_PLAY) return;
   if (hardcore) d = (int)roundf(d * 1.65f);
-  hp -= d; hurtT = 0.35f; sfxPlay(SFX_ID_PHONE);
+  hp -= d; hurtT = 0.35f; hurtAmt = d; sfxPlay(SFX_ID_PHONE);
   if (why) say(why, 1.2f);
   if (hp <= 0) {
     hp = 0;
@@ -1889,6 +1890,15 @@ static void renderGlitch() {
   }
 }
 
+static void renderHurt() {   // roter Bildblitz wie in Wolfenstein 3D
+  if (hurtT <= 0) return;
+  float k = min(1.0f, hurtT / 0.35f) * min(1.0f, 0.45f + hurtAmt / 40.0f) * 0.65f;
+  for (int i = 0; i < SW * VH; i++) {
+    uint16_t c = swp(fb[i]); int r = (c >> 11) & 31, g = (c >> 5) & 63, b = c & 31;
+    r += (int)((31 - r) * k); g = (int)(g * (1 - k)); b = (int)(b * (1 - k));
+    fb[i] = swp((r << 11) | (g << 5) | b);
+  }
+}
 static void renderFlicker() {   // ALGO-9000 schlaegt zu: Licht flackert in den ersten ~0,7 s des Angriffs
   if (aiFaceT < 1.5f || ((int)(aiFaceT * 14) % 3)) return;
   for (int i = 0; i < SW * VH; i++) fb[i] = swp((swp(fb[i]) >> 1) & 0x7BEF);
@@ -2228,7 +2238,8 @@ void loop() {
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
       updateGame(dt);
       if (island) renderIsland(); else { renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
-      renderWeapon(); renderHUD();
+      renderHurt(); renderWeapon(); renderHUD();
+      if (hurtT > 0) { char hb[16]; snprintf(hb, sizeof(hb), "v -%d%%", hurtAmt); centerText(hb, 30 + (int)((0.35f - hurtT) * 60), 2, c565(255, 50, 50)); }
       if (island) {   // HUD in der Steueroase: Gold und Zeit statt Bullen/Baeren und Kurs
         canvas.fillRect(146, VH + 10, SW - 146, 17, c565(8, 12, 26));
         canvas.fillRect(148, VH + 12, 88, 5, c565(58, 48, 16));

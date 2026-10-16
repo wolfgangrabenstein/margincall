@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.17.0";
+const APP_VERSION = "3.17.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -565,6 +565,13 @@ let enemies = [], items = [], projs = [];
 let px = 0, py = 0, dirX = 1, dirY = 0, planeX = 0, planeY = PLANE;   // Kamera des lokalen Spielers
 let level = 0, marketKills = 0;
 let fireCd = 0, flashT = 0, hurtT = 0, pickT = 0, msgT = 0, bobT = 0, gameTime = 0;
+// Trefferfeedback: Staerke des letzten Treffers, fallende Schadenszahlen, Blickrichtung des Trader-Gesichts im HUD
+let hurtAmt = 0, hurtPops = [], faceLook = 0, faceT = 0;
+function hurtFeedback(amt) {
+  hurtT = .35; hurtAmt = amt;
+  hurtPops.push({ v: Math.round(amt), t: 0, x: (Math.random() - .5) * 160 });
+  if (hurtPops.length > 6) hurtPops.shift();
+}
 let msg = "", hist = [], histT = 0;
 let levelChg = 0, oilChg = 0, pBullBase = .5, momentum = 0, replayT = 0, replayIdx = 0;
 // ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
@@ -639,7 +646,7 @@ function applyEvent(ev) {   // beim Mitspieler
     case "sfx": if (ev[5] !== net.id && (ev[4] === 0 || dist2P(ev[2], ev[3]) < ev[4] * ev[4])) sfx(ev[1]); break;
     case "sfxto": if (ev[1] === net.id) sfx(ev[2]); break;
     case "msg": if (ev[1] === 0 || ev[1] === net.id) say(ev[2], ev[3]); break;
-    case "hurt": if (ev[1] === net.id) hurtT = .35; break;
+    case "hurt": if (ev[1] === net.id) hurtFeedback(ev[2] || 10); break;
     case "pick": if (ev[1] === net.id) pickT = .25; break;
     case "clip": if (ev[1] === net.id) me.noclip = !!ev[2]; break;
     case "psy": if (ev[1] === net.id) me.psy = !!ev[2]; break;
@@ -822,7 +829,7 @@ function damagePlayer(pl, d, why, attacker = null) {
   if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
   if (HC()) d *= 1.65;
   pl.hp -= Math.round(d);
-  if (pl.local) hurtT = .35; else emit(["hurt", pl.id]);
+  if (pl.local) hurtFeedback(d); else emit(["hurt", pl.id, Math.round(d)]);
   sfxTo(pl, "PHONE");
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
@@ -1605,6 +1612,9 @@ function dodgeTap(k) {
 
 function updateGame(dt) {
   gameTime += dt; musicPanic = me.hp < 30;
+  for (const p of hurtPops) p.t += dt;
+  hurtPops = hurtPops.filter(p => p.t < 1.1);
+  faceT -= dt; if (faceT <= 0) { faceT = 1.2 + Math.random() * 2.5; faceLook = Math.random() < .5 ? 0 : Math.random() < .5 ? -1 : 1; }
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; dodgeCd -= dt;
   aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt;
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || (Math.floor(gameTime * 4) % 2)) buildTicker(); }
@@ -2307,6 +2317,33 @@ function renderNameTags() {
     g.fillStyle = "#3ce664"; g.fillRect(x - 20, y + 19, 40 * pl.hp / 100, 4);
   }
 }
+// Trader-Gesicht im HUD (wie BJ in Wolfenstein 3D): grinst bei vollem Depot, schwitzt bei mittlerem,
+// panisch bei wenig, verzieht bei Treffern das Gesicht, schaut gelegentlich zur Seite; x-Augen wenn pleite
+function drawTraderFace(x, y, s) {
+  const px = (cx, cy, w, h, col) => { g.fillStyle = col; g.fillRect(x + cx * s, y + cy * s, w * s, h * s); };
+  const hp = me.hp, dead = me.dead || hp <= 0, hit = hurtT > 0, low = hp < 30, mid = hp < 60;
+  const skin = low ? "#e8a080" : "#ebbe96", hair = "#3c2614";
+  px(0, 0, 16, 16, "#0a0f1e");
+  px(3, 2, 10, 11, skin); px(2, 5, 1, 3, skin); px(13, 5, 1, 3, skin);   // Kopf, Ohren
+  px(3, 1, 10, 3, hair); px(2, 2, 1, 3, hair); px(13, 2, 1, 3, hair);   // Haare
+  px(4, 13, 8, 3, "#1e3c8c"); px(7, 13, 2, 3, "#d22828"); px(6, 13, 4, 1, "#f0f0f0");   // Anzug, Krawatte, Kragen
+  if (me.god) { px(3, 5, 10, 1, "#000"); px(4, 6, 3, 1, "#000"); px(9, 6, 3, 1, "#000"); px(4, 5, 1, 1, "#fff"); px(10, 5, 1, 1, "#fff"); }
+  else if (dead) { for (const ex of [4, 9]) { px(ex, 5, 1, 1, "#000"); px(ex + 2, 5, 1, 1, "#000"); px(ex + 1, 6, 1, 1, "#000"); px(ex, 7, 1, 1, "#000"); px(ex + 2, 7, 1, 1, "#000"); } }
+  else if (hit) { px(4, 6, 3, 1, "#000"); px(9, 6, 3, 1, "#000"); }   // zusammengekniffen
+  else {
+    const lk = faceLook, wide = low ? 1 : 0;
+    px(4, 5 - wide, 3, 2 + wide, "#fff"); px(9, 5 - wide, 3, 2 + wide, "#fff");
+    px(5 + lk, 5, 1, 2, "#000"); px(10 + lk, 5, 1, 2, "#000");
+    if (mid) { px(4, 4 - wide, 3, 1, hair); px(9, 4 - wide, 3, 1, hair); }   // besorgte Brauen
+  }
+  if (dead) px(6, 10, 4, 1, "#7a2020");
+  else if (hit) { px(5, 10, 6, 2, "#7a2020"); px(6, 10, 4, 1, "#fff"); }   // Grimasse mit Zaehnen
+  else if (low) px(7, 9, 2, 3, "#5a1414");   // Panik: offener Mund
+  else if (mid) px(6, 10, 4, 1, "#7a2020");
+  else { px(6, 10, 4, 1, "#7a2020"); px(10, 9, 1, 1, "#7a2020"); }   // Grinsen
+  if (mid && !dead) px(13, 3, 1, 2, "#78c8ff");   // Schweiss
+  if (low && !dead) { px(2, 8, 1, 2, "#78c8ff"); px(4, 8, 2, 1, "#ff7878"); px(10, 8, 2, 1, "#ff7878"); }
+}
 function renderHUD() {
   drawTicker(0);
   renderNameTags();
@@ -2316,7 +2353,8 @@ function renderHUD() {
   // 0 % gibt es nicht: wer bei 0 ist, ist pleite (bis zum Neustart im Multiplayer)
   if (me.dead || me.hp <= 0) text(L("BROKE", "PLEITE"), 14, HUD_Y + 36, "#ff3c3c", 30);
   else text(`${Math.max(1, Math.ceil(me.hp))} %`, 14, HUD_Y + 32, me.hp > 60 ? "#3ce664" : me.hp > 30 ? "#ffc828" : "#ff3c3c", 38);
-  const gx = 170, gy = HUD_Y + 12, gw = 210, gh = 64;
+  drawTraderFace(176, HUD_Y + 12, 4);
+  const gx = 250, gy = HUD_Y + 12, gw = 140, gh = 64;
   g.strokeStyle = "#1e2846"; g.lineWidth = 2; g.strokeRect(gx, gy, gw, gh);
   for (let i = 1; i < hist.length; i++) {
     g.strokeStyle = hist[i] >= hist[i - 1] ? "#3ce664" : "#ff3c3c"; g.beginPath();
@@ -2361,6 +2399,13 @@ function renderHUD() {
     else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
+  for (const p of hurtPops) {   // Schaden faellt wie ein Kurssturz durchs Bild
+    g.globalAlpha = Math.max(0, 1 - p.t / 1.1);
+    const py = HUD_Y * .32 + p.t * 120, sz = 26 + Math.min(14, p.v / 2);
+    text(`▼ −${p.v} %`, DW / 2 + p.x + 3, py + 3, "#3a0000", sz, "center");
+    text(`▼ −${p.v} %`, DW / 2 + p.x, py, "#ffffff", sz, "center");
+    g.globalAlpha = 1;
+  }
   if (pickT > 0) { g.strokeStyle = "rgba(60,255,120,.9)"; g.lineWidth = 6; g.strokeRect(3, 3, DW - 6, HUD_Y - 6); }
   if (dodgeT > 0) {   // Bewegungsstreifen beim Ausweichen
     g.strokeStyle = `rgba(220,240,255,${(dodgeT / DODGE_TIME * .5).toFixed(2)})`; g.lineWidth = 2;
@@ -3160,8 +3205,15 @@ let last = performance.now(), lobbyT = 0;
 function renderPlay(dt) {
   if (island) renderIsland(); else { marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
   renderPsy();
+  const hk = hurtT > 0 ? Math.min(1, hurtT / .35) * Math.min(1, .45 + hurtAmt / 40) : 0;
+  if (hk > 0) for (let i = 0; i < fb.length; i++) {   // roter Bildblitz wie in Wolfenstein 3D
+    const c = fb[i], r = c & 255, gg = (c >> 8) & 255, b = (c >> 16) & 255, k = hk * .65;
+    fb[i] = RGB(r + (255 - r) * k, gg * (1 - k), b * (1 - k));
+  }
   lg.putImageData(img, 0, 0); if (!me.dead) renderWeapon();
-  g.drawImage(low, 0, 0, RW, VH, 0, 0, DW, HUD_Y);
+  const shx = hk > 0 ? (Math.random() - .5) * 16 * hk : 0, shy = hk > 0 ? (Math.random() - .5) * 10 * hk : 0;
+  if (shx || shy) { g.fillStyle = "#300"; g.fillRect(0, 0, DW, HUD_Y); }
+  g.drawImage(low, 0, 0, RW, VH, shx, shy, DW, HUD_Y);
   renderHUD();
   if (down("scores") && !chatTyping) renderScoreOverlay();
 }

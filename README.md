@@ -2,100 +2,102 @@
 
 ![MARGIN CALL – Bulls vs. Bears vs. You vs. AI](docs/banner.png)
 
-Ein Börsen-Shooter im Stil von Doom: Bullen und Bären kämpfen gegeneinander und gegen dich, die echten Tageskurse von Dow Jones, S&P 500, Nasdaq-100 und Rohöl bestimmen das Kräfteverhältnis, und die KI ALGO-9000 manipuliert den Markt.
+**Language:** **English** · [Deutsch](README.de.md)
 
-Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
+A Doom-style stock market shooter: bulls and bears fight each other and you. Real daily quotes for the Dow Jones, S&P 500, Nasdaq-100 and crude oil decide which side is stronger, and the AI ALGO-9000 manipulates the market.
 
-> **English:** MARGIN CALL is a free, open-source retro first-person shooter set in the stock market. Bulls and bears fight each other and the player; real daily quotes (Dow Jones, S&P 500, Nasdaq-100, crude oil) decide which side is stronger, and the AI "ALGO-9000" manipulates the market. It runs as a small standalone app on Windows, macOS and Linux (Tauri), supports LAN multiplayer for 2–4 players (co-op, team, deathmatch) and also exists as firmware for the M5Stack Cardputer ADV. All binaries are built from this repository by GitHub Actions and published as free downloads on the Releases page.
+Made by Wolfgang Rabenstein · Open source under the [MIT license](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
+
+MARGIN CALL runs as a small standalone app on Windows, macOS and Linux (Tauri), supports LAN multiplayer for 2–4 players (co-op, team, deathmatch) and also exists as firmware for the M5Stack Cardputer ADV. All binaries are built from this repository by GitHub Actions and published as free downloads on the Releases page.
 
 ## Screenshots
 
-| Titelbild mit Live-Kursen | Level 1: Dow Jones |
+| Title screen with live quotes | Level 1: Dow Jones |
 |---|---|
-| ![Titelbild](docs/screenshot-title.png) | ![Spielszene](docs/screenshot-level1.png) |
+| ![Title screen](docs/screenshot-title.png) | ![Gameplay](docs/screenshot-level1.png) |
 
 ## Downloads
 
-Aktuelle Version **3.17.0** – Datei anklicken, der Download startet sofort:
+Current version **3.17.1** – click a file and the download starts right away:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.17.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.0/MarginCall-3.17.0-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.17.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.0/MarginCall-3.17.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.17.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.0/MarginCall-3.17.0-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.17.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.0/MarginCall-3.17.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.17.1-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.1/MarginCall-3.17.1-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.17.1-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.1/MarginCall-3.17.1-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
+| [**MarginCall-3.17.1-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.1/MarginCall-3.17.1-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.17.1-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.1/MarginCall-3.17.1-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
-Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.md)
+Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md) (German)
 
-### Erster Start
+### First start
 
-- **Windows:** SmartScreen meldet eine unbekannte App. Klicke auf „Weitere Informationen“ und dann auf „Trotzdem ausführen“. Fragt die Firewall nach, erlaube den Zugriff im privaten Netzwerk (nötig für den Multiplayer).
-- **macOS:** Die App ist nicht von Apple notarisiert.
-  1. Öffne die `.dmg`-Datei und ziehe MARGIN CALL in den Ordner „Programme“.
-  2. Führe im Terminal einmal `xattr -cr "/Applications/MARGIN CALL.app"` aus.
-  3. Starte die App danach normal.
+- **Windows:** SmartScreen reports an unknown app. Click "More info", then "Run anyway". If the firewall asks, allow access on private networks (needed for multiplayer).
+- **macOS:** The app is not notarized by Apple.
+  1. Open the `.dmg` file and drag MARGIN CALL into the Applications folder.
+  2. Run `xattr -cr "/Applications/MARGIN CALL.app"` once in the Terminal.
+  3. Then start the app as usual.
 - **Linux:**
-  1. Mache die Datei ausführbar: `chmod +x MarginCall-Linux.AppImage`.
-  2. Starte sie mit `./MarginCall-Linux.AppImage`.
-  3. Bleibt das Fenster leer, fehlt eventuell `libfuse2` (Ubuntu: `sudo apt install libfuse2`).
+  1. Make the file executable: `chmod +x MarginCall-Linux.AppImage`.
+  2. Start it with `./MarginCall-Linux.AppImage`.
+  3. If the window stays empty, `libfuse2` may be missing (Ubuntu: `sudo apt install libfuse2`).
 
-## Steuerung (PC)
+## Controls (PC)
 
-| | Standard |
+| | Default |
 |---|---|
-| Laufen | W / S oder ↑ / ↓ |
-| Seitwärts | A / D |
-| Drehen | Maus (ins Bild klicken) oder ← / → |
-| Feuern | Leertaste oder linke Maustaste |
-| Ausweichen | Richtung doppelt antippen |
-| Pause | Esc oder P |
-| Zurück ins Hauptmenü | Esc im Pausenmenü |
-| Beenden | Esc im Hauptmenü |
-| Hardcore starten | X im Hauptmenü |
-| Sprache (Englisch/Deutsch) | Optionen → Language; Cardputer: L im Titelbild |
-| Vollbild | F4 |
-| Musik | M |
-| Optionen (Tastenbelegung) | O |
-| Spielfigur wählen (Multiplayer) | C in der Lobby |
-| Highscores | H im Titelbild |
-| Chat (Multiplayer) | T |
-| Statistik einblenden | Tab (gedrückt halten) |
+| Move | W / S or ↑ / ↓ |
+| Strafe | A / D |
+| Turn | Mouse (click into the view) or ← / → |
+| Fire | Space or left mouse button |
+| Dodge | Double-tap a direction |
+| Pause | Esc or P |
+| Back to main menu | Esc in the pause menu |
+| Quit | Esc in the main menu |
+| Start hardcore | X in the main menu |
+| Language (English/German) | Options → Language; Cardputer: L on the title screen |
+| Fullscreen | F4 |
+| Music | M |
+| Options (key bindings) | O |
+| Choose character (multiplayer) | C in the lobby |
+| Highscores | H on the title screen |
+| Chat (multiplayer) | T |
+| Show stats | Tab (hold) |
 
-Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiterhin: E/S laufen, A/D drehen, W/R seitwärts.
+All keys can be remapped in the options menu. On the Cardputer: E/S move, A/D turn, W/R strafe.
 
-## Multiplayer (2–4 Spieler im selben Netzwerk)
+## Multiplayer (2–4 players on the same network)
 
-1. Ein Spieler wählt **[N] Multiplayer → [H] Spiel hosten**. Die Lobby zeigt die Adresse, z. B. `192.168.1.20:8080`.
-2. Die anderen wählen **[N] Multiplayer → [J] Spiel beitreten** und klicken das Spiel in der Liste an. Wird es nicht gefunden (manche Router blockieren das), geben sie die Adresse aus der Lobby des Hosts ein oder öffnen sie im Browser.
-3. Mitspieler melden sich mit **E** (oder Klick) **bereit**. In der Lobby kann man mit **T** chatten, mit **K** den eigenen Nickname ändern; der Host ändert mit **G** den Spielnamen.
-4. Der Host wählt den Modus (Koop, Team Bulle vs. Team Bär oder Deathmatch) und startet, sobald alle bereit sind.
+1. One player chooses **[N] Multiplayer → [H] Host game**. The lobby shows the address, e.g. `192.168.1.20:8080`.
+2. The others choose **[N] Multiplayer → [J] Join game** and click the game in the list. If it is not found (some routers block discovery), they enter the address from the host's lobby or open it in a browser.
+3. Players mark themselves **ready** with **E** (or a click). In the lobby you can chat with **T** and change your nickname with **K**; the host renames the game with **G**.
+4. The host picks the mode (co-op, Team Bull vs. Team Bear, or deathmatch) and starts once everyone is ready.
 
-## Projektaufbau
+## Project structure
 
-| Ordner | Inhalt |
+| Folder | Contents |
 |---|---|
-| `pc/game.html` | Das Spiel (Rendering, Logik, Sounds, Musik, Multiplayer) |
-| `pc/server.py` | Entwicklungs-Server (Python), gleiches Verhalten wie der App-Server |
-| `desktop/` | Desktop-App (Tauri 2): eingebauter Server in Rust plus Spielfenster |
-| `src/`, `platformio.ini` | Cardputer-Firmware (PlatformIO, Arduino) |
-| `tools/` | Generatoren für Soundeffekte und das App-Icon |
-| `docs/` | Titelbild und Screenshots für die GitHub-Seite |
-| `worker/` | Online-Rangliste (Cloudflare Worker + D1), Einrichtung siehe [worker/README.md](worker/README.md) |
+| `pc/game.html` | The game (rendering, logic, sounds, music, multiplayer) |
+| `pc/server.py` | Development server (Python), same behavior as the app server |
+| `desktop/` | Desktop app (Tauri 2): built-in Rust server plus game window |
+| `src/`, `platformio.ini` | Cardputer firmware (PlatformIO, Arduino) |
+| `tools/` | Generators for sound effects and the app icon |
+| `docs/` | Banner and screenshots for the GitHub page |
+| `worker/` | Online leaderboard (Cloudflare Worker + D1), setup in [worker/README.md](worker/README.md) (German) |
 
-### Selbst bauen
+### Building it yourself
 
-- **Desktop:** Benötigt Node 20+, Rust und unter Linux die WebKitGTK-Pakete. Bauen mit `cd desktop && npm install && npx tauri build`.
-- **Cardputer:** Bauen mit `pio run`.
-- **Alle Plattformen:** Das erledigt automatisch der GitHub-Workflow `.github/workflows/build.yml`.
+- **Desktop:** Requires Node 20+, Rust and, on Linux, the WebKitGTK packages. Build with `cd desktop && npm install && npx tauri build`.
+- **Cardputer:** Build with `pio run`.
+- **All platforms:** The GitHub workflow `.github/workflows/build.yml` does this automatically.
 
-## Datenschutz
+## Privacy
 
-Live-Kurse werden nur geladen, wenn du beim ersten Start zustimmst. Dann fragt das Spiel öffentliche Kursdaten bei Yahoo Finance ab, wobei Yahoo wie bei jedem Webseitenaufruf deine IP-Adresse sieht. Ändern kannst du das jederzeit unter *Optionen → Live-Kurse*. In die Online-Rangliste kommt nur, was du ausdrücklich hochlädst: Nach einem Lauf gehen dein selbst gewählter Name und deine Punkte erst an den Ranglisten-Server, wenn du „Speichern & online stellen“ (Enter) drückst. Mit TAB speicherst du nur lokal, mit ESC gar nicht; dauerhaft umstellen geht unter *Options → Online leaderboard*. Sonst überträgt das Spiel nichts; im Multiplayer verbindet es sich nur mit dem Host, dessen Adresse du eingibst. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
+Live quotes are only loaded if you agree on first start. The game then requests public market data from Yahoo Finance, which sees your IP address like with any website you visit. You can change this anytime under *Options → Live quotes*. Only what you explicitly upload ends up on the online leaderboard: after a run, your self-chosen name and score are sent to the leaderboard server only when you press "Save & post online" (Enter). TAB saves locally only, ESC saves nothing; you can change the default permanently under *Options → Online leaderboard*. Otherwise the game transmits nothing; in multiplayer it only connects to the host whose address you enter. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
 
 ## Code signing policy
 
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). Ablauf, Rollen und Datenschutz: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). Process, roles and privacy: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
 
-## Lizenz & Mitmachen
+## License & contributing
 
-MARGIN CALL steht unter der [MIT-Lizenz](LICENSE). Beiträge sind willkommen; bitte beachte den [Code of Conduct](CODE_OF_CONDUCT.md).
+MARGIN CALL is released under the [MIT license](LICENSE). Contributions are welcome; please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
