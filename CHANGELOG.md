@@ -1,5 +1,18 @@
 # MARGIN CALL – Changelog
 
+## Version 3.17.1 – Trefferfeedback wie in Wolfenstein 3D, zweisprachige GitHub-Seite (16.10.2026)
+
+- **Treffer spürst du jetzt:**
+  - **Roter Bildblitz:** Das ganze Bild färbt sich kurz rot, je mehr Schaden, desto stärker.
+  - **Wackeln:** Das Bild wackelt kurz.
+  - **Kurssturz:** Der Schaden fällt als „▼ −12 %“ durchs Bild.
+- **Trader-Gesicht im HUD** (wie BJ in Wolfenstein 3D):
+  - grinst bei vollem Depot, schwitzt bei mittlerem, gerät bei wenig Depot in Panik
+  - verzieht bei Treffern das Gesicht und schaut ab und zu zur Seite
+  - hat X-Augen, wenn du pleite bist
+- **Cardputer:** roter Bildblitz und Schadenszahl.
+- **GitHub-Seite zweisprachig:** README auf Englisch (Hauptseite) und Deutsch (`README.de.md`), oben umschaltbar.
+
 ## Version 3.17.0 – „Deal with it“ und eine knallharte Steueroase (16.10.2026)
 
 - **Meme-Sonnenbrille in der Schlussszene:** Der Spieler bekommt die bekannte „Deal with it“-Pixelbrille, schwarze Blöcke mit weißen Glanzpixeln, auf einem größeren, kastigen Kopf, der genau zur Brille passt, mit schrägem Grinsen. Sie schwebt wie im Meme von oben auf sein Gesicht herab, kurz bevor „EARLY RETIREMENT.“ erscheint.
