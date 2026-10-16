@@ -1,10 +1,18 @@
 # MARGIN CALL
 
+![MARGIN CALL – Bulls vs. Bears vs. You vs. AI](docs/banner.png)
+
 Ein Börsen-Shooter im Stil von Doom: Bullen und Bären kämpfen gegeneinander und gegen dich, die echten Tageskurse von Dow Jones, S&P 500, Nasdaq-100 und Rohöl bestimmen das Kräfteverhältnis, und die KI ALGO-9000 manipuliert den Markt.
 
 Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
 
 > **English:** MARGIN CALL is a free, open-source retro first-person shooter set in the stock market. Bulls and bears fight each other and the player; real daily quotes (Dow Jones, S&P 500, Nasdaq-100, crude oil) decide which side is stronger, and the AI "ALGO-9000" manipulates the market. It runs as a small standalone app on Windows, macOS and Linux (Tauri), supports LAN multiplayer for 2–4 players (co-op, team, deathmatch) and also exists as firmware for the M5Stack Cardputer ADV. All binaries are built from this repository by GitHub Actions and published as free downloads on the Releases page.
+
+## Screenshots
+
+| Titelbild mit Live-Kursen | Level 1: Dow Jones |
+|---|---|
+| ![Titelbild](docs/screenshot-title.png) | ![Spielszene](docs/screenshot-level1.png) |
 
 ## Downloads
 
@@ -71,6 +79,7 @@ Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiter
 | `desktop/` | Desktop-App (Tauri 2): eingebauter Server in Rust plus Spielfenster |
 | `src/`, `platformio.ini` | Cardputer-Firmware (PlatformIO, Arduino) |
 | `tools/` | Generatoren für Soundeffekte und das App-Icon |
+| `docs/` | Titelbild und Screenshots für die GitHub-Seite |
 | `worker/` | Online-Rangliste (Cloudflare Worker + D1), Einrichtung siehe [worker/README.md](worker/README.md) |
 
 ### Selbst bauen

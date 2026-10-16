@@ -1,11 +1,17 @@
 # MARGIN CALL – Changelog
 
-## Version 3.16.0 – Größere Steueroase, sichtbarer Timer, längere Namen (16.10.2026)
+## Version 3.16.0 – Piraten, Schlussszene, größere Steueroase, sichtbarer Timer (16.10.2026)
 
+- **Piraten statt Bären in der Steueroase:** drei Typen, die sich nur im Aussehen unterscheiden:
+  - **Kapitän:** roter Mantel, Bart, Dreispitz mit Totenkopf
+  - **Matrose:** Ringelhemd, Kopftuch, Augenklappe
+  - **Freibeuter:** blaue Weste, Ohrring, Haken
+  Beim Angriff heben sie den Säbel.
+- **Schlussszene:** Nach der Steueroase folgt eine kurze, in Echtzeit gerenderte Szene. Die Kamera fährt im Sonnenuntergang auf deine Yacht zu: Du liegst mit Sonnenbrille im Liegestuhl und schlürfst Cocktails. Mit Enter überspringbar, auch auf dem Cardputer.
 - **Steueroase größer und härter:**
   - Die Insel ist rund ein Viertel größer.
   - 30 statt 20 Goldmünzen.
-  - Zu Beginn 5 statt 3 Bären, sie rücken schneller nach: bis zu 8, in Hardcore 10.
+  - Zu Beginn 5 statt 3 Piraten, sie rücken schneller nach: bis zu 8, in Hardcore 10.
   - Nur noch 75 statt 90 Sekunden, alle Münzen zu holen ist damit fast unmöglich.
 - **Timer gut sichtbar:** Die Restzeit steht groß oben rechts im Bild, darunter der Münzstand. In den letzten 15 Sekunden wird sie rot und blinkt, auch auf dem Cardputer.
 - **Namen bis 15 Zeichen:** für Highscores (lokal und online) und Nicknames, bisher 12.
