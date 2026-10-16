@@ -54,7 +54,7 @@
 // Live-Kurse kommen vom lokalen Spiel-Server (MarginCall.exe) unter /api/market.
 // =====================================================================================
 
-const APP_VERSION = "3.13.0";
+const APP_VERSION = "3.14.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -629,7 +629,7 @@ function buildTicker() {
 function applyMarket(resetReplay = true) {
   realChg = level === NUM_LEVELS - 1 ? (markets[0].chg + markets[1].chg + markets[2].chg) / 3 : levelMarket().chg;
   oilChg = markets[M_OIL].chg;
-  if (resetReplay) { replayIdx = 0; replayT = 0; momentum = 0; manipChg = manipT = dumpAt = 0; }
+  if (resetReplay) { replayIdx = 0; replayT = 0; momentum = 0; manipChg = manipT = dumpAt = 0; cheatChg = 0; }
   marketEffect();
   manipDrawn = manipEff(); genTickerTex(levelMarket()); genChartTex(levelMarket());
   buildTicker();
@@ -637,7 +637,7 @@ function applyMarket(resetReplay = true) {
 // Manipulation blendet in den letzten 4 Sekunden aus
 const manipEff = () => manipT > 0 ? manipChg * Math.min(1, manipT / 4) : 0;
 function marketEffect() {   // Spielkurs = echter Kurs + Manipulation
-  levelChg = realChg + manipEff();
+  levelChg = realChg + manipEff() + cheatChg;
   pBullBase = clamp(.5 + levelChg * .2, .15, .85);
 }
 function manipulate(chg, t, msg) {
@@ -756,7 +756,8 @@ function loadLevel(lv) {
   sfxAll("BELL"); musicStart(); emit(["music", 1]);
 }
 function newGame() {
-  island = islandDone = false;
+  island = islandDone = false; cheated = false;
+  players.forEach(p => p.god = false);
   players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.deaths = 0; });
   loadLevel(0);
 }
@@ -777,7 +778,7 @@ function addScore(pl, pts) {
   if (mode === "team") teamScore[pl.team] += pts;
 }
 function damagePlayer(pl, d, why, attacker = null) {
-  if (!pl || pl.dead || (state !== ST.PLAY)) return;
+  if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
   if (HC()) d *= 1.5;
   pl.hp -= Math.round(d);
   if (pl.local) hurtT = .35; else emit(["hurt", pl.id]);
@@ -1096,7 +1097,10 @@ function netReceive(m) {
       case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
       case "nick": { const n = cleanName(m.name, 12); if (n) { pl.name = n; hostSendLobby(); } break; }
       case "ready": if (state === ST.LOBBY) { pl.ready = !!m.ready; hostSendLobby(); } break;
-      case "chat": if (state === ST.LOBBY || state === ST.PLAY) addChat(pl.id, pl.name, m.text); break;
+      case "chat":
+        if (state === ST.PLAY && mode === "coop" && String(m.text).startsWith("/")) cx(pl, m.text);
+        else if (state === ST.LOBBY || state === ST.PLAY) addChat(pl.id, pl.name, m.text);
+        break;
     }
     return;
   }
@@ -1119,7 +1123,7 @@ const r2 = v => Math.round(v * 100) / 100;
 function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
-    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
+    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
     pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1144,7 +1148,7 @@ function clientSnapshot(m) {
   }
   if (state === ST.OPTIONS) optReturn = m.st; else state = m.st;
   roundT = m.rt; teamScore = m.ts; [bullsAlive, bearsAlive] = m.ba; marketKills = m.mk;
-  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0] = m.fx;
+  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0, cheatChg = 0] = m.fx;
   marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
@@ -1204,6 +1208,26 @@ function quitGame() {
 // Hardcore (nur Solo): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – und ein Tod beendet den Lauf
 let hardcore = false;
 const HC = () => hardcore && !isMP();
+let cheated = false, cheatChg = 0, hsNote = "";
+const hx = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const CX = { 1819600217: ["g"], 512686240: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
+  2877856819: ["l", 1], 3746044036: ["l", 1], 2894634438: ["l", 2], 3796376893: ["l", 2], 2911412057: ["l", 3], 3779599274: ["l", 3],
+  2928189676: ["l", 4], 3695711179: ["l", 4], 2944967295: ["l", 5], 3678933560: ["l", 5], 2961744914: ["l", 6], 3729266417: ["l", 6] };
+function cx(pl, txt) {
+  const c = CX[hx(String(txt).slice(1).trim().toLowerCase())];
+  if (!c || state !== ST.PLAY || (mode !== "solo" && mode !== "coop")) return;
+  cheated = true;
+  switch (c[0]) {
+    case "g": pl.god = !pl.god; sayTo(pl, pl.god ? "UNVERWUNDBAR" : "WIEDER VERWUNDBAR", 1.5); break;
+    case "k": cheatChg = c[1] - realChg; marketEffect(); sayAll(`KURS ${fmtChg(levelChg)}`, 2); break;
+    case "a": if (!island) aiEvent(); break;
+    case "l":
+      if (c[1] === 6) { if (!isMP()) startIsland(); break; }
+      island = false; loadLevel(c[1] - 1); state = ST.PLAY; fireCd = .4;
+      break;
+  }
+  sfxTo(pl, "GLITCH");
+}
 let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0, deathPenalty = 0;
 let lobbyGame = "", chatLog = [], lobbyChat = [], chatTyping = false, chatText = "", rawKey = "", lobbyNote = "", lobbyNoteT = 0;
 let foundGames = [], joinSel = 0, gamesT = 0, advertising = false, advertiseT = 0, fsOn = false;
@@ -1218,7 +1242,9 @@ function addChat(id, name, txt) {
 }
 function chatKey(k) {
   if (k === "enter") {
-    if (chatText.trim()) { if (isHost()) addChat(me.id, me.name, chatText); else netSend({ t: "chat", text: chatText.slice(0, 80) }); }
+    const t = chatText.trim();
+    if (t.startsWith("/") && (mode === "solo" || mode === "coop") && state === ST.PLAY) { if (isClient()) netSend({ t: "chat", text: t.slice(0, 80) }); else cx(me, t); }
+    else if (t && isMP()) { if (isHost()) addChat(me.id, me.name, chatText); else netSend({ t: "chat", text: chatText.slice(0, 80) }); }
     chatText = ""; chatTyping = false; return;
   }
   if (k === "Escape") { chatText = ""; chatTyping = false; return; }
@@ -1460,7 +1486,7 @@ function onKeyPress(k) {
       }
       break;
     case ST.PLAY:
-      if (isMP() && isBound("chat", k)) { chatTyping = true; chatText = ""; keys.clear(); break; }
+      if ((isMP() || mode === "solo") && isBound("chat", k)) { chatTyping = true; chatText = ""; keys.clear(); break; }
       dodgeTap(k);
       if (isBound("pause", k)) {
         if (isMP()) mpMenu = true; else state = ST.PAUSE;
@@ -2727,6 +2753,8 @@ async function finishRun(won) {
   hsHC = hardcore; hsMine = null; hsTab = 0; hsScroll = 0;
   await hsLoad();
   hsEntry = { score: me.score, level: level + 1, won, deaths: me.deaths };
+  hsNote = "";
+  if (cheated) { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; hsNote = "Lauf mit Cheats – kein Eintrag in die Ranglisten"; return; }
   if (hsQualifies(me.score) || (ONLINE_HS_URL && me.score > 0)) { hsName = settings.playerName || ""; state = ST.NAMEENTRY; }
   else { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; }
 }
@@ -2750,7 +2778,7 @@ function nameKey(k) {
   if (k === "Backspace") { hsName = hsName.slice(0, -1); return; }
   if (k.length === 1 && /[\p{L}\p{N} ._-]/u.test(k) && hsName.length < 12) hsName += k.toUpperCase();
 }
-function openHighscores() { hsNew = -1; hsReturn = state; state = ST.HIGHSCORES; hsLoad(); if (hsTab > 0) hsSetTab(hsTab); }
+function openHighscores() { hsNote = ""; hsNew = -1; hsReturn = state; state = ST.HIGHSCORES; hsLoad(); if (hsTab > 0) hsSetTab(hsTab); }
 function renderNameEntry() {
   chartBackground("#145a2d", "#282828");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 70, DW - 280, 400);
@@ -2807,6 +2835,7 @@ function renderHighscores() {
     if (rank) text(`DEIN PLATZ: ${rank} VON ${total}${rank > o.list.length ? "  (außerhalb der Top 100)" : ""}`, 140, 424, "#ffd232", 15);
     else if (settings.onlineScores !== true) text("Eintragen: im Optionsmenü oder nach dem Lauf „Auch online eintragen“ wählen.", 140, 424, "#6b7896", 12);
   }
+  if (hsNote) text(hsNote, DW / 2, 430, "#ff7050", 14, "center");
   zoneButton(250, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
   zoneButton(490, 452, 220, 38, hsHC ? "[X] ZU NORMAL" : "[X] ZU ☠ HARDCORE", hsHC ? "#ffd232" : "#ff5050", "x", 16);
 }
