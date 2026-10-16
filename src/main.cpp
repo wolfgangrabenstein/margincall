@@ -436,11 +436,11 @@ static void genSprites() {
   trect(12, 21, 8, 2, RGB(250, 210, 60));
   storeSprite(S_CASH);
   // --- Dividende
-  tclear(T);
-  tcirc(16, 21, 10, RGB(180, 120, 10));
-  tcirc(16, 21, 8.5f, RGB(255, 200, 50));
-  trect(14, 19, 4, 8, RGB(20, 170, 60)); ttri(10, 20, 22, 20, 16, 13, RGB(20, 170, 60));
-  tcirc(12, 16, 1.5f, RGB(255, 255, 220));
+  tclear(T);   // Muenzstapel mit grossem gruenen Kurspfeil nach oben
+  for (int i = 0; i < 3; i++) { tellipse(16, 28 - i * 4, 9, 3.2f, RGB(150, 95, 10)); tellipse(16, 27 - i * 4, 8, 2.4f, RGB(255, 200, 50)); }
+  tellipse(13, 19, 2, 0.8f, RGB(255, 250, 210));
+  ttri(5, 14, 27, 14, 16, 2, RGB(10, 80, 30)); trect(11, 13, 10, 9, RGB(10, 80, 30));
+  ttri(8, 13, 24, 13, 16, 4.5f, RGB(60, 230, 90)); trect(13, 12, 6, 9, RGB(60, 230, 90)); trect(14, 8, 2, 11, RGB(190, 255, 200));
   storeSprite(S_DIV);
   // Piraten der Steueroase: 3 Typen (Kapitaen, Matrose, Freibeuter), je 2 Bilder (Laufen, Saebel erhoben)
   for (int k = 0; k < 3; k++) for (int f = 0; f < 2; f++) {
@@ -636,6 +636,7 @@ struct Enemy {
   float cd, anim, hurt, attackAnim, think, deadT, str, chargeT, chargeCd, mdx, mdy, spawnCd;
   int8_t pir;       // Piratentyp in der Steueroase (-1 = keiner)
   int16_t target;   // -1 = Spieler, -2 = keins, sonst Index
+  uint8_t role; bool alert; float gx, gy, delay;   // Piraten: 0 Jaeger, 1 Abfaenger, 2 Waechter (lauert bei gx/gy)
 };
 struct Item { float x, y; uint8_t type; bool active, stray; };   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
@@ -1026,8 +1027,10 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
   else { hurtEnemy(enemies[tgt], (int)ceilf(dmgEnemy * e.str), false); sfxNear(e.faction == F_BULL ? SFX_ID_BULL : SFX_ID_ROAR, e.x, e.y, 6); }
 }
 
+static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
   e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.45f : 1.0f); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  if (e.pir >= 0) { pirateAI(e, dt); return; }
   const float spdMul = crashT > 0 ? 1.4f : 1.0f;
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
 
@@ -1175,7 +1178,7 @@ static float isleT, isleSpawnT, creditsT;
 static int isleCoins;
 static const char* isleResult = "";
 static float isleV[ISLE_N * ISLE_N];
-struct IsleTri { float v[9]; uint8_t r, g, b; };
+struct IsleTri { float v[9]; uint8_t r, g, b, deco; };   // deco: Aufkleber, wird immer nach der Flaeche dahinter gezeichnet
 static constexpr int MAX_OBJ_TRI = 300;
 static IsleTri isleObj[MAX_OBJ_TRI]; static int nIsleObj;
 
@@ -1281,8 +1284,32 @@ static void isleBuildObjects() {
     for (int i = 0; i < 3; i++) isleAddObj(b[i], b[(i + 1) % 3], top, 135, 128, 118);
   }
 }
-static void makePirate(Enemy& e) {   // Piraten: 60 % mehr Energie, 15 % schneller (Tempo in updateEnemy)
-  e.pir = rnd() % 3; e.hp = (int16_t)roundf(e.hp * 1.6f);
+// Piraten: 60 % mehr Energie, etwas schneller als der Spieler. Rollen: Waechter lauern an einem Muenzhaufen und
+// greifen erst an, wenn man nahe kommt; Abfaenger laufen dorthin, wo der Spieler gleich sein wird; Jaeger verfolgen direkt.
+static void makePirate(Enemy& e) {
+  e.pir = rnd() % 3; e.hp = (int16_t)roundf(e.hp * 1.6f); e.alert = false; e.delay = 1.5f + frand() * 2;
+  int r = rnd() % 10, coins[MAX_I], nc = 0;
+  for (int i = 0; i < nItems; i++) if (items[i].active && items[i].type == 2 && (items[i].x - px) * (items[i].x - px) + (items[i].y - py) * (items[i].y - py) > 64) coins[nc++] = i;
+  e.role = r < 4 && nc ? 2 : r < 7 ? 1 : 0;
+  if (e.role == 2) { const Item& c = items[coins[rnd() % nc]]; e.gx = c.x; e.gy = c.y; e.x = c.x + 0.8f; e.y = c.y; if (solidCell((int)e.x, (int)e.y)) { e.x = c.x; e.y = c.y; } }
+}
+static float pirHitAt;   // gemeinsamer Angriffstakt: auch umzingelt trifft nur alle 0,5 s ein Saebel
+static void pirateAI(Enemy& e, float dt) {
+  if (e.delay > 0) { e.delay -= dt; return; }
+  float dx = px - e.x, dy = py - e.y, d = sqrtf(dx * dx + dy * dy) + 1e-4f;
+  auto go = [&](float tx, float ty, float v) {   // bewegen, an Wasserkanten seitlich ausweichen
+    float ex = tx - e.x, ey = ty - e.y, l = sqrtf(ex * ex + ey * ey) + 1e-4f, mx = ex / l * v * dt, my = ey / l * v * dt;
+    if (!moveEntity(e.x, e.y, mx, my, 0.25f)) moveEntity(e.x, e.y, -my, mx, 0.25f);
+  };
+  if (e.role == 2 && !e.alert) {
+    if (d < 3.8f && lineOfSight(e.x, e.y, px, py)) { e.alert = true; e.attackAnim = 0.5f; sfxNear(SFX_ID_ROAR, e.x, e.y, 8); }
+    else { go(e.gx + cosf(e.anim * 0.8f) * 0.7f, e.gy + sinf(e.anim * 0.8f) * 0.7f, 0.8f); return; }   // lauert am Muenzhaufen
+  }
+  float v = (hardcore ? 3.2f : 3.0f) * (crashT > 0 ? 1.2f : 1.0f);   // Spieler laeuft 2,8
+  float tx = px, ty = py;
+  if (e.role == 1 && d > 1.6f) { float lead = min(3.0f, d * 0.6f); tx += dirX * lead; ty += dirY * lead; }   // Weg abschneiden
+  if (d > 0.75f) go(tx, ty, v);
+  else if (e.cd <= 0 && fabsf(gameTime - pirHitAt) > (hardcore ? 0.35f : 0.5f)) { pirHitAt = gameTime; e.cd = 1.2f; e.attackAnim = 0.3f; damagePlayer((int)(11 * e.str), L("CUTLASS SLASH!", "SAEBELHIEB!")); }
 }
 static void startIsland() {
   island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5;
@@ -1300,7 +1327,7 @@ static void startIsland() {
     float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
     isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
   }
-  for (int k = 0; k < 5; k++) { float x, y; if (isleFreeCell(7, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { makePirate(enemies[i]); enemies[i].awake = true; } } }
+  for (int k = 0; k < (hardcore ? 10 : 8); k++) { float x, y; if (isleFreeCell(6, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { makePirate(enemies[i]); enemies[i].awake = true; } } }
   state = ST_PLAY; fireCd = 0.4f; musicStart();
   { char b[48]; snprintf(b, sizeof(b), L("TAX HAVEN! %d S - GRAB THE GOLD", "STEUEROASE! %d S - SAMMLE DAS GOLD"), ISLE_TIME); say(b, 3.0f); }
 }
@@ -1308,13 +1335,13 @@ static void startIsland() {
 // Echtzeit mit dem Low-Poly-Renderer, Kamerafahrt im Bogen auf die Yacht zu; ENTER ueberspringt.
 static constexpr float OUTRO_LEN = 13, OUTRO_X = 10, OUTRO_Y = 23.2f;
 static float outroT, isleEyeZ = -1;   // isleEyeZ >= 0: feste Augenhoehe statt Gelaende
-static constexpr int MAX_EXTRA_TRI = 240;
+static constexpr int MAX_EXTRA_TRI = 330;
 static IsleTri isleExtra[MAX_EXTRA_TRI]; static int nIsleExtra;
 static void oTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
   if (nIsleExtra >= MAX_EXTRA_TRI) return;
   IsleTri& t = isleExtra[nIsleExtra++];
   for (int k = 0; k < 3; k++) { t.v[k] = a[k]; t.v[3 + k] = b[k]; t.v[6 + k] = c[k]; }
-  t.r = r; t.g = g; t.b = bl;
+  t.r = r; t.g = g; t.b = bl; t.deco = 0;
 }
 static void oQuad(const float* a, const float* b, const float* c, const float* d, uint8_t r, uint8_t g, uint8_t bl) { oTri(a, b, c, r, g, bl); oTri(a, c, d, r, g, bl); }
 static void oBox(float x0, float y0, float z0, float x1, float y1, float z1, uint8_t r, uint8_t g, uint8_t bl) {
@@ -1363,36 +1390,58 @@ static void outroScene(float t) {
     if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 40, 110, 200);
   }
   oBox(cx - 0.3f, Y + 0.68f, D, cx - 0.25f, Y + 0.73f, D + 0.25f, 180, 130, 80); oBox(cx + 0.25f, Y + 0.68f, D, cx + 0.3f, Y + 0.73f, D + 0.25f, 180, 130, 80);
-  // Spieler
+  // Spieler: derselbe Trader wie im HUD - blauer Anzug, weisser Kragen, rote Krawatte, barfuss
   const float hz = D + 0.3f;
-  oBox(cx - 0.17f, Y + 0.3f, hz, cx - 0.03f, Y + 0.78f, hz + 0.1f, 235, 190, 150); oBox(cx + 0.03f, Y + 0.3f, hz, cx + 0.17f, Y + 0.78f, hz + 0.1f, 235, 190, 150);
-  oBox(cx - 0.19f, Y + 0.05f, hz, cx + 0.19f, Y + 0.32f, hz + 0.14f, 40, 90, 200);
+  oBox(cx - 0.17f, Y + 0.3f, hz, cx - 0.03f, Y + 0.7f, hz + 0.1f, 30, 60, 140); oBox(cx + 0.03f, Y + 0.3f, hz, cx + 0.17f, Y + 0.7f, hz + 0.1f, 30, 60, 140);
+  oBox(cx - 0.16f, Y + 0.7f, hz, cx - 0.04f, Y + 0.8f, hz + 0.12f, 235, 190, 150); oBox(cx + 0.04f, Y + 0.7f, hz, cx + 0.16f, Y + 0.8f, hz + 0.12f, 235, 190, 150);
+  oBox(cx - 0.19f, Y + 0.05f, hz, cx + 0.19f, Y + 0.32f, hz + 0.14f, 30, 60, 140);
   { float a[3] = {cx - 0.2f, Y + 0.06f, hz + 0.15f}, b[3] = {cx + 0.2f, Y + 0.06f, hz + 0.15f}, c[3] = {cx + 0.2f, Y - 0.4f, D + 0.78f}, e[3] = {cx - 0.2f, Y - 0.4f, D + 0.78f};
-    oQuad(a, b, c, e, 255, 120, 40); }
-  // Kopf: kastiger Low-Poly-Kopf, genau so breit wie die Meme-Brille
-  const float hx = cx, hy = Y - 0.48f, hb = D + 0.8f, HW = 0.25f, HD = 0.2f, ht = hb + 0.5f;
-  oBox(hx - HW, hy - HD, hb, hx + HW, hy + HD, ht - 0.07f, 235, 190, 150);
-  oBox(hx - HW - 0.012f, hy - HD - 0.012f, ht - 0.1f, hx + HW + 0.012f, hy + HD + 0.012f, ht + 0.02f, 90, 60, 35);
-  { float a[3] = {hx - HW, hy - HD - 0.013f, hb + 0.12f}, b[3] = {hx + HW, hy - HD - 0.013f, hb + 0.12f}, c[3] = {hx + HW, hy - HD - 0.013f, ht}, e[3] = {hx - HW, hy - HD - 0.013f, ht};
-    oQuad(a, b, c, e, 90, 60, 35); }
-  oBox(hx - HW - 0.045f, hy - 0.05f, hb + 0.2f, hx - HW, hy + 0.05f, hb + 0.31f, 235, 190, 150); oBox(hx + HW, hy - 0.05f, hb + 0.2f, hx + HW + 0.045f, hy + 0.05f, hb + 0.31f, 235, 190, 150);
-  { float a[3] = {hx - 0.1f, hy + HD + 0.005f, hb + 0.11f}, b[3] = {hx + 0.1f, hy + HD + 0.005f, hb + 0.135f}, c[3] = {hx + 0.1f, hy + HD + 0.005f, hb + 0.16f}, e[3] = {hx - 0.1f, hy + HD + 0.005f, hb + 0.13f};
-    oQuad(a, b, c, e, 150, 50, 50); }   // schraeges Grinsen
-  // Meme-Sonnenbrille ("Deal with it"): Pixelbloecke mit weissen Glanzpixeln, schwebt gegen Ende auf das Gesicht herab
-  if (t > 7.6f) {
+    oQuad(a, b, c, e, 30, 60, 140); }
+  {
+    auto tp = [&](float x, float y, float* o) { o[0] = cx + x; o[1] = Y + y; o[2] = D + 0.78f - (y + 0.4f) / 0.46f * 0.33f + 0.012f; };
+    auto dtri = [&](float x0, float y0, float x1, float y1, float x2, float y2, uint8_t r, uint8_t g, uint8_t bl) {
+      float a[3], b[3], c[3]; tp(x0, y0, a); tp(x1, y1, b); tp(x2, y2, c);
+      int n0 = nIsleExtra; oTri(a, b, c, r, g, bl); for (int k = n0; k < nIsleExtra; k++) isleExtra[k].deco = 1;
+    };
+    dtri(-0.1f, -0.4f, -0.03f, -0.4f, -0.02f, -0.2f, 240, 240, 240); dtri(0.03f, -0.4f, 0.1f, -0.4f, 0.02f, -0.2f, 240, 240, 240);   // Kragen
+    dtri(-0.03f, -0.4f, 0.03f, -0.4f, 0, -0.08f, 210, 40, 40);   // Krawatte
+  }
+  // Kopf: Ringe aus einem Querschnitt mit breiter flacher Front, Kinn verjuengt, Hinterkopf abgeschraegt
+  static const float SEC[8][2] = {{-0.198f, 0.171f}, {0.198f, 0.171f}, {0.216f, 0.036f}, {0.171f, -0.144f}, {0.072f, -0.189f}, {-0.072f, -0.189f}, {-0.171f, -0.144f}, {-0.216f, 0.036f}};
+  static const float RINGS[4][2] = {{0.0f, 0.62f}, {0.126f, 0.9f}, {0.27f, 1.0f}, {0.405f, 0.97f}};
+  const float hx = cx, hy = Y - 0.48f, hb = D + 0.8f;
+  auto rp = [&](int r, int i, float* o) { o[0] = hx + SEC[i][0] * RINGS[r][1]; o[1] = hy + SEC[i][1] * RINGS[r][1]; o[2] = hb + RINGS[r][0]; };
+  for (int r = 0; r < 3; r++) for (int i = 0; i < 8; i++) {
+    int j = (i + 1) % 8; float a[3], b[3], c[3], e[3]; rp(r, i, a); rp(r, j, b); rp(r + 1, j, c); rp(r + 1, i, e);
+    if (r == 2 && i >= 3 && i <= 5) oQuad(a, b, c, e, 60, 38, 20); else oQuad(a, b, c, e, 235, 190, 150);
+  }
+  { float tp[3] = {hx, hy - 0.02f, hb + 0.48f}; for (int i = 0; i < 8; i++) { float a[3], b[3]; rp(3, i, a); rp(3, (i + 1) % 8, b); oTri(a, b, tp, 60, 38, 20); } }
+  oBox(hx - 0.07f, hy - 0.06f, D + 0.7f, hx + 0.07f, hy + 0.06f, hb + 0.05f, 235, 190, 150);
+  oBox(hx - 0.26f, hy - 0.02f, hb + 0.18f, hx - 0.21f, hy + 0.06f, hb + 0.29f, 235, 190, 150); oBox(hx + 0.21f, hy - 0.02f, hb + 0.18f, hx + 0.26f, hy + 0.06f, hb + 0.29f, 235, 190, 150);
+  const float fy = hy + 0.171f;
+  { float n0[3] = {hx - 0.03f, fy, hb + 0.24f}, n1[3] = {hx + 0.03f, fy, hb + 0.24f}, nt[3] = {hx, fy + 0.06f, hb + 0.18f}, nb[3] = {hx, fy, hb + 0.17f};
+    oTri(n0, n1, nt, 225, 170, 130); oTri(n0, nt, nb, 215, 160, 120); oTri(n1, nb, nt, 215, 160, 120); }
+  auto deco = [&](float x0, float x1, float za0, float za1, float zb0, float zb1, float y, uint8_t r, uint8_t g, uint8_t bl) {   // Aufkleber: immer obenauf
+    float a[3] = {x0, y, za0}, b[3] = {x1, y, zb0}, c[3] = {x1, y, zb1}, e[3] = {x0, y, za1};
+    int n0 = nIsleExtra; oQuad(a, b, c, e, r, g, bl); for (int k = n0; k < nIsleExtra; k++) isleExtra[k].deco = 1;
+  };
+  deco(hx - 0.19f, hx + 0.19f, hb + 0.37f, hb + 0.405f, hb + 0.37f, hb + 0.405f, fy + 0.006f, 60, 38, 20);   // Pony
+  deco(hx - 0.1f, hx + 0.1f, hb + 0.1f, hb + 0.122f, hb + 0.117f, hb + 0.14f, fy + 0.006f, 120, 30, 30);   // verschmitztes Grinsen
+  deco(hx + 0.07f, hx + 0.11f, hb + 0.117f, hb + 0.14f, hb + 0.126f, hb + 0.153f, fy + 0.006f, 120, 30, 30);
+  // Meme-Sonnenbrille ("Deal with it"), dauerhaft auf: Pixelbloecke mit weissen Glanzpixeln, so breit wie das Gesicht
+  {
     static const int8_t RUNS[13][4] = {{0, 0, 21, 0}, {1, 0, 9, 0}, {1, 12, 21, 0}, {2, 1, 8, 0}, {2, 13, 20, 0}, {3, 2, 7, 0}, {3, 14, 19, 0}, {1, 2, 3, 1}, {1, 14, 15, 1}, {2, 3, 4, 1}, {2, 15, 16, 1}, {3, 4, 4, 1}, {3, 16, 16, 1}};
-    const float drop = min(1.0f, (t - 7.6f) / 1.2f), gp = 2 * HW / 22, gx = hx - 11 * gp, gy = hy + HD + 0.008f, gz = ht - 0.13f + (1 - drop) * 0.9f;
+    const float gp = 0.44f / 22, gx = hx - 11 * gp, gz = hb + 0.36f;
     for (auto& rr : RUNS) {
-      float y = gy + rr[3] * 0.006f, z0 = gz - (rr[0] + 1) * gp, z1 = gz - rr[0] * gp, xa = gx + rr[1] * gp, xb = gx + (rr[2] + 1) * gp;
-      float a[3] = {xa, y, z0}, b[3] = {xb, y, z0}, c[3] = {xb, y, z1}, e[3] = {xa, y, z1};
-      if (rr[3]) oQuad(a, b, c, e, 250, 250, 250); else oQuad(a, b, c, e, 10, 10, 12);
+      float y = fy + 0.009f + rr[3] * 0.004f, z0 = gz - (rr[0] + 1) * gp, z1 = gz - rr[0] * gp, xa = gx + rr[1] * gp, xb = gx + (rr[2] + 1) * gp;
+      if (rr[3]) deco(xa, xb, z0, z1, z0, z1, y, 255, 255, 255); else deco(xa, xb, z0, z1, z0, z1, y, 8, 8, 10);
     }
   }
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   float ph = fmodf(t, 4) / 4, lift = ph < 0.3f ? sinf(ph / 0.3f * 3.1416f) : 0;
-  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.1f, hy + HD + 0.03f, hb + 0.13f}, hand[3];
+  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.11f, hy + 0.21f, hb + 0.125f}, hand[3];
   for (int i = 0; i < 3; i++) hand[i] = rest[i] + (mouth[i] - rest[i]) * lift;
-  oRib(sh, hand, 0.035f, 235, 190, 150);
+  oRib(sh, hand, 0.04f, 30, 60, 140); oBox(hand[0] - 0.035f, hand[1] - 0.035f, hand[2] - 0.03f, hand[0] + 0.035f, hand[1] + 0.035f, hand[2] + 0.03f, 235, 190, 150);
   float g0[3] = {hand[0], hand[1], hand[2] + 0.02f}; const float gr = 0.07f, gh = 0.18f; float full = max(0.15f, 1 - t / OUTRO_LEN * 0.85f), lz = g0[2] + gh * full;
   for (int i = 0; i < 6; i++) {
     float a0 = i * 1.047f, a1 = (i + 1) * 1.047f;
@@ -1437,7 +1486,7 @@ static void updateIsland(float dt) {
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren ruecken nach
     isleSpawnT = hardcore ? 4.5f : 6;
-    float x, y; if (bearsAlive < (hardcore ? 10 : 8) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) makePirate(enemies[i]); }
+    float x, y; if (bearsAlive < (hardcore ? 14 : 12) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) makePirate(enemies[i]); }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);
@@ -1471,7 +1520,7 @@ static void isleCam(float x, float y, float z, float* o) {   // Welt -> Kamera (
   float dx = x - px, dy = y - py, rx = planeX / PLANE, ry = planeY / PLANE;
   o[0] = dx * rx + dy * ry; o[1] = z - isleEye; o[2] = dx * dirX + dy * dirY;
 }
-static void isleAddTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
+static void isleAddTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl, float bias = 0, bool bright = false) {
   if (nIsleItems >= MAX_ISLE_ITEMS) return;
   const float NEAR = 0.12f, lim = 1.3f * PLANE;
   float P[3][3]; isleCam(a[0], a[1], a[2], P[0]); isleCam(b[0], b[1], b[2], P[1]); isleCam(c[0], c[1], c[2], P[2]);
@@ -1483,8 +1532,8 @@ static void isleAddTri(const float* a, const float* b, const float* c, uint8_t r
   float ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
   float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = sqrtf(nx * nx + ny * ny + nz * nz);
   if (nl < 1e-6f) nl = 1; nx /= nl; ny /= nl; nz /= nl; if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
-  float lum = 0.55f + 0.5f * max(0.0f, nx * ISLE_SUN[0] + ny * ISLE_SUN[1] + nz * ISLE_SUN[2]);
-  float d = (P[0][2] + P[1][2] + P[2][2]) / 3, f = constrain((d - 4) / (ISLE_R - 4), 0.0f, 1.0f);
+  float lum = (bright ? 0.82f : 0.55f) + (bright ? 0.28f : 0.5f) * max(0.0f, nx * ISLE_SUN[0] + ny * ISLE_SUN[1] + nz * ISLE_SUN[2]);
+  float d = (P[0][2] + P[1][2] + P[2][2]) / 3 - bias, f = constrain((d - 4) / (ISLE_R - 4), 0.0f, 1.0f);
   int cr = r * lum + (ISLE_FOG[0] - r * lum) * f, cg = g * lum + (ISLE_FOG[1] - g * lum) * f, cb = bl * lum + (ISLE_FOG[2] - bl * lum) * f;
   // an der nahen Ebene abschneiden, dann projizieren
   float Q[4][3]; int n = 0;
@@ -1565,7 +1614,7 @@ static void renderIsland() {
       isleAddTri(ctr, p0, p1, 255, k % 2 ? 205 : 180, k % 2 ? 50 : 30);
     }
   }
-  for (int k = 0; k < nIsleExtra; k++) { const IsleTri& o = isleExtra[k]; isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b); }
+  for (int k = 0; k < nIsleExtra; k++) { const IsleTri& o = isleExtra[k]; isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b, o.deco ? 0.4f : 0, true); }
   for (int k = 0; k < nIsleObj; k++) { const IsleTri& o = isleObj[k];
     float mx = (o.v[0] + o.v[3] + o.v[6]) / 3 - px, my = (o.v[1] + o.v[4] + o.v[7]) / 3 - py;
     if (mx * mx + my * my < ISLE_R * ISLE_R) isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b); }
@@ -1890,7 +1939,7 @@ static void renderGlitch() {
   }
 }
 
-static void renderHurt() {   // roter Bildblitz wie in Wolfenstein 3D
+static void renderHurt() {   // roter Bildblitz
   if (hurtT <= 0) return;
   float k = min(1.0f, hurtT / 0.35f) * min(1.0f, 0.45f + hurtAmt / 40.0f) * 0.65f;
   for (int i = 0; i < SW * VH; i++) {
@@ -1913,16 +1962,30 @@ static void renderWeapon() {
     canvas.setTextColor(c565(40, 160, 40)); canvas.setTextSize(1);
     canvas.drawString("$", 104, by - 14); canvas.drawString("$", 132, by - 12);
   }
-  canvas.fillRect(113, by, 14, 22, c565(60, 62, 72));
-  canvas.fillRect(115, by, 4, 22, c565(120, 122, 135));
-  canvas.fillRect(111, by - 2, 18, 4, c565(200, 160, 40));
-  canvas.fillRoundRect(98, VH - 14 + bob, 44, 16, 5, c565(110, 64, 30));
-  canvas.fillTriangle(100, VH - 10 + bob, 78, VH - 30 + bob, 104, VH - 4 + bob, c565(235, 195, 60));
-  canvas.fillTriangle(140, VH - 10 + bob, 162, VH - 30 + bob, 136, VH - 4 + bob, c565(235, 195, 60));
-  canvas.fillTriangle(78, VH - 30 + bob, 84, VH - 22 + bob, 80, VH - 24 + bob, c565(255, 245, 200));
-  canvas.fillTriangle(162, VH - 30 + bob, 156, VH - 22 + bob, 160, VH - 24 + bob, c565(255, 245, 200));
-  canvas.fillCircle(110, VH - 7 + bob, 2, c565(255, 40, 40));
-  canvas.fillCircle(130, VH - 7 + bob, 2, c565(255, 40, 40));
+  // Geldkoffer-Kanone: Aktenkoffer mit Chromlauf, Banknotenbuendel als Magazin und kleinem Kursdisplay, in Trader-Haenden
+  const float s = 0.72f; const int cx = SW / 2, B = VH + bob;
+  auto X = [&](float x) { return (int)(cx + x * s); }; auto Y = [&](float y) { return (int)(B + y * s); };
+  auto R = [&](float x, float y, float w, float h, uint16_t c) { canvas.fillRect(X(x), Y(y), max(1, (int)(w * s + 0.5f)), max(1, (int)(h * s + 0.5f)), c); };
+  const uint16_t gold = c565(225, 180, 55), dark = c565(25, 20, 18);
+  for (int i = 0; i < 3; i++) { R(-29 + i * 3, -38 + i * 3, 14, 18, c565(30, 110, 45)); R(-28 + i * 3, -37 + i * 3, 12, 16, c565(90, 180, 95)); }
+  R(-24, -29, 14, 3, c565(250, 210, 60));
+  R(12, -31, 14, 3, dark); R(12, -31, 3, 8, dark); R(23, -31, 3, 8, dark);
+  canvas.fillRect(cx - 6, by, 13, Y(-22) - by, c565(60, 62, 72));
+  canvas.fillRect(cx - 4, by, 4, Y(-22) - by, c565(160, 162, 175));
+  canvas.fillRect(cx - 8, by - 2, 17, 4, c565(200, 160, 40));
+  canvas.fillRoundRect(X(-34), Y(-24), (int)(68 * s), (int)(28 * s), 4, c565(42, 31, 26));
+  R(-32, -22, 64, 2, c565(90, 66, 50));
+  R(-27, -21, 6, 5, gold); R(21, -21, 6, 5, gold);
+  R(-11, -11, 22, 9, c565(5, 18, 10));
+  { static const int8_t PT[6][2] = {{-9, -4}, {-5, -6}, {-2, -5}, {2, -8}, {5, -7}, {9, -10}};
+    for (int i = 0; i < 5; i++) canvas.drawLine(X(PT[i][0]), Y(PT[i][1]), X(PT[i + 1][0]), Y(PT[i + 1][1]), c565(80, 255, 120)); }
+  for (int m = -1; m <= 1; m += 2) {   // Haende mit Anzugaermel und Manschette
+    uint16_t suit = c565(30, 45, 100);
+    canvas.fillTriangle(X(m * 66), Y(6), X(m * 46), Y(6), X(m * 36), Y(-8), suit);
+    canvas.fillTriangle(X(m * 66), Y(6), X(m * 36), Y(-8), X(m * 48), Y(-16), suit);
+    canvas.fillEllipse(X(m * 40), Y(-10), 3, 4, c565(240, 240, 240));
+    canvas.fillEllipse(X(m * 34), Y(-13), 5, 4, c565(235, 190, 150));
+  }
   uint16_t ch = c565(80, 255, 120);
   canvas.drawFastHLine(SW / 2 - 4, VH / 2, 3, ch); canvas.drawFastHLine(SW / 2 + 2, VH / 2, 3, ch);
   canvas.drawFastVLine(SW / 2, VH / 2 - 4, 3, ch); canvas.drawFastVLine(SW / 2, VH / 2 + 2, 3, ch);
@@ -2302,10 +2365,10 @@ void loop() {
       gameTime += dt; outroT += dt;
       // Kamerafahrt: im Bogen von weit draussen bis nah an den Liegestuhl
       float u = min(1.0f, outroT / (OUTRO_LEN - 3)), e = u * u * (3 - 2 * u);
-      float tx = OUTRO_X + 0.9f, ty = OUTRO_Y - 0.1f, ang = 0.45f + e * 0.85f, dist = 10 - e * 6.6f;
+      float tx = OUTRO_X + 0.9f, ty = OUTRO_Y - 0.2f, ang = 0.45f + e * 1.08f, dist = 10 - e * 7.2f;
       px = tx + cosf(ang) * dist; py = ty + sinf(ang) * dist;
       float dl = sqrtf((tx - px) * (tx - px) + (ty - py) * (ty - py)); dirX = (tx - px) / dl; dirY = (ty - py) / dl; planeX = -dirY * PLANE; planeY = dirX * PLANE;
-      isleEyeZ = 1.85f - e * 0.4f; outroScene(outroT);
+      isleEyeZ = 1.85f - e * 0.25f; outroScene(outroT);
       renderIsland();
       isleEyeZ = -1; nIsleExtra = 0;
       canvas.fillRect(0, VH, SW, SH - VH, c565(0, 0, 0));
