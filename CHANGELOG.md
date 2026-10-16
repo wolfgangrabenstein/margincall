@@ -1,5 +1,19 @@
 # MARGIN CALL – Changelog
 
+## Version 3.17.2 – eigene Musik für jedes Level, Lautstärkeregler (16.10.2026)
+
+- **Jedes Level hat seine eigene Musik**, mit denselben Chiptune-Instrumenten wie bisher, damit alles zusammenpasst:
+  - **Dow Jones (Schalterhalle):** festlicher Marsch in C-Dur
+  - **S&P 500 (Parkett):** hektisch in e-Moll
+  - **Nasdaq-100 (Tresor):** geheimnisvoll in d-Moll
+  - **Öl (Raffinerie):** schwer und stampfend in g-Moll
+  - **ALGO-9000 (Rechenzentrum):** elektronisch mit Arpeggios in fis-Moll
+  - **Steueroase:** sonnige Calypso-Melodie in F-Dur mit Cowbell
+  - Titelbildschirm und Abspann behalten das bekannte Titellied.
+- **Fehler behoben:** Nach dem Spiel lief die Musik manchmal deutlich zu schnell, weil das hektischere Tempo bei wenig Depot hängen blieb.
+- **Lautstärkeregler:** In den Optionen lassen sich Musik und Soundeffekte jetzt in zehn Stufen regeln, statt Musik nur an- oder auszuschalten. Die Taste M schaltet die Musik weiterhin stumm und stellt danach die vorherige Lautstärke wieder her.
+- **Ranglisten zurückgesetzt:** Die Online-Rangliste startet neu.
+
 ## Version 3.17.1 – Trefferfeedback, schlauere Piraten, neue Waffe (16.10.2026)
 
 - **Schlussszene überarbeitet:**

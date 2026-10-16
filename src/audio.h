@@ -25,7 +25,7 @@ enum SfxId {
 void audioInit();
 void audioUpdate();               // jeden Frame aufrufen (fuettert den Musik-Stream)
 void sfxPlay(SfxId id);
-void musicStart();                // ab Songanfang
+void musicStart(int song = 0);    // ab Songanfang; 0 Titel/Abspann, 1-5 Level, 6 Steueroase
 void musicStop();
 void musicToggle();
 bool musicEnabled();

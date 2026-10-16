@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.17.1";
+const APP_VERSION = "3.17.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -654,7 +654,7 @@ function applyEvent(ev) {   // beim Mitspieler
     case "clip": if (ev[1] === net.id) me.noclip = !!ev[2]; break;
     case "psy": if (ev[1] === net.id) me.psy = !!ev[2]; break;
     case "tp": if (ev[1] === net.id) { px = ev[2]; py = ev[3]; dirX = ev[4]; dirY = ev[5]; planeX = -dirY * PLANE; planeY = dirX * PLANE; } break;
-    case "music": if (ev[1]) musicStart(); else musicStop(); break;
+    case "music": if (ev[1]) musicStart(ev[1] === true ? 0 : ev[1]); else musicStop(); break;
   }
 }
 
@@ -804,7 +804,7 @@ function loadLevel(lv) {
   spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
   sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
-  sfxAll("BELL"); musicStart(); emit(["music", 1]);
+  sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
 }
 function newGame() {
   island = islandDone = false; cheated = false;
@@ -1220,14 +1220,14 @@ function clientSnapshot(m) {
 // Jede Aktion hat zwei Belegungen; eine Belegung ist eine Taste oder eine Maustaste ("Mouse0/1/2").
 const ACTIONS = [
   ["fwd", "Forward", "Vorwärts"], ["back", "Backward", "Rückwärts"], ["turnL", "Turn left", "Links drehen"], ["turnR", "Turn right", "Rechts drehen"],
-  ["strafeL", "Strafe left", "Seitwärts links"], ["strafeR", "Strafe right", "Seitwärts rechts"], ["fire", "Fire", "Feuern"], ["pause", "Pause", "Pause"], ["music", "Music on/off", "Musik an/aus"],
+  ["strafeL", "Strafe left", "Seitwärts links"], ["strafeR", "Strafe right", "Seitwärts rechts"], ["fire", "Fire", "Feuern"], ["pause", "Pause", "Pause"], ["music", "Mute music", "Musik stumm"],
   ["chat", "Chat (multiplayer)", "Chat (Multiplayer)"], ["scores", "Stats (hold)", "Statistik (halten)"],
 ];
 const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
     strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], scores: ["Tab", null] },
-  mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en",
+  mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en", musicVol: 7, sfxVol: 7,   // Lautstaerke 0-10
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
 let settings = structuredClone(DEFAULTS);
@@ -1354,12 +1354,12 @@ function updateHint() {
 const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { return L(en, de); } });
 const OPT_ROWS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id })),
   optRow("mouseLook", "Mouse look", "Maussteuerung"), optRow("sens", "Mouse sensitivity", "Mausempfindlichkeit"), optRow("invert", "Invert mouse", "Maus invertieren"),
-  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("music", "Music", "Musik"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
+  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
   optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "Back", "Zurück")];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 88, OPT_DY = 19;
+const OPT_Y0 = 88, OPT_DY = 18;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1374,14 +1374,14 @@ function optActivate() {
   switch (row.kind) {
     case "bind": optWaiting = true; break;
     case "mouseLook": settings.mouseLook = !settings.mouseLook; saveSettings(); break;
-    case "music": musicToggle(); break;
+    case "musicVol": case "sfxVol": setVolume(row.kind, settings[row.kind] >= 10 ? 0 : settings[row.kind] + 1); break;
     case "fullscreen": setFullscreen(!fsOn); break;
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "online": settings.onlineScores = !onlineOn(); saveSettings(); break;
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
-    case "reset": settings = { ...structuredClone(DEFAULTS), lang: settings.lang }; saveSettings(); optMsg = L("Defaults restored", "Standardbelegung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
+    case "reset": settings = { ...structuredClone(DEFAULTS), lang: settings.lang }; saveSettings(); applyVolumes(); optMsg = L("Defaults restored", "Standardbelegung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
     case "back": closeOptions(); break;
   }
 }
@@ -1397,7 +1397,8 @@ function optKey(k) {
     const d = k === "ArrowLeft" ? -1 : 1;
     if (row.kind === "bind") optCol = clamp(optCol + d, 0, 1);
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "music" || row.kind === "fullscreen") optActivate();
+    else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "fullscreen") optActivate();
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1414,6 +1415,10 @@ function optClick(x, y) {
   const row = OPT_ROWS[i];
   if (row.kind === "bind") { if (x < 520) return; optCol = x < 740 ? 0 : 1; }
   if (row.kind === "sens" && x >= 520) { settings.sens = clamp(Math.floor((x - 520) / 40) + 1, 1, 10); saveSettings(); return; }
+  if ((row.kind === "musicVol" || row.kind === "sfxVol") && x >= 520) {   // Klick auf ein Kaestchen; nochmal auf das erste = stumm
+    const v = clamp(Math.floor((x - 520) / 36) + 1, 1, 10);
+    setVolume(row.kind, v === 1 && settings[row.kind] === 1 ? 0 : v); return;
+  }
   optActivate();
 }
 function renderOptions() {
@@ -1430,13 +1435,17 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "music" || row.kind === "fullscreen") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "music" ? musicOn : row.kind === "fullscreen" ? fsOn : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "fullscreen" ? fsOn : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "lang") {
       text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
     } else if (row.kind === "sens") {
       for (let k = 1; k <= 10; k++) { g.fillStyle = k <= settings.sens ? "#28c86e" : "#1e2846"; g.fillRect(520 + (k - 1) * 40, y + 1, 32, 14); }
+    } else if (row.kind === "musicVol" || row.kind === "sfxVol") {
+      const v = settings[row.kind];
+      for (let k = 1; k <= 10; k++) { g.fillStyle = k <= v ? (k > 8 ? "#ffd232" : "#28c86e") : "#1e2846"; g.fillRect(520 + (k - 1) * 36, y + 1 + (10 - k) * .6, 30, 14 - (10 - k) * .6); }
+      text(v ? v * 10 + " %" : L("OFF", "AUS"), 886, y, v ? "#c8c8d7" : "#ff7050", 17);
     }
   });
   const help = optWaiting ? L("Press a new key or mouse button · ESC cancels", "Neue Taste oder Maustaste drücken · ESC bricht ab")
@@ -1615,7 +1624,7 @@ function dodgeTap(k) {
 }
 
 function updateGame(dt) {
-  gameTime += dt; musicPanic = me.hp < 30;
+  gameTime += dt; musicPanic = !me.dead && me.hp < 30;
   for (const p of hurtPops) p.t += dt;
   hurtPops = hurtPops.filter(p => p.t < 1.1);
   faceT -= dt; if (faceT <= 0) { faceT = 1.2 + Math.random() * 2.5; faceLook = Math.random() < .5 ? 0 : Math.random() < .5 ? -1 : 1; }
@@ -2028,7 +2037,7 @@ function startIsland() {
   const taken = isleBuildObjects();
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
   for (let k = 0; k < (HC() ? 10 : 8); k++) { const c = isleFreeCell(6); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
-  state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
+  state = ST.PLAY; fireCd = .4; musicStart(6); lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
 }
 // Piraten: 60 % mehr Energie, etwas schneller als der Spieler. Rollen: Waechter lauern an einem Muenzhaufen und
@@ -2700,7 +2709,7 @@ function audioUnlock() {
   actx = new (window.AudioContext || window.webkitAudioContext)();
   sfxGain = actx.createGain(); sfxGain.gain.value = .75; sfxGain.connect(actx.destination);
   musicGain = actx.createGain(); musicGain.gain.value = .4; musicGain.connect(actx.destination);
-  genSfx();
+  genSfx(); applyVolumes();
   if (musicRunning) musicSchedule();
 }
 function sfx(name) {
@@ -2845,43 +2854,70 @@ function genSfx() {
 
 // Musik: derselbe Chiptune-Sequencer wie auf dem Cardputer (16 kHz)
 const MR = 16000, CHUNK = 4096;
-const MEL_A = [69,0,72,0,76,0,72,74,76,0,79,0,77,76,74,72, 72,0,69,0,65,0,69,72,77,0,76,0,74,0,72,0, 67,0,72,0,76,79,76,72,79,0,84,0,83,81,79,76, 79,0,77,79,81,0,79,0,74,0,71,0,74,76,77,1];
-const MEL_B = [74,77,81,77,74,77,81,86,81,77,74,77,81,0,79,77, 76,80,83,80,76,80,83,88,83,80,76,80,83,0,81,80, 81,0,76,0,72,0,76,81,84,0,83,0,81,0,76,0, 80,0,83,0,88,0,86,84,83,81,80,78,76,0,0,1];
-const CH_A = [[45,57,60,64],[41,53,57,60],[48,55,60,64],[43,55,59,62]], CH_B = [[38,50,53,57],[40,52,56,59],[45,57,60,64],[40,52,56,59]];
+const SONGS = [   // 0 Titel/Abspann, 1-5 Level, 6 Steueroase: gleiche Instrumente, eigene Melodie, Akkorde, Tempo und Groove
+  { bpm: 160, kick: "x...x...x...x...", bass: "R.O.R.O.R.O.R.OR", cow: 0, arp: 0,   // Titel (Original)
+    a: [69,0,72,0,76,0,72,74,76,0,79,0,77,76,74,72,72,0,69,0,65,0,69,72,77,0,76,0,74,0,72,0,67,0,72,0,76,79,76,72,79,0,84,0,83,81,79,76,79,0,77,79,81,0,79,0,74,0,71,0,74,76,77,1],
+    b: [74,77,81,77,74,77,81,86,81,77,74,77,81,0,79,77,76,80,83,80,76,80,83,88,83,80,76,80,83,0,81,80,81,0,76,0,72,0,76,81,84,0,83,0,81,0,76,0,80,0,83,0,88,0,86,84,83,81,80,78,76,0,0,1],
+    ca: [[45,57,60,64],[41,53,57,60],[48,55,60,64],[43,55,59,62]], cb: [[38,50,53,57],[40,52,56,59],[45,57,60,64],[40,52,56,59]] },
+  { bpm: 152, kick: "x...x...x...x...", bass: "R...O...R...O.O.", cow: 0, arp: 0,   // Dow Jones: Schalterhalle, festlicher Marsch in C-Dur
+    a: [76,0,79,0,84,0,79,0,76,0,74,76,79,0,0,0,81,0,79,0,76,0,72,0,76,0,81,0,79,0,76,0,77,0,81,0,84,0,81,0,77,0,79,81,79,0,77,0,74,0,79,0,83,0,86,0,83,0,79,0,74,76,77,1],
+    b: [81,84,81,77,81,84,89,0,84,81,77,81,84,0,81,79,83,86,83,79,83,86,91,0,86,83,79,83,86,0,84,83,79,0,76,0,71,0,76,79,83,0,81,0,79,0,76,0,81,0,84,0,88,0,86,84,83,81,79,76,81,0,0,1],
+    ca: [[48,55,60,64],[45,57,60,64],[41,53,57,60],[43,55,59,62]], cb: [[41,53,57,60],[43,55,59,62],[40,52,55,59],[45,57,60,64]] },
+  { bpm: 168, kick: "x...x...x...x.x.", bass: "RORORORORORORORO", cow: 0, arp: 0,   // S&P 500: Parkett, hektisch in e-Moll
+    a: [76,79,83,79,76,79,83,88,86,83,79,83,76,0,1,76,79,0,76,0,72,0,76,79,84,0,83,0,79,0,76,0,78,81,86,81,78,81,86,90,88,86,81,78,74,0,76,78,75,0,78,0,83,0,81,79,78,0,75,0,71,0,0,1],
+    b: [84,0,83,81,76,0,81,0,84,0,88,0,86,84,83,81,78,0,81,0,86,0,84,83,81,0,78,0,74,0,76,78,79,83,86,83,79,83,86,91,90,86,83,79,86,0,83,0,83,0,87,0,90,0,88,87,85,83,81,78,75,0,0,1],
+    ca: [[40,52,55,59],[48,55,60,64],[38,50,54,57],[47,51,54,59]], cb: [[45,57,60,64],[38,50,54,57],[43,55,59,62],[47,51,54,59]] },
+  { bpm: 150, kick: "x.....x...x.....", bass: "R..R..O.R..R..O.", cow: 0, arp: 0,   // Nasdaq-100: Tresor, geheimnisvoll in d-Moll
+    a: [74,0,1,81,0,1,77,0,76,0,74,0,69,0,0,1,74,0,1,77,0,1,82,0,81,0,77,0,74,0,0,1,79,0,1,82,0,1,86,0,84,0,82,0,79,0,81,82,81,0,0,0,76,0,73,0,76,0,81,0,79,77,76,1],
+    b: [82,0,81,0,79,0,74,0,79,0,82,0,86,0,84,82,84,0,82,0,79,0,76,0,79,0,84,0,88,0,86,84,81,0,84,0,89,0,88,0,86,0,84,0,81,0,77,0,76,0,81,0,85,0,88,0,86,0,85,0,81,0,0,1],
+    ca: [[38,50,53,57],[46,53,58,62],[43,55,58,62],[45,57,61,64]], cb: [[43,55,58,62],[48,55,60,64],[41,53,57,60],[45,57,61,64]] },
+  { bpm: 140, kick: "x..x..x.x..x..x.", bass: "RR..RR..RR..RRO.", cow: 0, arp: 0,   // Oel: Raffinerie, schwer und stampfend in g-Moll
+    a: [67,0,0,67,70,0,67,0,74,0,72,0,70,0,69,0,67,0,0,67,70,0,67,0,75,0,74,0,72,0,70,0,65,0,0,65,69,0,72,0,77,0,75,0,74,0,72,0,74,0,0,0,69,0,66,0,69,0,74,0,72,70,69,1],
+    b: [72,0,75,0,79,0,75,0,72,0,67,0,72,0,74,75,74,0,70,0,67,0,70,0,74,0,79,0,77,0,74,0,75,0,79,0,82,0,79,0,75,0,70,0,75,0,77,79,78,0,81,0,86,0,84,0,81,0,78,0,74,0,0,1],
+    ca: [[43,55,58,62],[39,51,55,58],[41,53,57,60],[38,50,54,57]], cb: [[48,55,60,63],[43,55,58,62],[39,51,55,58],[38,50,54,57]] },
+  { bpm: 176, kick: "x...x...x...x...", bass: "R.ROR.ROR.ROR.RO", cow: 0, arp: 1,   // ALGO-9000: Rechenzentrum, elektronisch in fis-Moll
+    a: [78,81,85,90,85,81,78,81,85,0,90,0,88,0,85,0,86,0,81,0,78,0,81,86,90,0,88,0,86,0,81,0,88,0,83,0,80,0,83,88,92,0,90,0,88,0,83,0,85,0,80,0,77,0,80,85,89,0,0,0,85,0,0,1],
+    b: [83,0,86,0,90,0,86,83,78,0,83,0,86,0,85,83,81,0,86,0,90,0,88,86,81,0,78,0,81,0,83,85,85,0,88,0,93,0,92,90,88,0,85,0,81,0,83,85,80,0,85,0,89,0,92,0,89,0,85,0,80,0,0,1],
+    ca: [[42,54,57,61],[38,50,54,57],[40,52,56,59],[49,53,56,61]], cb: [[47,50,54,59],[38,50,54,57],[45,57,61,64],[49,53,56,61]] },
+  { bpm: 150, kick: "x...x...x...x...", bass: "R..OR.O.R..OR.O.", cow: 1, arp: 0,   // Steueroase: sonnig, Calypso in F-Dur
+    a: [72,0,77,0,1,81,0,77,0,1,84,0,81,0,77,0,74,0,77,0,1,82,0,77,0,1,86,0,84,0,82,0,76,0,79,0,1,84,0,79,0,1,88,0,86,0,84,82,81,0,0,0,77,0,72,0,77,0,81,0,79,0,77,1],
+    b: [77,0,81,0,86,0,81,0,77,0,74,0,77,0,81,0,77,0,82,0,86,0,82,0,77,0,74,0,77,0,82,0,79,0,82,0,86,0,84,0,82,0,81,0,79,0,77,0,76,0,79,0,84,0,88,0,86,0,84,0,82,79,76,1],
+    ca: [[41,53,57,60],[46,53,58,62],[48,55,60,64],[41,53,57,60]], cb: [[38,50,53,57],[46,53,58,62],[43,55,58,62],[48,55,60,64]] },
+];
 const P = { A: 0, A_COW: 1, B: 2, B_FILL: 3, CRAZY: 4, A_SLIDE: 5 };
-const KICK_A = "x...x...x...x...", KICK_B = "x...x...x.x.x..x", SNARE = "....x.......x...", FILL = "x.x.xxxxxxxxxxxx",
-  HAT = "xoxoxoxoxoxoxoxo", COW = "..x..x....x..x..", BASS_A = "R.O.R.O.R.O.R.OR", BASS_B = "RRORRORRORRORROR";
+const KICK_B = "x...x...x.x.x..x", SNARE = "....x.......x...", FILL = "x.x.xxxxxxxxxxxx",
+  HAT = "xoxoxoxoxoxoxoxo", COW = "..x..x....x..x..", BASS_B = "RRORRORRORRORROR";
 const noteInc = Array.from({ length: 128 }, (_, n) => 440 * 2 ** ((n - 69) / 12) / MR);
 const mk = () => ({ ph: 0, inc: 0, target: 0, env: 0, decay: .9995, sustain: 0, duty: .5 });
 let ms = null, musicTime = 0, musicTimer = null;
-function musicReset() {
-  ms = { part: 0, step: 0, loop: 0, left: 0, lead: mk(), echo: mk(), bass: mk(), arp: mk(), kickEnv: 0, kickF: 0, kickPh: 0, snareEnv: 0, snarePh: 0,
+function musicReset(song = 0) {
+  ms = { song: SONGS[song] || SONGS[0], part: 0, step: 0, loop: 0, left: 0, lead: mk(), echo: mk(), bass: mk(), arp: mk(), kickEnv: 0, kickF: 0, kickPh: 0, snareEnv: 0, snarePh: 0,
     hatEnv: 0, hatDecay: .99, hatPrev: 0, cowEnv: 0, c1: 0, c2: 0, laserEnv: 0, laserF: 0, laserPh: 0, echoLine: [1, 1, 1, 1], arpN: [60, 64, 67], arpC: 0, arpI: 0, lfoC: 0, lfoPh: 0, vib: 0 };
 }
 function noteOn(v, midi, sustain, slide = false) { v.target = noteInc[clamp(midi, 0, 127)]; if (!slide || !v.inc) v.inc = v.target; v.env = 1; v.sustain = sustain; }
 function nextStep() {
-  const s = ms, isB = s.part === P.B || s.part === P.B_FILL, bar = s.step >> 4, st = s.step & 15;
-  const ch = (isB ? CH_B : CH_A)[bar], tr = s.loop % 6;
-  let m = (isB ? MEL_B : MEL_A)[s.step]; if (s.part === P.CRAZY) m = 1;
+  const s = ms, S = s.song, isB = s.part === P.B || s.part === P.B_FILL, bar = s.step >> 4, st = s.step & 15;
+  const ch = (isB ? S.cb : S.ca)[bar], tr = s.loop % 6;
+  let m = (isB ? S.b : S.a)[s.step]; if (s.part === P.CRAZY) m = 1;
   if (m === 1) { s.lead.sustain = 0; s.lead.decay = .997; } else if (m > 1) { s.lead.decay = .9996; noteOn(s.lead, m + tr, .55, s.part === P.A_SLIDE); }
   s.lead.duty = s.part === P.A_COW ? .25 : .5;
   const e = s.echoLine.shift(); s.echoLine.push(s.part === P.A_COW || s.part === P.B_FILL ? m : 1);
   if (e > 1) { noteOn(s.echo, e + tr + 12, .3); s.echo.decay = .9993; s.echo.duty = .125; }
-  if (s.part === P.CRAZY || s.part === P.B_FILL) { s.arpN = [ch[1] + tr + 12, ch[2] + tr + 12, ch[3] + tr + 12]; s.arp.env = s.part === P.CRAZY ? 1 : .5; s.arp.decay = .99985; }
+  if (s.part === P.CRAZY || s.part === P.B_FILL || (S.arp && st % 8 === 0)) { s.arpN = [ch[1] + tr + 12, ch[2] + tr + 12, ch[3] + tr + 12]; s.arp.env = s.part === P.CRAZY ? 1 : s.part === P.B_FILL ? .5 : .3; s.arp.decay = .99985; }
   if (s.part === P.CRAZY && st === 0) { s.laserEnv = 1; s.laserF = 2400; }
-  const bc = (isB ? BASS_B : BASS_A)[st];
+  const bc = (isB ? BASS_B : S.bass)[st];
   if (bc === "R") { noteOn(s.bass, ch[0] + tr, .4); s.bass.decay = .9992; } else if (bc === "O") { noteOn(s.bass, ch[0] + tr + 12, .35); s.bass.decay = .999; }
   s.bass.duty = .25;
-  if (((isB || s.part === P.CRAZY) ? KICK_B : KICK_A)[st] === "x") { s.kickEnv = 1; s.kickF = 170; }
+  if (((isB || s.part === P.CRAZY) ? KICK_B : S.kick)[st] === "x") { s.kickEnv = 1; s.kickF = 170; }
   const sn = s.part === P.B_FILL && bar === 3 ? FILL : SNARE;
   if (sn[st] === "x" && s.part !== P.CRAZY) s.snareEnv = sn === FILL ? .5 + st * .03 : 1;
   if (HAT[st] === "x") { s.hatEnv = .6; s.hatDecay = .993; } else if (HAT[st] === "o") { s.hatEnv = .8; s.hatDecay = .9985; }
-  if ((s.part === P.A_COW || s.part === P.A_SLIDE) && COW[st] === "x") s.cowEnv = 1;
+  if ((s.part === P.A_COW || s.part === P.A_SLIDE || (S.cow && !isB)) && COW[st] === "x") s.cowEnv = 1;
   if (++s.step >= 64) { s.step = 0; if (++s.part >= 6) { s.part = 0; s.loop++; } }
 }
 function pulse(v) { v.ph = (v.ph + v.inc) % 1; return v.ph < v.duty ? 1 : -1; }
 function renderMusic(out) {
-  const s = ms, stepLen = Math.floor(MR * 60 / ((musicPanic ? 196 : 160) * 4));
+  const s = ms, stepLen = Math.floor(MR * 60 / (s.song.bpm * (musicPanic ? 1.22 : 1) * 4));
   for (let i = 0; i < out.length; i++) {
     if (--s.left <= 0) { s.left = stepLen; nextStep(); }
     if (++s.lfoC >= 64) { s.lfoC = 0; s.lfoPh += 64 * 6 * 2 * Math.PI / MR; s.vib = Math.sin(s.lfoPh); if (s.lead.inc !== s.lead.target) s.lead.inc += (s.lead.target - s.lead.inc) / 6; }
@@ -2920,9 +2956,19 @@ function musicSchedule() {
     musicTime += CHUNK / MR;
   }
 }
-function musicStart() { musicKill(); musicReset(); musicRunning = true; }
+function musicStart(song = 0) { musicKill(); musicReset(song); musicPanic = false; musicRunning = true; }
 function musicStop() { musicRunning = false; musicKill(); }
-function musicToggle() { musicOn = !musicOn; settings.music = musicOn; saveSettings(); musicSchedule(); }
+function applyVolumes() {
+  musicOn = settings.musicVol > 0;
+  if (actx) { musicGain.gain.value = .4 * settings.musicVol / 7; sfxGain.gain.value = .75 * settings.sfxVol / 7; }
+  musicSchedule();
+}
+function setVolume(kind, v) {
+  if (kind === "musicVol" && v > 0) settings.musicLast = v;
+  settings[kind] = v; saveSettings(); applyVolumes();
+  if (kind === "sfxVol") sfx("COINS");   // Hoerprobe
+}
+function musicToggle() { setVolume("musicVol", settings.musicVol > 0 ? 0 : settings.musicLast || 7); }
 setInterval(musicSchedule, 60);
 
 // Tab im Hintergrund: alle Toene anhalten
@@ -3344,7 +3390,9 @@ function frame(now) {
 }
 
 players = [me = makePlayer(0, true)];
-musicOn = settings.music !== false;   // gespeicherte Musik-Einstellung
+if (settings.music === false && settings.musicVol === 7 && settings.musicLast === undefined) settings.musicVol = 0;   // alte Ein/Aus-Einstellung uebernehmen
+delete settings.music;
+musicOn = settings.musicVol > 0;   // gespeicherte Musik-Lautstaerke
 updateHint();
 marketsSimulate();
 genWalls(); genSprites();
