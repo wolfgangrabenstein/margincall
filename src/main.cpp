@@ -1,4 +1,4 @@
-// MARGIN CALL - ein Boersen-Raycaster (Doom-Klon) fuer den M5Stack Cardputer ADV
+// MARGIN CALL - ein Boersen-Raycaster fuer den M5Stack Cardputer ADV
 //
 // Steuerung:  E / S = vor / zurueck     A / D = drehen
 //             W / R = seitwaerts        Leertaste / Enter = schiessen
@@ -1695,7 +1695,7 @@ static void updateGame(float dt) {
     bobT += dt * 10;
   }
 
-  // Ausweichen: dieselbe Richtung zweimal schnell antippen (wie in Unreal Tournament)
+  // Ausweichen: dieselbe Richtung zweimal schnell antippen
   static const char DODGE_KEYS[4] = {'e', 's', 'w', 'r'};
   static const float DODGE_F[4] = {1, -1, 0, 0}, DODGE_S[4] = {0, 0, -1, 1};
   static bool keyWasDown[4];
