@@ -1,12 +1,29 @@
 # MARGIN CALL – Changelog
 
-## Version 3.17.1 – Trefferfeedback wie in Wolfenstein 3D, zweisprachige GitHub-Seite (16.10.2026)
+## Version 3.17.1 – Trefferfeedback, schlauere Piraten, neue Waffe (16.10.2026)
+
+- **Schlussszene überarbeitet:**
+  - Die Meme-Sonnenbrille sitzt jetzt die ganze Zeit auf und wird nicht mehr vom Kopf verdeckt.
+  - Es ist derselbe Trader wie im HUD: braune Haare, blauer Anzug, weißer Kragen, rote Krawatte, barfuß im Liegestuhl.
+  - Der Kopf wirkt realistischer und passt in der Größe zur Brille: breites Gesicht, schmaleres Kinn, abgerundeter Hinterkopf, Nase, Ohren, Haare mit Pony und ein Hals.
+  - Das verschmitzte Grinsen mit hochgezogenem Mundwinkel ist gut zu sehen.
+  - Die Szene ist heller ausgeleuchtet, und die Kamera endet frontal auf Augenhöhe.
+- **Mehr und schlauere Piraten in der Steueroase:**
+  - Zu Beginn 8 statt 5 (Hardcore 10), gleichzeitig bis zu 12 (Hardcore 14).
+  - Sie sind etwas schneller als du, brauchen nach dem Erscheinen aber kurz, bis sie losstürmen.
+  - Auch wenn du umzingelt bist, trifft dich höchstens alle 0,5 Sekunden ein Säbel (Hardcore 0,35 s).
+  - Drei Rollen:
+    - **Wächter** lauern an einem Münzhaufen und greifen erst an, wenn du in die Nähe kommst.
+    - **Abfänger** laufen dorthin, wo du gleich sein wirst.
+    - **Jäger** verfolgen dich direkt.
+- **Neue Waffe:** eine Geldkoffer-Kanone, ein Aktenkoffer mit Chromlauf, Banknotenbündel als Magazin und kleinem Kursdisplay, gehalten von Trader-Händen im Anzug.
+- **Neues Dividenden-Icon:** ein Münzstapel mit großem grünen Pfeil nach oben, besser erkennbar als die alte Münze.
 
 - **Treffer spürst du jetzt:**
   - **Roter Bildblitz:** Das ganze Bild färbt sich kurz rot, je mehr Schaden, desto stärker.
   - **Wackeln:** Das Bild wackelt kurz.
   - **Kurssturz:** Der Schaden fällt als „▼ −12 %“ durchs Bild.
-- **Trader-Gesicht im HUD** (wie BJ in Wolfenstein 3D):
+- **Trader-Gesicht im HUD:**
   - grinst bei vollem Depot, schwitzt bei mittlerem, gerät bei wenig Depot in Panik
   - verzieht bei Treffern das Gesicht und schaut ab und zu zur Seite
   - hat X-Augen, wenn du pleite bist
@@ -62,7 +79,7 @@
 ## Version 3.13.0 – Abspann und Bonus-Level „Steueroase“ (16.10.2026)
 
 - **Kurzer Abspann nach dem Endboss:** Nach dem Sieg über ALGO-9000 und dem Bullenmarkt-Bonus läuft ein Abspann von rund 15 Sekunden. Mit Enter lässt er sich überspringen.
-- **Bonus-Level „Steueroase“:** Danach geht es auf eine Tropeninsel im Freien, mit ganz neuer Low-Poly-Grafik statt Doom-Gängen.
+- **Bonus-Level „Steueroase“:** Danach geht es auf eine Tropeninsel im Freien, mit ganz neuer Low-Poly-Grafik statt dunkler Gänge.
   - **Grafik:** Sonnenuntergang, Sandstrand, türkisfarbenes Flachwasser, glitzerndes Meer, Palmen, eine Strandbar, eine Luxusyacht vor der Küste und drehende Goldmünzen. Ein eigener kleiner 3D-Renderer zeichnet flach schattierte Dreiecke mit Sonnenlicht und Abenddunst.
   - **Ziel:** 90 Sekunden Zeit, 20 Goldmünzen einsammeln, während „Steuerfahnder-Bären“ dich jagen. Jede Münze bringt +500 $, alle 20 zusammen +10.000 $ extra, in Hardcore jeweils 1,5-fach.
   - **Kein Risiko für den Lauf:** Wirst du erwischt oder läuft die Zeit ab, endet nur das Bonus-Level, das gesammelte Gold bleibt dir. Danach folgt wie gewohnt der Highscore.
@@ -285,7 +302,7 @@
 
 ## Version 3.3 – Ausweichen (15.10.2026)
 
-- **Ausweichen per Doppeltipp** wie in Unreal Tournament: Tippst du eine Bewegungsrichtung zweimal schnell hintereinander an (innerhalb von 0,25 s), springt deine Figur ein Stück in diese Richtung.
+- **Ausweichen per Doppeltipp:** Tippst du eine Bewegungsrichtung zweimal schnell hintereinander an (innerhalb von 0,25 s), springt deine Figur ein Stück in diese Richtung.
 - Das geht **nach vorne, nach hinten, nach links und nach rechts**.
   - Am PC zählen die Tasten aus dem Optionsmenü, also auch die Pfeiltasten.
   - Auf dem Cardputer sind es E, S, W und R.

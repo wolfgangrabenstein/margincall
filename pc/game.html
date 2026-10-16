@@ -432,8 +432,11 @@ function genSprites() {
   for (let i = 0; i < 3; i++) { trect(5, 16 + i * 4, 22, 9, RGB(30, 110, 45)); trect(6, 17 + i * 4, 20, 7, RGB(90, 180, 95)); }
   tcirc(16, 28, 3, RGB(200, 240, 200)); trect(15, 25, 2, 7, RGB(20, 90, 30)); trect(12, 21, 8, 2, RGB(250, 210, 60));
   storeSprite(S.CASH);
-  tclear(N); tcirc(16, 21, 10, RGB(180, 120, 10)); tcirc(16, 21, 8.5, RGB(255, 200, 50));
-  trect(14, 19, 4, 8, RGB(20, 170, 60)); ttri(10, 20, 22, 20, 16, 13, RGB(20, 170, 60)); tcirc(12, 16, 1.5, RGB(255, 255, 220));
+  tclear(N);   // Dividende: Muenzstapel mit grossem gruenen Kurspfeil nach oben
+  for (let i = 0; i < 3; i++) { tellipse(16, 28 - i * 4, 9, 3.2, RGB(150, 95, 10)); tellipse(16, 27 - i * 4, 8, 2.4, RGB(255, 200, 50)); }
+  tellipse(13, 19, 2, .8, RGB(255, 250, 210));
+  ttri(5, 14, 27, 14, 16, 2, RGB(10, 80, 30)); trect(11, 13, 10, 9, RGB(10, 80, 30));
+  ttri(8, 13, 24, 13, 16, 4.5, RGB(60, 230, 90)); trect(13, 12, 6, 9, RGB(60, 230, 90)); trect(14, 8, 2, 11, RGB(190, 255, 200));
   storeSprite(S.DIV);
   // Piraten der Steueroase: 3 Typen (Kapitaen, Matrose, Freibeuter), je 2 Bilder (Laufen, Saebel erhoben)
   for (let k = 0; k < 3; k++) for (let f = 0; f < 2; f++) {
@@ -1003,6 +1006,7 @@ function meleeHit(e, dmgP, dmgE, why) {
 }
 function updateEnemy(e, dt) {
   e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  if (e.pir !== undefined) { pirateAI(e, dt); return; }
   const spd = crashT > 0 ? 1.4 : 1, animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
@@ -1898,15 +1902,28 @@ function renderWeapon() {
     lg.fillStyle = css(255, 255, 180); lg.beginPath(); lg.arc(cx, by - 5, 8, 0, 7); lg.fill();
     lg.fillStyle = css(40, 160, 40); lg.font = "bold 10px monospace"; lg.fillText("$", cx - 22, by - 12); lg.fillText("$", cx + 16, by - 10);
   }
-  lg.fillStyle = css(60, 62, 72); lg.fillRect(cx - 9, by, 19, 30);
-  lg.fillStyle = css(120, 122, 135); lg.fillRect(cx - 7, by, 5, 30);
-  lg.fillStyle = css(200, 160, 40); lg.fillRect(cx - 12, by - 3, 24, 5);
-  lg.fillStyle = css(110, 64, 30); lg.beginPath(); lg.roundRect(cx - 30, B - 19, 60, 22, 7); lg.fill();
-  tri([cx - 27, B - 13, cx - 57, B - 41, cx - 22, B - 5], css(235, 195, 60));
-  tri([cx + 27, B - 13, cx + 57, B - 41, cx + 22, B - 5], css(235, 195, 60));
-  tri([cx - 57, B - 41, cx - 48, B - 30, cx - 54, B - 32], css(255, 245, 200));
-  tri([cx + 57, B - 41, cx + 48, B - 30, cx + 54, B - 32], css(255, 245, 200));
-  lg.fillStyle = css(255, 40, 40); lg.fillRect(cx - 15, B - 11, 4, 4); lg.fillRect(cx + 11, B - 11, 4, 4);
+  // Geldkoffer-Kanone: Aktenkoffer mit Chromlauf, Banknotenbuendel als Magazin und kleinem Kursdisplay, in Trader-Haenden
+  const R = (x, y, w, h, c) => { lg.fillStyle = c; lg.fillRect(cx + x, B + y, w, h); };
+  const E = (x, y, rx, ry, c) => { lg.fillStyle = c; lg.beginPath(); lg.ellipse(cx + x, B + y, rx, ry, 0, 0, 7); lg.fill(); };
+  const P = (p, c) => { lg.fillStyle = c; lg.beginPath(); lg.moveTo(cx + p[0], B + p[1]); for (let i = 2; i < p.length; i += 2) lg.lineTo(cx + p[i], B + p[i + 1]); lg.fill(); };
+  const gold = css(225, 180, 55), dark = css(25, 20, 18);
+  for (let i = 0; i < 3; i++) { R(-29 + i * 3, -38 + i * 3, 14, 18, css(30, 110, 45)); R(-28 + i * 3, -37 + i * 3, 12, 16, css(90, 180, 95)); }   // Banknoten-Magazin
+  R(-24, -29, 14, 3, css(250, 210, 60));   // Banderole
+  R(12, -31, 14, 3, dark); R(12, -31, 3, 8, dark); R(23, -31, 3, 8, dark);   // Tragegriff
+  lg.fillStyle = css(60, 62, 72); lg.fillRect(cx - 8, by, 17, B - 22 - by);   // Lauf
+  lg.fillStyle = css(160, 162, 175); lg.fillRect(cx - 6, by, 5, B - 22 - by);
+  lg.fillStyle = css(200, 160, 40); lg.fillRect(cx - 11, by - 3, 23, 5);
+  lg.fillStyle = css(42, 31, 26); lg.beginPath(); lg.roundRect(cx - 34, B - 24, 68, 28, 5); lg.fill();   // Koffer
+  R(-32, -22, 64, 2, css(90, 66, 50)); R(-34, -13, 68, 1, dark);
+  R(-27, -21, 6, 5, gold); R(21, -21, 6, 5, gold); R(-25, -19, 2, 2, dark); R(23, -19, 2, 2, dark);   // Schloesser
+  R(-11, -11, 22, 9, css(5, 18, 10));   // Kursdisplay
+  lg.strokeStyle = css(80, 255, 120); lg.lineWidth = 1; lg.beginPath();
+  [[-9, -4], [-5, -6], [-2, -5], [2, -8], [5, -7], [9, -10]].forEach(([x, y], i) => i ? lg.lineTo(cx + x, B + y) : lg.moveTo(cx + x, B + y)); lg.stroke();
+  for (const m of [-1, 1]) {   // Haende mit Anzugaermel und Manschette
+    P([m * 66, 6, m * 46, 6, m * 36, -8, m * 48, -16], css(30, 45, 100));
+    E(m * 40, -10, 4, 6, css(240, 240, 240)); E(m * 34, -13, 7, 6, css(235, 190, 150));
+    R(m * 34 - 3, -16, 6, 1, css(200, 150, 115)); R(m * 34 - 3, -12, 6, 1, css(200, 150, 115));
+  }
   lg.fillStyle = css(80, 255, 120);
   lg.fillRect(cx - 6, VH / 2, 4, 1); lg.fillRect(cx + 3, VH / 2, 4, 1); lg.fillRect(cx, VH / 2 - 6, 1, 4); lg.fillRect(cx, VH / 2 + 3, 1, 4);
   void k;
@@ -2010,13 +2027,38 @@ function startIsland() {
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
   const taken = isleBuildObjects();
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
-  for (let k = 0; k < 5; k++) { const c = isleFreeCell(7); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
+  for (let k = 0; k < (HC() ? 10 : 8); k++) { const c = isleFreeCell(6); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
   state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
 }
-function makePirate(e) {   // Piraten: 60 % mehr Energie, 15 % schneller (Tempo in updateEnemy)
+// Piraten: 60 % mehr Energie, etwas schneller als der Spieler. Rollen: Waechter lauern an einem Muenzhaufen und
+// greifen erst an, wenn man nahe kommt; Abfaenger laufen dorthin, wo der Spieler gleich sein wird; Jaeger verfolgen direkt.
+function makePirate(e) {
   e.pir = rnd() % 3; e.hp = Math.round(e.hp * 1.6); e.maxhp = Math.round(e.maxhp * 1.6);
+  const r = rnd() % 10, coins = items.filter(i => i.active && i.type === 2 && (i.x - px) ** 2 + (i.y - py) ** 2 > 64);
+  e.role = r < 4 && coins.length ? "guard" : r < 7 ? "flank" : "chase"; e.alert = false; e.delay = 1.5 + frand() * 2;
+  if (e.role === "guard") { const c = coins[rnd() % coins.length]; e.gx = c.x; e.gy = c.y; e.x = c.x + .8; e.y = c.y; if (solidCell(Math.floor(e.x), Math.floor(e.y))) { e.x = c.x; e.y = c.y; } }
   return e;
+}
+let pirHitAt = 0;   // gemeinsamer Angriffstakt: auch umzingelt trifft nur alle 0,5 s ein Saebel
+function pirateAI(e, dt) {
+  const pl = nearestPlayer(e, 40, false);
+  if (!pl) return;
+  if (e.delay > 0) { e.delay -= dt; return; }
+  const dx = pl.x - e.x, dy = pl.y - e.y, d = Math.hypot(dx, dy) + 1e-4;
+  const go = (tx, ty, v) => {   // bewegen, an Wasserkanten seitlich ausweichen
+    const ex = tx - e.x, ey = ty - e.y, l = Math.hypot(ex, ey) + 1e-4, mx = ex / l * v * dt, my = ey / l * v * dt;
+    if (!moveEntity(e, mx, my, .25)) moveEntity(e, -my, mx, .25);
+  };
+  if (e.role === "guard" && !e.alert) {
+    if (d < 3.8 && lineOfSight(e.x, e.y, pl.x, pl.y)) { e.alert = true; e.attackAnim = .5; sfxNear("ROAR", e.x, e.y, 8); }
+    else { go(e.gx + Math.cos(e.anim * .8) * .7, e.gy + Math.sin(e.anim * .8) * .7, .8); return; }   // lauert am Muenzhaufen
+  }
+  const v = (HC() ? 3.2 : 3.0) * (crashT > 0 ? 1.2 : 1);   // Spieler laeuft 2,8
+  let tx = pl.x, ty = pl.y;
+  if (e.role === "flank" && d > 1.6) { const lead = Math.min(3, d * .6); tx += (pl.dirX || 0) * lead; ty += (pl.dirY || 0) * lead; }   // Weg abschneiden
+  if (d > .75) go(tx, ty, v);
+  else if (e.cd <= 0 && Math.abs(gameTime - pirHitAt) > (HC() ? .35 : .5)) { pirHitAt = gameTime; e.cd = 1.2; e.attackAnim = .3; damagePlayer(pl, Math.floor(11 * e.str), L("CUTLASS SLASH!", "SÄBELHIEB!")); }
 }
 function updateIsland(dt) {
   isleT -= dt;
@@ -2030,7 +2072,7 @@ function updateIsland(dt) {
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
     isleSpawnT = HC() ? 4.5 : 6;
-    if (bearsAlive < (HC() ? 10 : 8)) { const c = isleFreeCell(8); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])); }
+    if (bearsAlive < (HC() ? 14 : 12)) { const c = isleFreeCell(8); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])); }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);
@@ -2091,7 +2133,7 @@ function renderIsland() {
   const list = [], NEAR = .12;
   // Weltpunkt -> Kamera (x rechts, y oben, z vorne)
   const cam = (x, y, z) => { const dx = x - px, dy = y - py; return [dx * rx + dy * ry, z - eye, dx * dirX + dy * dirY]; };
-  const addTri = (a, b, c, base) => {
+  const addTri = (a, b, c, base, bias = 0, bright = false) => {
     const A = cam(a[0], a[1], a[2]), B = cam(b[0], b[1], b[2]), C = cam(c[0], c[1], c[2]);
     if (A[2] < NEAR && B[2] < NEAR && C[2] < NEAR) return;
     const lim = 1.3 * PLANE;   // grob ausserhalb des Sichtfelds -> weglassen
@@ -2101,8 +2143,8 @@ function renderIsland() {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const nl = Math.hypot(nx, ny, nz) || 1;
     nx /= nl; ny /= nl; nz /= nl; if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
-    const lum = .55 + .5 * Math.max(0, nx * ISLE_SUN[0] + ny * ISLE_SUN[1] + nz * ISLE_SUN[2]);
-    const d = (A[2] + B[2] + C[2]) / 3, f = clamp((d - 6) / (ISLE_R - 6), 0, 1);
+    const lum = (bright ? .82 : .55) + (bright ? .28 : .5) * Math.max(0, nx * ISLE_SUN[0] + ny * ISLE_SUN[1] + nz * ISLE_SUN[2]);
+    const d = (A[2] + B[2] + C[2]) / 3 - bias, f = clamp((d - 6) / (ISLE_R - 6), 0, 1);
     const col = RGB(base[0] * lum + (ISLE_FOG[0] - base[0] * lum) * f, base[1] * lum + (ISLE_FOG[1] - base[1] * lum) * f, base[2] * lum + (ISLE_FOG[2] - base[2] * lum) * f);
     list.push({ d, A, B, C, col });
   };
@@ -2122,7 +2164,7 @@ function renderIsland() {
       }
     }
   // Deko, Muenzen
-  for (const o of isleExtra) addTri([o[0], o[1], o[2]], [o[3], o[4], o[5]], [o[6], o[7], o[8]], [o[9], o[10], o[11]]);
+  for (const o of isleExtra) addTri([o[0], o[1], o[2]], [o[3], o[4], o[5]], [o[6], o[7], o[8]], [o[9], o[10], o[11]], o[12] ? .4 : 0, true);
   for (const o of isleObjs) { const mx = (o[0] + o[3] + o[6]) / 3 - px, my = (o[1] + o[4] + o[7]) / 3 - py; if (mx * mx + my * my < ISLE_R * ISLE_R) addTri([o[0], o[1], o[2]], [o[3], o[4], o[5]], [o[6], o[7], o[8]], [o[9], o[10], o[11]]); }
   for (const it of items) {
     if (!it.active || it.type !== 2 || (it.x - px) ** 2 + (it.y - py) ** 2 > ISLE_R * ISLE_R) continue;
@@ -2209,32 +2251,45 @@ function outroScene(t) {
   for (let i = 0; i < 4; i++) { const y0 = Y - .05 + i * .2, y1 = y0 + .2; quad([cx - .32, y0, D + .26], [cx + .32, y0, D + .26], [cx + .32, y1, D + .26], [cx - .32, y1, D + .26], i % 2 ? c1 : c0); }
   for (let i = 0; i < 3; i++) { const u0 = i / 3, u1 = (i + 1) / 3, ya = Y - .05 - u0 * .5, yb = Y - .05 - u1 * .5, za = D + .26 + u0 * .62, zb = D + .26 + u1 * .62;
     quad([cx - .32, ya, za], [cx + .32, ya, za], [cx + .32, yb, zb], [cx - .32, yb, zb], i % 2 ? c1 : c0); }
-  // Spieler: Beine, Shorts, Hawaiihemd, Kopf mit Sonnenbrille
-  const skin = [235, 190, 150], hz = D + .3;
-  box(cx - .17, Y + .3, hz, cx - .03, Y + .78, hz + .1, skin); box(cx + .03, Y + .3, hz, cx + .17, Y + .78, hz + .1, skin);
-  box(cx - .19, Y + .05, hz, cx + .19, Y + .32, hz + .14, [40, 90, 200]);
-  quad([cx - .2, Y + .06, hz + .15], [cx + .2, Y + .06, hz + .15], [cx + .2, Y - .4, D + .78], [cx - .2, Y - .4, D + .78], [255, 120, 40]);
-  for (const [fx, fy] of [[-.1, -.05], [.08, -.2], [-.05, -.3]]) tri([cx + fx, Y + fy, hz + .17 + (-fy) * .9], [cx + fx + .07, Y + fy, hz + .17 + (-fy) * .9], [cx + fx + .03, Y + fy - .06, hz + .22 + (-fy) * .9], [255, 230, 60]);
-  // Kopf: kastiger Low-Poly-Kopf, genau so breit wie die Meme-Brille
-  const hx = cx, hy = Y - .48, hb = D + .8, HW = .25, HD = .2, ht = hb + .5, hair = [90, 60, 35];
-  box(hx - HW, hy - HD, hb, hx + HW, hy + HD, ht - .07, skin);
-  box(hx - HW - .012, hy - HD - .012, ht - .1, hx + HW + .012, hy + HD + .012, ht + .02, hair);   // Haarkappe mit Pony
-  quad([hx - HW, hy - HD - .013, hb + .12], [hx + HW, hy - HD - .013, hb + .12], [hx + HW, hy - HD - .013, ht], [hx - HW, hy - HD - .013, ht], hair);   // Hinterkopf
-  box(hx - HW - .045, hy - .05, hb + .2, hx - HW, hy + .05, hb + .31, skin); box(hx + HW, hy - .05, hb + .2, hx + HW + .045, hy + .05, hb + .31, skin);   // Ohren
-  // Meme-Sonnenbrille („Deal with it“): Pixelbloecke mit weissen Glanzpixeln, schwebt gegen Ende auf das Gesicht herab
-  if (t > 7.6) {
-    const drop = Math.min(1, (t - 7.6) / 1.2), gp = 2 * HW / 22, gx = hx - 11 * gp, gy = hy + HD + .008, gz = ht - .13 + (1 - drop) * .9;
-    for (const [rw, c0, c1, wh] of [[0,0,21,0],[1,0,9,0],[1,12,21,0],[2,1,8,0],[2,13,20,0],[3,2,7,0],[3,14,19,0],[1,2,3,1],[1,14,15,1],[2,3,4,1],[2,15,16,1],[3,4,4,1],[3,16,16,1]]) {
-      const y = gy + wh * .006, z0 = gz - (rw + 1) * gp, z1 = gz - rw * gp, col = wh ? [460, 460, 460] : [10, 10, 12];   // Glanzpixel ueberbelichtet, damit sie trotz Schattierung weiss bleiben
-      quad([gx + c0 * gp, y, z0], [gx + (c1 + 1) * gp, y, z0], [gx + (c1 + 1) * gp, y, z1], [gx + c0 * gp, y, z1], col);
-    }
+  // Spieler: derselbe Trader wie im HUD – blauer Anzug, weisser Kragen, rote Krawatte, barfuss
+  const skin = [235, 190, 150], suit = [30, 60, 140], hz = D + .3;
+  box(cx - .17, Y + .3, hz, cx - .03, Y + .7, hz + .1, suit); box(cx + .03, Y + .3, hz, cx + .17, Y + .7, hz + .1, suit);
+  box(cx - .16, Y + .7, hz, cx - .04, Y + .8, hz + .12, skin); box(cx + .04, Y + .7, hz, cx + .16, Y + .8, hz + .12, skin);   // Fuesse
+  box(cx - .19, Y + .05, hz, cx + .19, Y + .32, hz + .14, suit);
+  quad([cx - .2, Y + .06, hz + .15], [cx + .2, Y + .06, hz + .15], [cx + .2, Y - .4, D + .78], [cx - .2, Y - .4, D + .78], suit);
+  const tz = y => D + .78 - (y - (Y - .4)) / .46 * .33 + .012, tp = (x, y) => [cx + x, Y + y, tz(Y + y)];   // Punkt auf dem Oberkoerper
+  const dtri = (a, b, c, col) => T.push([...a, ...b, ...c, ...col, 1]);
+  dtri(tp(-.1, -.4), tp(-.03, -.4), tp(-.02, -.2), [240, 240, 240]); dtri(tp(.03, -.4), tp(.1, -.4), tp(.02, -.2), [240, 240, 240]);   // Kragen
+  dtri(tp(-.03, -.4), tp(.03, -.4), tp(0, -.08), [210, 40, 40]);   // Krawatte
+  // Kopf: Ringe aus einem Querschnitt mit breiter flacher Front, Kinn verjuengt, Hinterkopf abgeschraegt
+  const hx = cx, hy = Y - .48, hb = D + .8, hair = [60, 38, 20], deco = (a, b, c, d, col) => { T.push([...a, ...b, ...c, ...col, 1]); T.push([...a, ...c, ...d, ...col, 1]); };
+  const SEC = [[-0.198,0.171],[0.198,0.171],[0.216,0.036],[0.171,-0.144],[0.072,-0.189],[-0.072,-0.189],[-0.171,-0.144],[-0.216,0.036]], RINGS = [[0,0.62],[0.126,0.9],[0.27,1],[0.405,0.97]];
+  const rp = (r, i) => [hx + SEC[i][0] * RINGS[r][1], hy + SEC[i][1] * RINGS[r][1], hb + RINGS[r][0]];
+  for (let r = 0; r + 1 < RINGS.length; r++) for (let i = 0; i < 8; i++) {
+    const j = (i + 1) % 8, back = i >= 3 && i <= 5;
+    quad(rp(r, i), rp(r, j), rp(r + 1, j), rp(r + 1, i), r === 2 && back ? hair : skin);
   }
-  quad([hx - .1, hy + HD + .005, hb + .11], [hx + .1, hy + HD + .005, hb + .135], [hx + .1, hy + HD + .005, hb + .16], [hx - .1, hy + HD + .005, hb + .13], [150, 50, 50]);   // schraeges Grinsen
+  const top = [hx, hy - .02, hb + .48];
+  for (let i = 0; i < 8; i++) tri(rp(3, i), rp(3, (i + 1) % 8), top, hair);   // Haare oben
+  box(hx - .07, hy - .06, D + .7, hx + .07, hy + .06, hb + .05, skin);   // Hals
+  box(hx - .26, hy - .02, hb + .18, hx - .21, hy + .06, hb + .29, skin); box(hx + .21, hy - .02, hb + .18, hx + .26, hy + .06, hb + .29, skin);   // Ohren
+  const fy = hy + .171;   // Gesichtsflaeche
+  tri([hx - .03, fy, hb + .24], [hx + .03, fy, hb + .24], [hx, fy + .06, hb + .18], [225, 170, 130]);   // Nase
+  tri([hx - .03, fy, hb + .24], [hx, fy + .06, hb + .18], [hx, fy, hb + .17], [215, 160, 120]); tri([hx + .03, fy, hb + .24], [hx, fy, hb + .17], [hx, fy + .06, hb + .18], [215, 160, 120]);
+  deco([hx - .19, fy + .006, hb + .37], [hx + .19, fy + .006, hb + .37], [hx + .19, fy + .006, hb + .405], [hx - .19, fy + .006, hb + .405], hair);   // Pony
+  deco([hx - .1, fy + .006, hb + .1], [hx + .1, fy + .006, hb + .117], [hx + .1, fy + .006, hb + .14], [hx - .1, fy + .006, hb + .122], [120, 30, 30]);   // verschmitztes Grinsen
+  deco([hx + .07, fy + .006, hb + .117], [hx + .11, fy + .006, hb + .126], [hx + .11, fy + .006, hb + .153], [hx + .07, fy + .006, hb + .14], [120, 30, 30]);   // Mundwinkel hoch
+  // Meme-Sonnenbrille („Deal with it“), dauerhaft auf: Pixelbloecke mit weissen Glanzpixeln, so breit wie das Gesicht
+  { const gp = .44 / 22, gx = hx - 11 * gp, gz = hb + .36;
+    for (const [rw, c0, c1, wh] of [[0,0,21,0],[1,0,9,0],[1,12,21,0],[2,1,8,0],[2,13,20,0],[3,2,7,0],[3,14,19,0],[1,2,3,1],[1,14,15,1],[2,3,4,1],[2,15,16,1],[3,4,4,1],[3,16,16,1]]) {
+      const y = fy + .009 + wh * .004, z0 = gz - (rw + 1) * gp, z1 = gz - rw * gp;
+      deco([gx + c0 * gp, y, z0], [gx + (c1 + 1) * gp, y, z0], [gx + (c1 + 1) * gp, y, z1], [gx + c0 * gp, y, z1], wh ? [330, 330, 330] : [8, 8, 10]);
+    } }
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   const ph = (t % 4) / 4, lift = ph < .3 ? Math.sin(ph / .3 * Math.PI) : 0;
-  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .1, hy + HD + .03, hb + .13];
+  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .11, hy + .21, hb + .125];
   const hand = rest.map((v, i) => v + (mouth[i] - v) * lift);
-  rib(sh, hand, .035, skin);
+  rib(sh, hand, .04, suit); box(hand[0] - .035, hand[1] - .035, hand[2] - .03, hand[0] + .035, hand[1] + .035, hand[2] + .03, skin);
   const g0 = [hand[0], hand[1], hand[2] + .02], gr = .07, gh = .18, full = Math.max(.15, 1 - t / OUTRO_LEN * .85);
   for (let i = 0; i < 6; i++) {
     const a0 = i * 1.047, a1 = (i + 1) * 1.047, lz = g0[2] + gh * full;
@@ -2248,10 +2303,10 @@ function outroScene(t) {
 function renderOutro(dt) {
   // Kamerafahrt: im Bogen von weit draussen bis nah an den Liegestuhl
   const u = Math.min(1, outroT / (OUTRO_LEN - 3)), e = u * u * (3 - 2 * u);
-  const tx = OUTRO_X + .9, ty = OUTRO_Y - .1, ang = .45 + e * .85, dist = 10 - e * 6.6;
+  const tx = OUTRO_X + .9, ty = OUTRO_Y - .2, ang = .45 + e * 1.08, dist = 10 - e * 7.2;
   px = tx + Math.cos(ang) * dist; py = ty + Math.sin(ang) * dist;
   const dl = Math.hypot(tx - px, ty - py); dirX = (tx - px) / dl; dirY = (ty - py) / dl; planeX = -dirY * PLANE; planeY = dirX * PLANE;
-  isleEyeZ = 1.85 - e * .4; isleExtra = outroScene(outroT);
+  isleEyeZ = 1.85 - e * .25; isleExtra = outroScene(outroT);
   renderIsland();
   isleEyeZ = null; isleExtra = [];
   lg.putImageData(img, 0, 0);
@@ -2317,7 +2372,7 @@ function renderNameTags() {
     g.fillStyle = "#3ce664"; g.fillRect(x - 20, y + 19, 40 * pl.hp / 100, 4);
   }
 }
-// Trader-Gesicht im HUD (wie BJ in Wolfenstein 3D): grinst bei vollem Depot, schwitzt bei mittlerem,
+// Trader-Gesicht im HUD: grinst bei vollem Depot, schwitzt bei mittlerem,
 // panisch bei wenig, verzieht bei Treffern das Gesicht, schaut gelegentlich zur Seite; x-Augen wenn pleite
 function drawTraderFace(x, y, s) {
   const px = (cx, cy, w, h, col) => { g.fillStyle = col; g.fillRect(x + cx * s, y + cy * s, w * s, h * s); };
@@ -3206,7 +3261,7 @@ function renderPlay(dt) {
   if (island) renderIsland(); else { marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
   renderPsy();
   const hk = hurtT > 0 ? Math.min(1, hurtT / .35) * Math.min(1, .45 + hurtAmt / 40) : 0;
-  if (hk > 0) for (let i = 0; i < fb.length; i++) {   // roter Bildblitz wie in Wolfenstein 3D
+  if (hk > 0) for (let i = 0; i < fb.length; i++) {   // roter Bildblitz
     const c = fb[i], r = c & 255, gg = (c >> 8) & 255, b = (c >> 16) & 255, k = hk * .65;
     fb[i] = RGB(r + (255 - r) * k, gg * (1 - k), b * (1 - k));
   }
