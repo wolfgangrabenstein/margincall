@@ -248,7 +248,7 @@ fn highscore_add(body: &[u8], hc: bool) -> String {
             .unwrap_or("")
             .chars()
             .filter(|c| c.is_alphanumeric() || " -_.".contains(*c))
-            .take(12)
+            .take(15)
             .collect::<String>()
             .trim()
             .to_string();

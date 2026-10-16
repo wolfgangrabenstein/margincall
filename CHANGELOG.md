@@ -1,5 +1,16 @@
 # MARGIN CALL – Changelog
 
+## Version 3.16.0 – Größere Steueroase, sichtbarer Timer, längere Namen (16.10.2026)
+
+- **Steueroase größer und härter:**
+  - Die Insel ist rund ein Viertel größer.
+  - 30 statt 20 Goldmünzen.
+  - Zu Beginn 5 statt 3 Bären, sie rücken schneller nach: bis zu 8, in Hardcore 10.
+  - Nur noch 75 statt 90 Sekunden, alle Münzen zu holen ist damit fast unmöglich.
+- **Timer gut sichtbar:** Die Restzeit steht groß oben rechts im Bild, darunter der Münzstand. In den letzten 15 Sekunden wird sie rot und blinkt, auch auf dem Cardputer.
+- **Namen bis 15 Zeichen:** für Highscores (lokal und online) und Nicknames, bisher 12.
+- **Spielname nur noch beim Hosten:** Im Multiplayer-Menü gibt es kein Spielnamen-Feld mehr. Der Host benennt sein Spiel in der Lobby mit **[G]**.
+
 ## Version 3.15.0 – English by default, German optional (16.10.2026)
 
 - **Das Spiel ist jetzt standardmäßig englisch.** Das gilt für Menüs, HUD, Meldungen, Gegner- und Levelnamen, Abspann, Ranglisten und Multiplayer. Zahlen erscheinen im englischen Format (z. B. 52,178 und +1.08 %).

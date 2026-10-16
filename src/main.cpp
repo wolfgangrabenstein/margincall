@@ -1136,7 +1136,7 @@ static void centerText(const char* s, int y, int size, uint16_t col);
 // Nach dem Sieg ueber ALGO-9000: eine Tropeninsel im Freien. Statt Raycasting zeichnet ein kleiner Low-Poly-Renderer
 // flach schattierte Dreiecke, nach Entfernung sortiert (Maleralgorithmus, kein Tiefenpuffer -> wenig RAM).
 // Die Insel liegt auf dem normalen 20x20-Raster: Wasser ('~') ist fuer Bewegung und Baeren eine Wand.
-static constexpr int ISLE_TIME = 90, ISLE_COINS = 20, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
+static constexpr int ISLE_TIME = 75, ISLE_COINS = 30, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
 static constexpr long ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
 static float isleT, isleSpawnT, creditsT;
 static int isleCoins;
@@ -1147,10 +1147,10 @@ static constexpr int MAX_OBJ_TRI = 300;
 static IsleTri isleObj[MAX_OBJ_TRI]; static int nIsleObj;
 
 static float isleShape(float x, float y) {   // flacher Huegel mit kleinem Gipfel, Rand unter dem Meeresspiegel
-  float r = sqrtf((x - 10) * (x - 10) + (y - 10.5f) * (y - 10.5f) * 1.3225f);
+  float r = sqrtf((x - 10) * (x - 10) + (y - 10) * (y - 10) * 1.1025f);
   float n = sinf(x * 1.3f) * cosf(y * 1.1f) * 0.15f + sinf(x * 0.7f + y * 0.9f) * 0.2f;
   float pk = 1 - sqrtf((x - 12) * (x - 12) + (y - 8) * (y - 8)) / 2.4f;
-  return (1 - r / 8.3f) * 0.75f + n * 0.6f - 0.06f + max(0.0f, pk) * 0.8f;
+  return (1 - r / 9.2f) * 0.75f + n * 0.6f - 0.06f + max(0.0f, pk) * 0.8f;
 }
 static float isleVert(int i, int j) {
   i = constrain(i - ISLE_MIN, 0, ISLE_N - 1); j = constrain(j - ISLE_MIN, 0, ISLE_N - 1);
@@ -1192,7 +1192,7 @@ static void isleBuildObjects() {
     bool near = false; for (int q = 0; q < nIsleTaken; q++) if (fabsf(isleTaken[q][0] - x) + fabsf(isleTaken[q][1] - y) < 2.5f) near = true;
     if (near) continue;
     isleTake(x, y); k++;
-    float lean = atan2f(y - 10.5f, x - 10), lx = cosf(lean) * 0.35f, ly = sinf(lean) * 0.35f, H = 1.7f + frand() * 0.5f;
+    float lean = atan2f(y - 10, x - 10), lx = cosf(lean) * 0.35f, ly = sinf(lean) * 0.35f, H = 1.7f + frand() * 0.5f;
     float ring[3][3][3];   // [Hoehe][Ecke][xyz]
     const float ts[3] = {0, 0.5f, 1}, ws[3] = {0.09f, 0.07f, 0.05f};
     for (int s = 0; s < 3; s++) for (int i = 0; i < 3; i++) {
@@ -1224,8 +1224,8 @@ static void isleBuildObjects() {
       isleAddObj(a, b, tip, i % 2 ? 230 : 210, i % 2 ? 200 : 180, i % 2 ? 110 : 95); } }
   // Luxusyacht vor der Kueste
   { float yx = 16.5f, yy = 19;
-    for (int t = 0; t < 40; t++) { float a = frand() * 6.283f; yx = 10 + cosf(a) * 10.5f; yy = 10.5f + sinf(a) * 9.5f; if (isleShape(yx, yy) < -0.3f) break; }
-    float ang = atan2f(yy - 10.5f, yx - 10) + 1.5708f, ca = cosf(ang), sa = sinf(ang);
+    for (int t = 0; t < 40; t++) { float a = frand() * 6.283f; yx = 10 + cosf(a) * 12; yy = 10 + sinf(a) * 11.5f; if (isleShape(yx, yy) < -0.3f) break; }
+    float ang = atan2f(yy - 10, yx - 10) + 1.5708f, ca = cosf(ang), sa = sinf(ang);
     auto P = [&](float u, float v, float z, float* o) { o[0] = yx + ca * u - sa * v; o[1] = yy + sa * u + ca * v; o[2] = z; };
     const float L = 1.6f, B = 0.45f;
     float bow[3], d[4][3], k[4][3];
@@ -1264,9 +1264,9 @@ static void startIsland() {
     float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
     isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
   }
-  for (int k = 0; k < 3; k++) { float x, y; if (isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].awake = true; } }
+  for (int k = 0; k < 5; k++) { float x, y; if (isleFreeCell(7, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].awake = true; } }
   state = ST_PLAY; fireCd = 0.4f; musicStart();
-  say(L("TAX HAVEN! 90 S - GRAB THE GOLD", "STEUEROASE! 90 S - SAMMLE DAS GOLD"), 3.0f);
+  { char b[48]; snprintf(b, sizeof(b), L("TAX HAVEN! %d S - GRAB THE GOLD", "STEUEROASE! %d S - SAMMLE DAS GOLD"), ISLE_TIME); say(b, 3.0f); }
 }
 static void endIsland(const char* msg, bool all) {
   if (all) pnl += hardcore ? ISLE_ALL_BONUS * 3 / 2 : ISLE_ALL_BONUS;
@@ -1290,8 +1290,8 @@ static void updateIsland(float dt) {
   }
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren ruecken nach
-    isleSpawnT = hardcore ? 6 : 9;
-    float x, y; if (bearsAlive < (hardcore ? 7 : 5) && isleFreeCell(8, false, x, y)) spawnEnemy(E_BEAR, x, y);
+    isleSpawnT = hardcore ? 4.5f : 6;
+    float x, y; if (bearsAlive < (hardcore ? 10 : 8) && isleFreeCell(8, false, x, y)) spawnEnemy(E_BEAR, x, y);
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);
@@ -1302,7 +1302,7 @@ static const float ISLE_SUN[3] = {-0.62f / 1.0035f, 0.28f / 1.0035f, 0.73f / 1.0
 static const uint8_t ISLE_FOG[3] = {255, 160, 110};
 static uint16_t isleSky[VH]; static bool isleSkyReady = false;
 struct IsleItem { float d; float x[4], y[4]; uint16_t col; uint8_t n; int8_t spr; bool hurt; };
-static constexpr int MAX_ISLE_ITEMS = 720;
+static constexpr int MAX_ISLE_ITEMS = 900;
 static IsleItem isleItems[MAX_ISLE_ITEMS]; static uint16_t isleOrder[MAX_ISLE_ITEMS]; static int nIsleItems;
 
 static void isleFill(float ax, float ay, float bx, float by, float cx, float cy, uint16_t col) {
@@ -2090,6 +2090,16 @@ void loop() {
         char b[24]; snprintf(b, sizeof(b), "GOLD %d/%d %d:%02d", isleCoins, ISLE_COINS, (int)max(0.0f, isleT) / 60, (int)max(0.0f, isleT) % 60);
         canvas.setTextSize(1); canvas.setTextDatum(top_left); canvas.setTextColor(isleT < 15 ? c565(255, 80, 80) : c565(255, 210, 50));
         canvas.drawString(b, 148, VH + 19);
+        // grosser Timer oben rechts im Bild, in den letzten 15 s rot blinkend
+        int tl = (int)ceilf(max(0.0f, isleT));
+        snprintf(b, sizeof(b), "%d:%02d", tl / 60, tl % 60);
+        canvas.fillRect(SW - 62, 23, 60, 30, c565(0, 0, 0));
+        canvas.setTextDatum(top_right); canvas.setTextSize(2);
+        canvas.setTextColor(isleT < 15 ? (((int)(gameTime * 4) % 2) ? c565(255, 255, 255) : c565(255, 60, 60)) : c565(255, 210, 50));
+        canvas.drawString(b, SW - 5, 25);
+        canvas.setTextSize(1); canvas.setTextColor(c565(255, 200, 40));
+        snprintf(b, sizeof(b), "GOLD %d/%d", isleCoins, ISLE_COINS); canvas.drawString(b, SW - 5, 43);
+        canvas.setTextDatum(top_left);
       }
       break;
     case ST_PAUSE:
