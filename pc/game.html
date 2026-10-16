@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.15.0";
+const APP_VERSION = "3.16.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1105,7 +1105,7 @@ function netReceive(m) {
       case "shot": if (state === ST.PLAY) doShot(pl, m.x, m.y, m.dx, m.dy); break;
       case "team": if (state === ST.LOBBY) pl.team = m.team ? 1 : 0; break;
       case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
-      case "nick": { const n = cleanName(m.name, 12); if (n) { pl.name = n; hostSendLobby(); } break; }
+      case "nick": { const n = cleanName(m.name, 15); if (n) { pl.name = n; hostSendLobby(); } break; }
       case "ready": if (state === ST.LOBBY) { pl.ready = !!m.ready; hostSendLobby(); } break;
       case "chat":
         if (state === ST.PLAY && mode === "coop" && String(m.text).startsWith("/")) cx(pl, m.text);
@@ -1514,7 +1514,6 @@ function onKeyPress(k) {
       break;
     case ST.MPMENU:
       if (k === "k") editNick();
-      else if (k === "g") editGameName();
       else if (k === "h") enterLobby();
       else if (k === "j") { joinText = ""; joinSel = 0; gamesT = 0; foundGames = []; state = ST.JOIN; }
       else if (k === "Escape") state = ST.TITLE;
@@ -1873,7 +1872,7 @@ function renderWeapon() {
 // Low-Poly-Renderer flach schattierte Dreiecke, sortiert nach Entfernung (Maleralgorithmus, kein Tiefenpuffer –
 // genauso laeuft es auf dem Cardputer). Die Insel liegt auf dem normalen 20x20-Raster: Wasser ist fuer Bewegung,
 // Baeren und Schuesse eine Wand, so funktionieren Kollision, Gegner-KI und Schiessen unveraendert.
-const ISLE_TIME = 90, ISLE_COINS = 20, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
+const ISLE_TIME = 75, ISLE_COINS = 30, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
 const ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 15;   // Hoehengitter -6..26, Sichtweite in Feldern
 let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleResult = "";
 let creditsT = 0;
@@ -1881,9 +1880,9 @@ const isleV = new Float32Array(ISLE_N * ISLE_N);
 let isleObjs = [];   // feste Dreiecke der Deko: [x0,y0,z0, x1,y1,z1, x2,y2,z2, r,g,b]
 // Inselform: flacher Huegel mit kleinem Gipfel, der Rand faellt unter den Meeresspiegel
 function isleShape(x, y) {
-  const r = Math.hypot(x - 10, (y - 10.5) * 1.15);
+  const r = Math.hypot(x - 10, (y - 10) * 1.05);
   const n = Math.sin(x * 1.3) * Math.cos(y * 1.1) * .15 + Math.sin(x * .7 + y * .9) * .2;
-  return (1 - r / 8.3) * .75 + n * .6 - .06 + Math.max(0, 1 - Math.hypot(x - 12, y - 8) / 2.4) * .8;
+  return (1 - r / 9.2) * .75 + n * .6 - .06 + Math.max(0, 1 - Math.hypot(x - 12, y - 8) / 2.4) * .8;
 }
 const isleVert = (i, j) => isleV[clamp(j - ISLE_MIN, 0, ISLE_N - 1) * ISLE_N + clamp(i - ISLE_MIN, 0, ISLE_N - 1)];
 function isleGround(x, y) {   // begehbare Hoehe (Wasser = 0)
@@ -1910,7 +1909,7 @@ function isleBuildObjects() {
     const x = 1 + rnd() % (MAP - 2) + .5, y = 1 + rnd() % (MAP - 2) + .5, h = g(x, y);
     if (world[y | 0][x | 0] !== "." || h < .08 || h > .45 || Math.hypot(x - px, y - py) < 2 || taken.some(t => Math.hypot(t[0] - x, t[1] - y) < 2.2)) continue;
     taken.push([x, y]); k++;
-    const lean = Math.atan2(y - 10.5, x - 10), lx = Math.cos(lean) * .35, ly = Math.sin(lean) * .35, H = 1.7 + frand() * .5;
+    const lean = Math.atan2(y - 10, x - 10), lx = Math.cos(lean) * .35, ly = Math.sin(lean) * .35, H = 1.7 + frand() * .5;
     const ring = (t, w) => [0, 1, 2].map(i => { const a = i * 2.094; return [x + lx * t * t + Math.cos(a) * w, y + ly * t * t + Math.sin(a) * w, h + H * t]; });
     const r0 = ring(0, .09), r1 = ring(.5, .07), r2 = ring(1, .05);
     for (let i = 0; i < 3; i++) {
@@ -1932,8 +1931,8 @@ function isleBuildObjects() {
     for (let i = 0; i < 4; i++) { const a = R[i], b = R[(i + 1) % 4]; tri([...a, bh + H], [...b, bh + H], tip, i % 2 ? [230, 200, 110] : [210, 180, 95]); }
     taken.push(bar); }
   // Luxusyacht vor der Kueste
-  { let yx = 16.5, yy = 19; for (let t = 0; t < 40; t++) { const a = frand() * 6.283; yx = 10 + Math.cos(a) * 10.5; yy = 10.5 + Math.sin(a) * 9.5; if (isleShape(yx, yy) < -.3) break; }
-    const ang = Math.atan2(yy - 10.5, yx - 10) + Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang);
+  { let yx = 16.5, yy = 19; for (let t = 0; t < 40; t++) { const a = frand() * 6.283; yx = 10 + Math.cos(a) * 12; yy = 10 + Math.sin(a) * 11.5; if (isleShape(yx, yy) < -.3) break; }
+    const ang = Math.atan2(yy - 10, yx - 10) + Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang);
     const P = (u, v, z) => [yx + ca * u - sa * v, yy + sa * u + ca * v, z];
     const L = 1.6, B = .45, white = [240, 240, 245], blue = [40, 70, 140];
     const bow = P(L + .5, 0, .35), d = [P(L, -B, .35), P(-L, -B, .35), P(-L, B, .35), P(L, B, .35)], k = [P(L, -B * .6, 0), P(-L, -B * .6, 0), P(-L, B * .6, 0), P(L, B * .6, 0)];
@@ -1965,7 +1964,7 @@ function startIsland() {
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
   const taken = isleBuildObjects();
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
-  for (let k = 0; k < 3; k++) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]).awake = true; }
+  for (let k = 0; k < 5; k++) { const c = isleFreeCell(7); if (c) spawnEnemy(E.BEAR, c[0], c[1]).awake = true; }
   state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
 }
@@ -1980,8 +1979,8 @@ function updateIsland(dt) {
   }
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
-    isleSpawnT = HC() ? 6 : 9;
-    if (bearsAlive < (HC() ? 7 : 5)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]); }
+    isleSpawnT = HC() ? 4.5 : 6;
+    if (bearsAlive < (HC() ? 10 : 8)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]); }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);
@@ -2196,6 +2195,10 @@ function renderHUD() {
       rank.slice(0, 4).forEach((p, i) => text(`${i + 1}.${p.name.replace("TRADER ", "").slice(0, 6)} ${p.frags || 0}/${p.deaths || 0}`, 560 + i * 96, HUD_Y + 62, rgbCss(playerColor(p)), 12));
     }
   } else if (island) {
+    const tl = Math.max(0, Math.ceil(isleT)), warn = isleT < 15, blink = warn && Math.floor(gameTime * 4) % 2;
+    g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(DW - 196, 68, 182, 72);
+    text(`⏱ ${fmtTime(tl)}`, DW - 24, 72, blink ? "#ffffff" : warn ? "#ff3c3c" : "#ffd232", 38, "right");
+    text(`GOLD ${isleCoins}/${ISLE_COINS}`, DW - 24, 116, "#ffc828", 18, "right");
     const bx = 560, bw = 380;
     g.fillStyle = "#3a3010"; g.fillRect(bx, HUD_Y + 36, bw, 14);
     g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / ISLE_COINS, 14);
@@ -2811,7 +2814,7 @@ function nameKey(k) {
     return;
   }
   if (k === "Backspace") { hsName = hsName.slice(0, -1); return; }
-  if (k.length === 1 && /[\p{L}\p{N} ._-]/u.test(k) && hsName.length < 12) hsName += k.toUpperCase();
+  if (k.length === 1 && /[\p{L}\p{N} ._-]/u.test(k) && hsName.length < 15) hsName += k.toUpperCase();
 }
 function openHighscores() { hsNote = ""; hsNew = -1; hsReturn = state; state = ST.HIGHSCORES; hsLoad(); if (hsTab > 0) hsSetTab(hsTab); }
 function renderNameEntry() {
@@ -2823,7 +2826,7 @@ function renderNameEntry() {
   text(L("YOUR NAME", "DEIN NAME"), DW / 2, 196, "#8290b0", 15, "center");
   g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 220, 400, 54);
   text(hsName + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 232, "#ffffff", 30, "center");
-  text(L("up to 12 characters", "bis 12 Zeichen"), DW / 2, 280, "#6b7896", 13, "center");
+  text(L("up to 15 characters", "bis 15 Zeichen"), DW / 2, 280, "#6b7896", 13, "center");
   if (ONLINE_HS_URL) {   // Zustimmung zur Online-Rangliste, standardmaessig aus
     const on = settings.onlineScores === true;
     zoneButton(250, 302, 460, 32, L(`[TAB] ALSO SUBMIT ONLINE: ${on ? "YES" : "NO"}`, `[TAB] AUCH ONLINE EINTRAGEN: ${on ? "JA" : "NEIN"}`), on ? "#50ff82" : "#a0a0b4", "Tab", 16);
@@ -2900,7 +2903,7 @@ function renderEdit() {
   zoneButton(490, 310, 210, 40, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#8290b0", "Escape", 16);
 }
 function editNick() {
-  openEdit(L("YOUR NICKNAME", "DEIN NICKNAME"), settings.nickname || "", 12, v => {
+  openEdit(L("YOUR NICKNAME", "DEIN NICKNAME"), settings.nickname || "", 15, v => {
     settings.nickname = v; saveSettings();
     if (me && net.connected) {
       me.name = myNick();
@@ -2917,12 +2920,10 @@ function renderMpChoice() {
   text("MULTIPLAYER", DW / 2, 64, "#ffd232", 40, "center");
   text(L("YOUR NICKNAME", "DEIN NICKNAME"), 300, 120, "#6b7896", 13);
   zoneButton(300, 136, 360, 32, `${myNick()}   ✎ [K]`, "#ffd232", "k", 18);
-  text(L("GAME NAME (WHEN YOU HOST)", "SPIELNAME (WENN DU HOSTEST)"), 300, 178, "#6b7896", 13);
-  zoneButton(300, 194, 360, 32, `${myGameName()}   ✎ [G]`, "#c8c8d7", "g", 18);
-  zoneButton(300, 252, 360, 44, L("[H] HOST GAME", "[H] SPIEL HOSTEN"), "#50c8ff", "h", 24);
-  text(L(`Others find your game under “Join” (address: ${myAddr || "…"})`, `Mitspieler finden dein Spiel unter „Beitreten“ (Adresse: ${myAddr || "…"})`), DW / 2, 304, "#a0a0b4", 14, "center");
-  zoneButton(300, 336, 360, 44, L("[J] JOIN GAME", "[J] SPIEL BEITRETEN"), "#50ff82", "j", 24);
-  text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 388, "#a0a0b4", 14, "center");
+  zoneButton(300, 204, 360, 44, L("[H] HOST GAME", "[H] SPIEL HOSTEN"), "#50c8ff", "h", 24);
+  text(L(`Name your game in the lobby · address: ${myAddr || "…"}`, `Spielname folgt in der Lobby · Adresse: ${myAddr || "…"}`), DW / 2, 256, "#a0a0b4", 14, "center");
+  zoneButton(300, 300, 360, 44, L("[J] JOIN GAME", "[J] SPIEL BEITRETEN"), "#50ff82", "j", 24);
+  text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 352, "#a0a0b4", 14, "center");
   zoneButton(390, 432, 180, 34, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
 }
 function renderJoin() {

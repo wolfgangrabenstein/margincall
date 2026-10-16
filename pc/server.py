@@ -116,7 +116,7 @@ def highscore_add(body, hc=False):
         lst = highscores_load(hc)
         try:
             e = json.loads(body)
-            name = "".join(c for c in str(e.get("name", "")) if c.isalnum() or c in " -_.")[:12].strip()
+            name = "".join(c for c in str(e.get("name", "")) if c.isalnum() or c in " -_.")[:15].strip()
             score = int(e.get("score", -1))
             level = max(1, min(5, int(e.get("level", 1))))
             if name and 0 <= score <= 100_000_000:

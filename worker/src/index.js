@@ -22,7 +22,7 @@ const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", ...CORS } });
 
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Vienna" }).format(new Date());   // YYYY-MM-DD
-const cleanName = v => String(v || "").replace(/[^\p{L}\p{N} ._\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 12).toUpperCase();
+const cleanName = v => String(v || "").replace(/[^\p{L}\p{N} ._\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 15).toUpperCase();
 const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi ? v : null;
 
 async function top(env, scope, hc, limit) {
