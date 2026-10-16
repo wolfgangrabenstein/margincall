@@ -1,507 +1,509 @@
 # MARGIN CALL – Changelog
 
-## Version 3.17.2 – eigene Musik für jedes Level, Lautstärkeregler (16.10.2026)
+**Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
-- **Jedes Level hat seine eigene Musik**, mit denselben Chiptune-Instrumenten wie bisher, damit alles zusammenpasst:
-  - **Dow Jones (Schalterhalle):** festlicher Marsch in C-Dur
-  - **S&P 500 (Parkett):** hektisch in e-Moll
-  - **Nasdaq-100 (Tresor):** geheimnisvoll in d-Moll
-  - **Öl (Raffinerie):** schwer und stampfend in g-Moll
-  - **ALGO-9000 (Rechenzentrum):** elektronisch mit Arpeggios in fis-Moll
-  - **Steueroase:** sonnige Calypso-Melodie in F-Dur mit Cowbell
-  - Titelbildschirm und Abspann behalten das bekannte Titellied.
-- **Fehler behoben:** Nach dem Spiel lief die Musik manchmal deutlich zu schnell, weil das hektischere Tempo bei wenig Depot hängen blieb.
-- **Lautstärkeregler:** In den Optionen lassen sich Musik und Soundeffekte jetzt in zehn Stufen regeln, statt Musik nur an- oder auszuschalten. Die Taste M schaltet die Musik weiterhin stumm und stellt danach die vorherige Lautstärke wieder her.
-- **Ranglisten zurückgesetzt:** Die Online-Rangliste startet neu.
+## Version 3.17.2 – Unique music for every level, volume controls (2026-10-16)
 
-## Version 3.17.1 – Trefferfeedback, schlauere Piraten, neue Waffe (16.10.2026)
+- **Every level has its own music**, using the same chiptune instruments as before so everything fits together:
+  - **Dow Jones (banking hall):** festive march in C major
+  - **S&P 500 (trading floor):** frantic, in E minor
+  - **Nasdaq-100 (vault):** mysterious, in D minor
+  - **Oil (refinery):** heavy and stomping, in G minor
+  - **ALGO-9000 (data center):** electronic with arpeggios, in F-sharp minor
+  - **Tax haven:** sunny calypso tune in F major with cowbell
+  - The title screen and credits keep the familiar title song.
+- **Bug fixed:** After a game, the music sometimes played much too fast because the more frantic low-portfolio tempo got stuck.
+- **Volume controls:** In the options, music and sound effects can now be adjusted in ten steps instead of just switching music on or off. The M key still mutes the music and then restores the previous volume.
+- **Leaderboards reset:** The online leaderboard starts over.
 
-- **Schlussszene überarbeitet:**
-  - Die Meme-Sonnenbrille sitzt jetzt die ganze Zeit auf und wird nicht mehr vom Kopf verdeckt.
-  - Es ist derselbe Trader wie im HUD: braune Haare, blauer Anzug, weißer Kragen, rote Krawatte, barfuß im Liegestuhl.
-  - Der Kopf wirkt realistischer und passt in der Größe zur Brille: breites Gesicht, schmaleres Kinn, abgerundeter Hinterkopf, Nase, Ohren, Haare mit Pony und ein Hals.
-  - Das verschmitzte Grinsen mit hochgezogenem Mundwinkel ist gut zu sehen.
-  - Die Szene ist heller ausgeleuchtet, und die Kamera endet frontal auf Augenhöhe.
-- **Mehr und schlauere Piraten in der Steueroase:**
-  - Zu Beginn 8 statt 5 (Hardcore 10), gleichzeitig bis zu 12 (Hardcore 14).
-  - Sie sind etwas schneller als du, brauchen nach dem Erscheinen aber kurz, bis sie losstürmen.
-  - Auch wenn du umzingelt bist, trifft dich höchstens alle 0,5 Sekunden ein Säbel (Hardcore 0,35 s).
-  - Drei Rollen:
-    - **Wächter** lauern an einem Münzhaufen und greifen erst an, wenn du in die Nähe kommst.
-    - **Abfänger** laufen dorthin, wo du gleich sein wirst.
-    - **Jäger** verfolgen dich direkt.
-- **Neue Waffe:** eine Geldkoffer-Kanone, ein Aktenkoffer mit Chromlauf, Banknotenbündel als Magazin und kleinem Kursdisplay, gehalten von Trader-Händen im Anzug.
-- **Neues Dividenden-Icon:** ein Münzstapel mit großem grünen Pfeil nach oben, besser erkennbar als die alte Münze.
+## Version 3.17.1 – Hit feedback, smarter pirates, new weapon (2026-10-16)
 
-- **Treffer spürst du jetzt:**
-  - **Roter Bildblitz:** Das ganze Bild färbt sich kurz rot, je mehr Schaden, desto stärker.
-  - **Wackeln:** Das Bild wackelt kurz.
-  - **Kurssturz:** Der Schaden fällt als „▼ −12 %“ durchs Bild.
-- **Trader-Gesicht im HUD:**
-  - grinst bei vollem Depot, schwitzt bei mittlerem, gerät bei wenig Depot in Panik
-  - verzieht bei Treffern das Gesicht und schaut ab und zu zur Seite
-  - hat X-Augen, wenn du pleite bist
-- **Cardputer:** roter Bildblitz und Schadenszahl.
-- **GitHub-Seite zweisprachig:** README auf Englisch (Hauptseite) und Deutsch (`README.de.md`), oben umschaltbar.
+- **Closing scene reworked:**
+  - The meme sunglasses now stay on the whole time and are no longer hidden by the head.
+  - It is the same trader as in the HUD: brown hair, blue suit, white collar, red tie, barefoot in the deck chair.
+  - The head looks more realistic and matches the size of the glasses: wide face, narrower chin, rounded back of the head, nose, ears, hair with bangs, and a neck.
+  - The sly grin with one raised corner of the mouth is clearly visible.
+  - The scene is lit more brightly, and the camera ends head-on at eye level.
+- **More and smarter pirates in the tax haven:**
+  - 8 instead of 5 at the start (Hardcore 10), up to 12 at once (Hardcore 14).
+  - They are a bit faster than you, but need a moment after spawning before they charge.
+  - Even when you are surrounded, a sabre hits you at most once every 0.5 seconds (Hardcore 0.35 s).
+  - Three roles:
+    - **Guards** lurk by a pile of coins and only attack when you get close.
+    - **Interceptors** run to where you are about to be.
+    - **Hunters** chase you directly.
+- **New weapon:** a cash-case cannon, a briefcase with a chrome barrel, bundles of banknotes as the magazine and a small price display, held by a trader's hands in a suit.
+- **New dividend icon:** a stack of coins with a big green arrow pointing up, easier to recognize than the old coin.
 
-## Version 3.17.0 – „Deal with it“ und eine knallharte Steueroase (16.10.2026)
+- **You now feel hits:**
+  - **Red screen flash:** The whole screen briefly turns red; the more damage, the stronger.
+  - **Shake:** The screen shakes briefly.
+  - **Price crash:** The damage falls across the screen as "▼ −12%".
+- **Trader face in the HUD:**
+  - grins with a full portfolio, sweats with a medium one, panics when the portfolio is low
+  - grimaces when hit and glances to the side now and then
+  - has X eyes when you are broke
+- **Cardputer:** red screen flash and damage number.
+- **Bilingual GitHub page:** README in English (main page) and German (`README.de.md`), switchable at the top.
 
-- **Meme-Sonnenbrille in der Schlussszene:** Der Spieler bekommt die bekannte „Deal with it“-Pixelbrille, schwarze Blöcke mit weißen Glanzpixeln, auf einem größeren, kastigen Kopf, der genau zur Brille passt, mit schrägem Grinsen. Sie schwebt wie im Meme von oben auf sein Gesicht herab, kurz bevor „EARLY RETIREMENT.“ erscheint.
-- **Steueroase deutlich härter:**
-  - Nur noch 45 statt 75 Sekunden.
-  - 42 statt 30 Goldmünzen.
-  - Die Piraten halten 60 % mehr aus und sind 15 % schneller.
-  - Alle Münzen zu holen ist damit fast unmöglich.
+## Version 3.17.0 – "Deal with it" and a brutally hard tax haven (2026-10-16)
 
-## Version 3.16.1 – Online-Rangliste mit einem Knopfdruck (16.10.2026)
+- **Meme sunglasses in the closing scene:** The player gets the well-known "Deal with it" pixel glasses, black blocks with white highlight pixels, on a larger, boxy head that matches the glasses exactly, with a lopsided grin. Just like in the meme, they float down onto his face from above, shortly before "EARLY RETIREMENT." appears.
+- **Tax haven much harder:**
+  - Only 45 instead of 75 seconds.
+  - 42 instead of 30 gold coins.
+  - The pirates can withstand 60% more and are 15% faster.
+  - Collecting all the coins is now almost impossible.
 
-- **Online eintragen ist jetzt vorausgewählt.** Nach einem Lauf stellt **„[ENTER] Speichern & online stellen“** Name und Punkte in die Online-Rangliste. Es wird weiterhin nichts automatisch übertragen: Jeder Upload braucht diesen ausdrücklich beschrifteten Knopf.
-- **Nur lokal:** Mit **TAB** speicherst du nur lokal, mit **ESC** gar nicht. Dauerhaft umstellen kannst du das unter *Options → Online leaderboard*. Wer die Online-Rangliste schon früher ausgeschaltet hat, bleibt bei „nur lokal“.
-- Datenschutz-Hinweis beim ersten Start, README und Datenschutzerklärung sind angepasst, inklusive Rechtsgrundlage, Widerspruch und Löschung.
+## Version 3.16.1 – Online leaderboard with one keypress (2026-10-16)
 
-## Version 3.16.0 – Piraten, Schlussszene, größere Steueroase, sichtbarer Timer (16.10.2026)
+- **Submitting online is now preselected.** After a run, **"[ENTER] SAVE & POST ONLINE"** posts your name and score to the online leaderboard. Still, nothing is sent automatically: every upload requires this explicitly labeled button.
+- **Local only:** Press **TAB** to save locally only, or **ESC** to not save at all. You can change this permanently under *Options → Online leaderboard*. If you had already turned off the online leaderboard before, you stay on "local only".
+- The privacy notice on first launch, the README and the privacy policy have been updated, including the legal basis, objection and deletion.
 
-- **Piraten statt Bären in der Steueroase:** drei Typen, die sich nur im Aussehen unterscheiden:
-  - **Kapitän:** roter Mantel, Bart, Dreispitz mit Totenkopf
-  - **Matrose:** Ringelhemd, Kopftuch, Augenklappe
-  - **Freibeuter:** blaue Weste, Ohrring, Haken
-  Beim Angriff heben sie den Säbel.
-- **Schlussszene:** Nach der Steueroase folgt eine kurze, in Echtzeit gerenderte Szene. Die Kamera fährt im Sonnenuntergang auf deine Yacht zu: Du liegst mit Sonnenbrille im Liegestuhl und schlürfst Cocktails. Mit Enter überspringbar, auch auf dem Cardputer.
-- **Steueroase größer und härter:**
-  - Die Insel ist rund ein Viertel größer.
-  - 30 statt 20 Goldmünzen.
-  - Zu Beginn 5 statt 3 Piraten, sie rücken schneller nach: bis zu 8, in Hardcore 10.
-  - Nur noch 75 statt 90 Sekunden, alle Münzen zu holen ist damit fast unmöglich.
-- **Timer gut sichtbar:** Die Restzeit steht groß oben rechts im Bild, darunter der Münzstand. In den letzten 15 Sekunden wird sie rot und blinkt, auch auf dem Cardputer.
-- **Hardcore noch etwas härter:** Gegner haben das 1,8-fache statt 1,6-fache an Energie, feuern 45 % statt 35 % öfter, ihre Geschosse sind 30 % statt 25 % schneller, und du nimmst das 1,65-fache statt 1,5-fache an Schaden.
-- **Namen bis 15 Zeichen:** für Highscores (lokal und online) und Nicknames, bisher 12.
-- **Spielname nur noch beim Hosten:** Im Multiplayer-Menü gibt es kein Spielnamen-Feld mehr. Der Host benennt sein Spiel in der Lobby mit **[G]**.
+## Version 3.16.0 – Pirates, closing scene, bigger tax haven, visible timer (2026-10-16)
 
-## Version 3.15.0 – English by default, German optional (16.10.2026)
+- **Pirates instead of bears in the tax haven:** three types that differ only in appearance:
+  - **Captain:** red coat, beard, tricorn hat with a skull
+  - **Sailor:** striped shirt, headscarf, eye patch
+  - **Buccaneer:** blue vest, earring, hook
+  They raise their sabres when attacking.
+- **Closing scene:** The tax haven is followed by a short scene rendered in real time. The camera moves toward your yacht at sunset: you are lying in a deck chair with sunglasses, sipping cocktails. Skippable with Enter, on the Cardputer too.
+- **Tax haven bigger and harder:**
+  - The island is about a quarter larger.
+  - 30 instead of 20 gold coins.
+  - 5 instead of 3 pirates at the start, and they respawn faster: up to 8, in Hardcore 10.
+  - Only 75 instead of 90 seconds, making it almost impossible to collect all the coins.
+- **Timer clearly visible:** The remaining time is shown large in the top right of the screen, with the coin count below it. In the last 15 seconds it turns red and blinks, on the Cardputer too.
+- **Hardcore a bit harder still:** Enemies have 1.8 times instead of 1.6 times the health, fire 45% instead of 35% more often, their projectiles are 30% instead of 25% faster, and you take 1.65 times instead of 1.5 times the damage.
+- **Names up to 15 characters:** for high scores (local and online) and nicknames, previously 12.
+- **Game name only when hosting:** The multiplayer menu no longer has a game name field. The host names their game in the lobby with **[G]**.
 
-- **Das Spiel ist jetzt standardmäßig englisch.** Das gilt für Menüs, HUD, Meldungen, Gegner- und Levelnamen, Abspann, Ranglisten und Multiplayer. Zahlen erscheinen im englischen Format (z. B. 52,178 und +1.08 %).
-- **Deutsch bleibt wählbar:**
-  - PC/Desktop: unter *Options → Language*
-  - Cardputer: mit **L** im Titelbild
-  - Die Wahl wird gespeichert.
-- Kleinere Verbesserungen.
+## Version 3.15.0 – English by default, German optional (2026-10-16)
 
-## Version 3.14.0 (16.10.2026)
+- **The game is now in English by default.** This applies to menus, HUD, messages, enemy and level names, credits, leaderboards and multiplayer. Numbers appear in English format (e.g. 52,178 and +1.08 %).
+- **German can still be selected:**
+  - PC/desktop: under *Options → Language*
+  - Cardputer: with **L** on the title screen
+  - The choice is saved.
+- Minor improvements.
 
-- Kleinere Verbesserungen.
+## Version 3.14.0 (2026-10-16)
 
-## Version 3.13.0 – Abspann und Bonus-Level „Steueroase“ (16.10.2026)
+- Minor improvements.
 
-- **Kurzer Abspann nach dem Endboss:** Nach dem Sieg über ALGO-9000 und dem Bullenmarkt-Bonus läuft ein Abspann von rund 15 Sekunden. Mit Enter lässt er sich überspringen.
-- **Bonus-Level „Steueroase“:** Danach geht es auf eine Tropeninsel im Freien, mit ganz neuer Low-Poly-Grafik statt dunkler Gänge.
-  - **Grafik:** Sonnenuntergang, Sandstrand, türkisfarbenes Flachwasser, glitzerndes Meer, Palmen, eine Strandbar, eine Luxusyacht vor der Küste und drehende Goldmünzen. Ein eigener kleiner 3D-Renderer zeichnet flach schattierte Dreiecke mit Sonnenlicht und Abenddunst.
-  - **Ziel:** 90 Sekunden Zeit, 20 Goldmünzen einsammeln, während „Steuerfahnder-Bären“ dich jagen. Jede Münze bringt +500 $, alle 20 zusammen +10.000 $ extra, in Hardcore jeweils 1,5-fach.
-  - **Kein Risiko für den Lauf:** Wirst du erwischt oder läuft die Zeit ab, endet nur das Bonus-Level, das gesammelte Gold bleibt dir. Danach folgt wie gewohnt der Highscore.
-  - **Start:** Du bekommst volles Depot und +20 Cash.
-- **Cardputer:** Abspann und Steueroase laufen auch auf dem Cardputer, mit 10 Feldern Sichtweite und sparsamerer Geometrie.
+## Version 3.13.0 – Credits and bonus level "Tax Haven" (2026-10-16)
 
-## Version 3.12.0 – Bullenmarkt-Bonus fürs Durchspielen (16.10.2026)
+- **Short credits after the final boss:** After defeating ALGO-9000 and the bull market bonus, credits of about 15 seconds roll. They can be skipped with Enter.
+- **Bonus level "Tax Haven":** Then it's off to a tropical island in the open air, with all-new low-poly graphics instead of dark corridors.
+  - **Graphics:** sunset, sandy beach, turquoise shallows, glittering sea, palm trees, a beach bar, a luxury yacht off the coast and spinning gold coins. A small custom 3D renderer draws flat-shaded triangles with sunlight and evening haze.
+  - **Goal:** 90 seconds to collect 20 gold coins while "tax investigator bears" hunt you. Each coin is worth +$500, all 20 together an extra +$10,000, each 1.5 times in Hardcore.
+  - **No risk to your run:** If you get caught or time runs out, only the bonus level ends, and you keep the gold you collected. The high score follows as usual.
+  - **Start:** You get a full portfolio and +20 cash.
+- **Cardputer:** Credits and tax haven also run on the Cardputer, with 10 tiles of view distance and leaner geometry.
 
-- **Wer ALGO-9000 besiegt und das Spiel durchspielt, bekommt einen Bullenmarkt-Bonus auf den Highscore:**
-  - **+10.000 $** pauschal
-  - **+25 %** des bis dahin erspielten P&L
-  - **+5.000 $** für eine weiße Weste, also ohne einen einzigen Tod
-  - In Hardcore zählt der Bonus wie alle Punkte 1,5-fach.
-- Beispiel: Bei 20.900 $ P&L ohne Tod gibt es +20.225 $, in Hardcore +30.506 $.
-- Der Siegbildschirm zeigt den Bonus an, in der Rangliste steht der Lauf weiter mit „SIEG“. Bisher brachte der letzte Tresor nur denselben kleinen Bonus wie jedes andere Level.
-- Auch auf dem Cardputer, der dafür jetzt die Tode eines Laufs mitzählt.
+## Version 3.12.0 – Bull market bonus for beating the game (2026-10-16)
 
-## Version 3.11.0 – Hardcore-Modus, fairere Bosse (16.10.2026)
+- **If you defeat ALGO-9000 and beat the game, you get a bull market bonus on your high score:**
+  - **+$10,000** flat
+  - **+25%** of the P&L earned up to that point
+  - **+$5,000** for a clean record, i.e. without a single death
+  - In Hardcore, the bonus counts 1.5 times, like all points.
+- Example: With $20,900 P&L and no deaths you get +$20,225, in Hardcore +$30,506.
+- The victory screen shows the bonus, and the run is still listed with "WON" in the leaderboard. Previously, the last vault only gave the same small bonus as every other level.
+- On the Cardputer too, which now counts the deaths in a run for this.
 
-- **Hardcore-Modus:** Im Hauptmenü mit **X** (oder dem roten Knopf) starten, nur im Solo-Spiel.
-  - **Ein Tod beendet den Lauf:** Statt „Neuer Kredit“ kommt **GAME OVER**, danach wird die Punktzahl eingetragen.
-  - **Härtere Gegner:** 60 % mehr Energie, sie feuern 35 % öfter, ihre Geschosse fliegen 25 % schneller, und sie richten 50 % mehr Schaden an. ALGO-9000 greift häufiger an.
-  - **Knapper Nachschub:** Start mit 20 statt 30 Cash, kein Auffüllen zwischen den Levels, 40 % weniger Beute. Cash gibt +7 statt +10, eine Dividende +15 % statt +20 %, verstreutes Bargeld liegt seltener herum.
-  - **Belohnung:** Alle Punkte zählen 1,5-fach.
-  - **Eigene Ranglisten:** Hardcore hat eine eigene lokale Top 10 und eigene Online-Listen (gesamt und heute). Im Highscore-Menü schaltest du mit **X** zwischen Normal und Hardcore um.
-- **Bosse lassen sich nicht mehr hinter Sockeln austricksen:** Stand man halb hinter einer Kante, traf man den breiten Boss noch, er schoss aber gar nicht zurück, weil er nur seine Mittellinie prüfte. Jetzt prüfen Bosse und alle Fernkämpfer ihre ganze Breite und schießen von der freien Seite.
-- **Erledigte Gegner verschwinden nach 7 statt nach 25 Sekunden.**
-- **Esc führt erst ins Hauptmenü:** Aus Pause und Multiplayer-Menü bringt Esc dich ins Hauptmenü, ganz beendet wird das Spiel nur von dort.
-- **Cardputer:** Hardcore (X im Titelbild), der Boss-Fix und die 7 Sekunden gibt es auch dort; Ranglisten gibt es auf dem Cardputer nicht.
+## Version 3.11.0 – Hardcore mode, fairer bosses (2026-10-16)
 
-## Version 3.10.1 – Online-Rangliste ist live (16.10.2026)
+- **Hardcore mode:** Start it from the main menu with **X** (or the red button), solo play only.
+  - **One death ends the run:** Instead of "New loan" you get **GAME OVER**, and then your score is entered.
+  - **Tougher enemies:** 60% more health, they fire 35% more often, their projectiles fly 25% faster, and they deal 50% more damage. ALGO-9000 attacks more often.
+  - **Scarce supplies:** Start with 20 instead of 30 cash, no refill between levels, 40% less loot. Cash gives +7 instead of +10, a dividend +15% instead of +20%, and scattered cash lies around less often.
+  - **Reward:** All points count 1.5 times.
+  - **Separate leaderboards:** Hardcore has its own local top 10 and its own online lists (all-time and today). In the high score menu, press **X** to switch between Normal and Hardcore.
+- **Bosses can no longer be cheesed from behind pedestals:** If you stood half behind an edge, you could still hit the wide boss, but it didn't shoot back at all because it only checked its center line. Now bosses and all ranged enemies check their full width and shoot from the open side.
+- **Defeated enemies disappear after 7 instead of 25 seconds.**
+- **Esc goes to the main menu first:** From the pause and multiplayer menus, Esc takes you to the main menu; the game can only be quit completely from there.
+- **Cardputer:** Hardcore (X on the title screen), the boss fix and the 7 seconds are available there too; there are no leaderboards on the Cardputer.
 
-- **Die Online-Rangliste ist freigeschaltet.** Nach einem Solo-Lauf mit **Tab** „Auch online eintragen“ wählen. Im Highscore-Menü (**H**) siehst du dann unter [2] und [3] die weltweite Gesamt- und Tagesrangliste mit deinem Platz.
+## Version 3.10.1 – Online leaderboard is live (2026-10-16)
+
+- **The online leaderboard is now enabled.** After a solo run, choose "Also submit online" with **Tab**. In the high score menu (**H**) you'll then see the worldwide all-time and daily leaderboards with your rank under [2] and [3].
 - Server: https://margincall-highscores.margincall.workers.dev (Cloudflare Worker + D1).
 
-## Version 3.10.0 – Online-Rangliste vorbereitet, ruhigeres Licht (16.10.2026)
+## Version 3.10.0 – Online leaderboard prepared, calmer lighting (2026-10-16)
 
-- **Licht flackert nur noch beim ALGO-Angriff:** Bisher flackerte es bei jeder starken Kursbewegung und während der ganzen Manipulation mehrmals pro Sekunde. Jetzt flackert es nur in den ersten 0,7 Sekunden, wenn ALGO-9000 zuschlägt (auch beim Kippen von Pump & Dump). Im Multiplayer flackert es bei allen gleichzeitig.
-- **Online-Rangliste (startet, sobald der Server läuft):** Neben der lokalen Top 10 gibt es eine weltweite Rangliste.
-  - **Reiter im Highscore-Menü:** [1] Lokal, [2] Online gesamt (Top 100), [3] Online heute. Umschalten mit 1–3 oder ←/→, blättern mit ↑/↓.
-  - **Eigener Platz:** Nach dem Eintragen springt die Liste zu deinem Eintrag und zeigt z. B. „DEIN PLATZ: 23 VON 41“, auch außerhalb der Top 100.
-  - **Freiwillig:** Nach jedem Lauf schaltest du mit **Tab** „Auch online eintragen“ ein. Die Einstellung wird gemerkt und ist auch unter *Optionen → Online-Rangliste* änderbar. Übertragen werden nur Name, Punkte, Level, Sieg, Tode und Spielversion.
-  - **Server:** ein Cloudflare Worker im Ordner `worker/`. Solange er nicht eingerichtet ist, bleibt alles Online im Spiel ausgeblendet. Anleitung: [worker/README.md](worker/README.md).
+- **The lights now only flicker during the ALGO attack:** Previously they flickered several times per second on every strong price movement and throughout the whole manipulation. Now they only flicker for the first 0.7 seconds when ALGO-9000 strikes (also when Pump & Dump flips). In multiplayer they flicker for everyone at the same time.
+- **Online leaderboard (starts as soon as the server is running):** In addition to the local top 10, there is a worldwide leaderboard.
+  - **Tabs in the high score menu:** [1] Local, [2] Online all-time (top 100), [3] Online today. Switch with 1–3 or ←/→, scroll with ↑/↓.
+  - **Your own rank:** After submitting, the list jumps to your entry and shows e.g. "YOUR RANK: 23 OF 41", even outside the top 100.
+  - **Optional:** After each run, press **Tab** to turn on "Also submit online". The setting is remembered and can also be changed under *Options → Online leaderboard*. Only name, score, level, victory, deaths and game version are sent.
+  - **Server:** a Cloudflare Worker in the `worker/` folder. As long as it isn't set up, everything online stays hidden in the game. Instructions: [worker/README.md](worker/README.md).
 
-## Version 3.9.0 – ALGO-9000 manipuliert den Kurs, Einzelaktien im Ticker (16.10.2026)
+## Version 3.9.0 – ALGO-9000 manipulates the price, individual stocks in the ticker (2026-10-16)
 
-- **ALGO-9000 verschiebt den Spielkurs:** Jeder Angriff legt für 15–24 Sekunden einen Auf- oder Abschlag auf den echten Kurs des Levels. Alles, was am Kurs hängt, reagiert sofort darauf: das Verhältnis von Bullen zu Bären, ihre Stärke und im Team-Modus der Schadensbonus. Kurz vor Ende läuft die Manipulation langsam aus.
-  - **Flash Crash:** −5 %
-  - **Pump & Dump:** erst +4 %, nach 12 Sekunden kippt der Kurs auf −4 %
-  - **Fake News:** ±2–4 %
-  - **System manipuliert:** ±4 %
-  - **Trading-Bots:** −1,5 bis −2,5 %
-  - **Bullen & Bären aufgehetzt:** ±3 % in Richtung des echten Tagestrends
-- **Manipulation sichtbar:** Der HUD zeigt echten und manipulierten Kurs nebeneinander, z. B. „DOW +1,08 % → ALGO −3,92 %“, blinkend in Magenta. Wand-Charts und Laufband bekommen eine magentafarbene Linie mit dem verbogenen Verlauf. Der Ticker zeigt für den Level-Index den ALGO-Kurs.
-- **Licht flackert bei Kursausschlägen:** Bei starken echten Intraday-Bewegungen und bei Manipulation flackert das Licht kurz.
-- **Einzelaktien im Ticker:** Hinter jedem Index laufen seine bekanntesten Werte mit Kurs und Tagesveränderung, grün steigend, rot fallend. Beim Dow sind das z. B. Goldman Sachs, Caterpillar und Boeing, beim Nasdaq-100 Nvidia, Microsoft und Tesla, beim Öl Exxon und Chevron. Die Einzelwerte sind nur Anzeige; das Spiel richtet sich weiter allein nach den Leitindizes.
-- **Munition und Leben etwas knapper:**
-  - Gegner lassen seltener etwas fallen: 38 % statt 45 %, bei Kämpfen zwischen Tieren 22 % statt 30 %.
-  - Eine Dividende heilt 20 % statt 25 %.
-  - Dafür liegt **vereinzelt Bargeld** abseits herum, etwa alle ein bis zwei Minuten, höchstens zwei Scheine gleichzeitig. Wer fast keine Munition mehr hat, findet schneller etwas.
-- **Cardputer:** Alle Neuerungen gibt es auch auf dem Cardputer.
+- **ALGO-9000 shifts the in-game price:** Each attack adds a markup or markdown to the level's real price for 15–24 seconds. Everything tied to the price reacts immediately: the ratio of bulls to bears, their strength and, in team mode, the damage bonus. Shortly before the end, the manipulation slowly fades out.
+  - **Flash Crash:** −5%
+  - **Pump & Dump:** first +4%, after 12 seconds the price flips to −4%
+  - **Fake News:** ±2–4%
+  - **System manipulated:** ±4%
+  - **Trading Bots:** −1.5 to −2.5%
+  - **Bulls & bears stirred up:** ±3% in the direction of the real daily trend
+- **Manipulation visible:** The HUD shows the real and manipulated prices side by side, e.g. "DOW +1.08% → ALGO −3.92%", blinking in magenta. Wall charts and the ticker tape get a magenta line with the distorted curve. The ticker shows the ALGO price for the level's index.
+- **Lights flicker on price swings:** During strong real intraday movements and during manipulation, the lights flicker briefly.
+- **Individual stocks in the ticker:** Each index is followed by its best-known stocks with price and daily change, green when rising, red when falling. For the Dow these are e.g. Goldman Sachs, Caterpillar and Boeing, for the Nasdaq-100 Nvidia, Microsoft and Tesla, for oil Exxon and Chevron. The individual stocks are display only; the game is still based solely on the benchmark indices.
+- **Ammo and health a bit scarcer:**
+  - Enemies drop something less often: 38% instead of 45%, in fights between animals 22% instead of 30%.
+  - A dividend heals 20% instead of 25%.
+  - In return, **occasional cash** lies around off the beaten path, roughly every one to two minutes, at most two bills at a time. If you're almost out of ammo, you'll find some faster.
+- **Cardputer:** All new features are also available on the Cardputer.
 
-## Version 3.8.1 – Härterer Koop (16.10.2026)
+## Version 3.8.1 – Tougher co-op (2026-10-16)
 
-- **Gegner skalieren stärker mit der Spielerzahl:**
-  - **+60 % Energie** pro zusätzlichem Spieler, bisher +35 %.
-  - **3 zusätzliche Gegner pro Mitspieler** zu Levelbeginn, passend zum Level: Bullen und Bären nach Marktlage, im Öl-Level auch Ölschlick und Ölbarone, im KI-Level Trading-Bots.
-  - **Mehr und schnellerer Nachschub:** bis zu 4 Gegner mehr pro Mitspieler gleichzeitig, rund 50 % schneller pro Mitspieler.
-- **Beispiel mit 2 Spielern:** 12 statt 9 Gegner zu Beginn, ein Bär hält 10 statt 6 Treffer aus.
+- **Enemies scale more strongly with the number of players:**
+  - **+60% health** per additional player, previously +35%.
+  - **3 additional enemies per teammate** at the start of a level, matching the level: bulls and bears according to market conditions, also oil slicks and oil barons in the oil level, trading bots in the AI level.
+  - **More and faster reinforcements:** up to 4 more enemies at once per teammate, about 50% faster per teammate.
+- **Example with 2 players:** 12 instead of 9 enemies at the start, a bear takes 10 instead of 6 hits.
 
-## Version 3.8.0 – Nicknames, Spielnamen, Rundenpause, Tab-Statistik (16.10.2026)
+## Version 3.8.0 – Nicknames, game names, round break, Tab stats (2026-10-16)
 
-- **Nickname für den Multiplayer:** Im Multiplayer-Menü und in der Lobby mit **[K]** (oder Klick) änderbar, bis 12 Zeichen.
-  - Der Nickname erscheint in Lobby, Chat, Namensschildern, Meldungen und Statistik.
-  - Er wird gespeichert und beim Beitreten mitgenommen.
-- **Spielname:** Der Host benennt sein Spiel mit **[G]**, z. B. „Börsenparty“.
-  - Der Name steht in der Lobby unter dem Titel.
-  - In der Spieleliste unter „Beitreten“ erscheinen Spielname und Host.
-- **Rundenpause im Deathmatch und Team-Modus:** Nach Rundenende kommt eine **Pause von 5 Sekunden** mit der Statistik aller Spieler und einem Countdown „Nächstes Level in 5 s“. Danach startet das nächste Level automatisch, der Host kann mit Enter sofort weiter.
-- **Statistik im Spiel:** Solange du **Tab** gedrückt hältst, siehst du eine Tabelle aller Spieler mit P&L, Frags, Toden und Kills.
-  - Im Solo-Modus zeigt sie deinen Lauf mit P&L, Level, Kills, Toden und Marktbereinigung.
-  - Die Taste ist im Optionsmenü belegbar.
-- **Bereit mit E:** Mitspieler melden sich in der Lobby mit **E** bereit. Enter und Leertaste ändern den Bereit-Status nicht mehr.
-- **Behoben:**
-  - Das Depot zeigt nie mehr „0 %“: Bist du ausgeschaltet, steht dort bis zum Wiedereinstieg **PLEITE**.
-  - In der Rundenabrechnung überlappten Namen und Statistik.
-  - Der Hinweis zum Weiterspielen lag über den Credits.
+- **Nickname for multiplayer:** Can be changed in the multiplayer menu and in the lobby with **[K]** (or a click), up to 12 characters.
+  - The nickname appears in the lobby, chat, name tags, messages and stats.
+  - It is saved and carried over when joining.
+- **Game name:** The host names their game with **[G]**, e.g. "Stock Market Party".
+  - The name appears in the lobby below the title.
+  - The game name and host appear in the game list under "Join".
+- **Round break in Deathmatch and team mode:** After a round ends, there is a **5-second break** with the stats of all players and a countdown "Next level in 5 s". Then the next level starts automatically; the host can continue immediately with Enter.
+- **In-game stats:** While you hold **Tab**, you see a table of all players with P&L, frags, deaths and kills.
+  - In solo mode it shows your run with P&L, level, kills, deaths and market cleanup.
+  - The key can be bound in the options menu.
+- **Ready with E:** Teammates mark themselves ready in the lobby with **E**. Enter and Space no longer change the ready status.
+- **Fixed:**
+  - The portfolio never shows "0%" anymore: when you are knocked out, it shows **BROKE** until you rejoin.
+  - Names and stats overlapped in the round summary.
+  - The hint for continuing play overlapped the credits.
 
-## Version 3.7.0 – Spielesuche, Lobby-Chat, Bereit-Knopf, Deathmatch-Statistik (16.10.2026)
+## Version 3.7.0 – Game browser, lobby chat, ready button, Deathmatch stats (2026-10-16)
 
-- **Spiele im Netzwerk finden:** **[N] Multiplayer → [J] Spiel beitreten** zeigt jetzt automatisch alle offenen Spiele im WLAN, mit Host, Modus und Spielerzahl.
-  - Ein Klick oder Enter genügt zum Beitreten, IP-Adresse und Port muss man nicht mehr eintippen.
-  - Die manuelle Adresseingabe bleibt als Notlösung erhalten.
-  - Ein Spiel wird angekündigt, solange der Host in der Lobby ist.
-- **Bereit-Knopf:** Mitspieler bestätigen in der Lobby mit **„Bereit“**. Der Host kann erst starten, wenn alle bereit sind. Die Spielerliste zeigt ✔ BEREIT bzw. ✖ WARTET.
-- **Chat in der Lobby:** **[T]** oder ein Klick ins Chatfeld öffnet die Eingabe, Enter sendet.
-- **Chat im Spiel:** **[T]** öffnet oben ein Chatfenster. Gesendete Nachrichten erscheinen bei allen als Meldung oben im Ticker, z. B. „» BLAU: gg wp“. Während du schreibst, bleibt deine Figur stehen.
-  - Die Chat-Taste ist im Optionsmenü frei belegbar.
-- **Deathmatch-Statistik:** Das HUD zeigt deine **Frags** (abgeschossene Mitspieler), **Tode** und **Kills** (erledigte Börsen-Gegner), dazu eine Rangliste aller Spieler mit Frags und Toden. Die Rundenabrechnung zeigt dieselben Werte.
-- **Vollbild:**
-  - Neue Zeile **„Vollbild (F4)“** im Optionsmenü.
-  - Die Einstellung wird gespeichert, die App startet dann gleich im Vollbild.
-  - Im Hauptmenü steht unten links **[F4] VOLLBILD**, auch anklickbar.
-- **Lobby neu aufgeteilt:** links die Spieler, in der Mitte der Chat, rechts die eigene Figur.
-- **Teamfarben im Team-Modus:** Spieler heißen nach der Farbe ihres Teams („TRADER GRÜN“ für Team Bulle, „TRADER ROT“ für Team Bär) und erscheinen in dieser Farbe.
-  - Das gilt in der Lobby (mit „TEAM BULLE · GRÜN“ / „TEAM BÄR · ROT“), auf den Namensschildern im Spiel und in der Abrechnung.
-  - Teamkollegen werden durchnummeriert, z. B. „GRÜN 1“ und „GRÜN 2“.
+- **Find games on the network:** **[N] Multiplayer → [J] Join game** now automatically shows all open games on the Wi-Fi, with host, mode and player count.
+  - A click or Enter is enough to join; you no longer have to type in the IP address and port.
+  - Manual address entry remains as a fallback.
+  - A game is announced as long as the host is in the lobby.
+- **Ready button:** Teammates confirm in the lobby with **"Ready"**. The host can only start once everyone is ready. The player list shows ✔ READY or ✖ WAITING.
+- **Lobby chat:** **[T]** or a click in the chat field opens the input, Enter sends.
+- **In-game chat:** **[T]** opens a chat window at the top. Sent messages appear for everyone as a message at the top of the ticker, e.g. "» BLUE: gg wp". While you are typing, your character stands still.
+  - The chat key can be freely bound in the options menu.
+- **Deathmatch stats:** The HUD shows your **frags** (teammates shot down), **deaths** and **kills** (stock market enemies defeated), plus a ranking of all players with frags and deaths. The round summary shows the same values.
+- **Fullscreen:**
+  - New line **"Fullscreen (F4)"** in the options menu.
+  - The setting is saved, and the app then starts directly in fullscreen.
+  - The main menu shows **[F4] FULLSCREEN** in the bottom left, which is also clickable.
+- **Lobby layout reorganized:** players on the left, chat in the middle, your own character on the right.
+- **Team colors in team mode:** Players are named after their team's color ("TRADER GREEN" for Team Bull, "TRADER RED" for Team Bear) and appear in that color.
+  - This applies in the lobby (with "TEAM BULL · GREEN" / "TEAM BEAR · RED"), on the in-game name tags and in the summary.
+  - Teammates are numbered, e.g. "GREEN 1" and "GREEN 2".
 
-## Version 3.6.2 – Tode zählen, Maus sofort aktiv, Bärengebrüll (15.10.2026)
+## Version 3.6.2 – Deaths count, mouse active immediately, bear roar (2026-10-15)
 
-- **Tode im Einzelspieler:**
-  - Jeder Tod wird gezählt und kostet **25 % des P&L, mindestens 500 $**. Das bisherige Halbieren bei „Neuer Kredit“ entfällt dafür.
-  - Der Insolvenz-Bildschirm zeigt die wievielte Insolvenz es ist und wie hoch die Strafe war.
-  - Im HUD steht neben dem P&L ein ☠ mit der Zahl der Tode.
-  - Die Highscore-Liste hat eine neue Spalte **Tode**.
-- **Maussteuerung sofort aktiv:** Beim Spielstart, bei jedem neuen Level, nach „Neuer Kredit“ und nach der Pause muss man nicht mehr erst ins Bild klicken.
-  - Im Multiplayer gilt das für den Host. Mitspieler sehen einen Hinweis „Klick ins Bild für Maussteuerung“, weil der Browser das Einfangen der Maus dort erst nach einem eigenen Klick erlaubt.
-- **Der Bär brüllt:**
-  - wenn er dich auf der Jagd entdeckt,
-  - beim Zuschlagen,
-  - und zwischendurch, wie der Bulle beim Sturmangriff.
+- **Deaths in single player:**
+  - Every death is counted and costs **25% of your P&L, at least $500**. In exchange, the previous halving on "New loan" is gone.
+  - The bankruptcy screen shows which bankruptcy this is and how high the penalty was.
+  - The HUD shows a ☠ with the number of deaths next to the P&L.
+  - The high score list has a new **Deaths** column.
+- **Mouse control active immediately:** At game start, at every new level, after "New loan" and after pausing, you no longer have to click into the screen first.
+  - In multiplayer this applies to the host. Teammates see a hint "Click the screen for mouse control", because the browser only allows capturing the mouse there after a click of their own.
+- **The bear roars:**
+  - when it spots you on the hunt,
+  - when it strikes,
+  - and in between, like the bull when charging.
 
-  Das gilt am PC und auf dem Cardputer.
+  This applies on the PC and on the Cardputer.
 
-## Version 3.6.1 – Solo-Knopf im Startmenü (15.10.2026)
+## Version 3.6.1 – Solo button in the start menu (2026-10-15)
 
-- **Eigener Knopf „▶ SOLO SPIELEN“:** Der große, leicht pulsierende Knopf im Startmenü startet den Einzelspieler per Klick oder Enter.
-- **Kein versehentlicher Start mehr:** Ein Klick irgendwo ins Titelbild startet kein Spiel mehr.
-- **Kürzere Statusanzeige:** Bei abgeschalteten Live-Kurse heißt es jetzt nur noch „SIMULIERT“. Der lange Text ragte im HUD über den Rand.
+- **Dedicated "▶ PLAY SOLO" button:** The large, gently pulsing button in the start menu starts single player with a click or Enter.
+- **No more accidental starts:** Clicking anywhere on the title screen no longer starts a game.
+- **Shorter status display:** When live prices are turned off, it now just says "SIMULATED". The long text stuck out over the edge of the HUD.
 
-## Version 3.6.0 – Highscore-Liste (15.10.2026)
+## Version 3.6.0 – High score list (2026-10-15)
 
-- **Highscore-Liste für den Einzelspieler:** Sie zeigt die besten 10 Läufe mit Name, P&L, erreichtem Level bzw. „SIEG“ und Datum.
-  - Im Titelbild öffnest du sie über **[H] HIGHSCORES**, per Taste oder Klick.
-- **Namen eintragen:** Wer nach einem Sieg in die Top 10 kommt, gibt seinen Namen ein (bis 12 Zeichen). Der zuletzt verwendete Name ist vorausgefüllt. Der neue Eintrag blinkt in der Liste.
-- **Aufgeben nach Insolvenz:** Nach einer Insolvenz hast du jetzt die Wahl:
-  - **[ENTER] Neuer Kredit:** Weiterspielen mit halbiertem P&L, wie bisher.
-  - **[H] Aufgeben & Highscore:** Der Lauf endet, und du kannst dich eintragen.
-- **Speicherort:** Die Liste liegt in einer Datei im Benutzerordner und bleibt deshalb auch bei Updates erhalten.
+- **High score list for single player:** It shows the best 10 runs with name, P&L, level reached or "WON", and date.
+  - On the title screen, open it via **[H] HIGHSCORES**, by key or click.
+- **Entering names:** If you make the top 10 after a victory, you enter your name (up to 12 characters). The most recently used name is prefilled. The new entry blinks in the list.
+- **Give up after bankruptcy:** After a bankruptcy you now have a choice:
+  - **[ENTER] New loan:** Keep playing with your P&L halved, as before.
+  - **[H] Give up & high score:** The run ends, and you can enter your name.
+- **Storage location:** The list is stored in a file in your user folder, so it is kept across updates.
   - Windows: `%APPDATA%\MarginCall\highscores.json`
   - macOS: `~/Library/Application Support/MarginCall/`
   - Linux: `~/.local/share/MarginCall/`
-- **Schreibschutz:** Mitspieler im WLAN können deine Liste nicht verändern. Einträge nimmt die App nur vom eigenen Rechner an.
+- **Write protection:** Teammates on the Wi-Fi cannot change your list. The app only accepts entries from your own computer.
 
-## Version 3.5.3 – Menüs mit der Maus (15.10.2026)
+## Version 3.5.3 – Menus with the mouse (2026-10-15)
 
-- **Alles per Mausklick bedienbar:**
-  - Multiplayer: **Spiel hosten**, **Spiel beitreten**, **Verbinden**, **Zurück**
-  - Lobby: Spielmodus über die Pfeile **◀ ▶**, **Figurenwahl** durch Klick auf die Figur oder auf „Wechseln“, **Team Bulle** / **Team Bär**, **Spiel starten**, **Verlassen**
-  - Pausenmenü (**Weiter**, **Optionen**, **Beenden**), Multiplayer-Menü im Spiel und Datenschutz-Hinweis
-- **Hervorhebung:** Schaltflächen leuchten auf, wenn die Maus darüber ist, und der Mauszeiger wird zur Hand.
-- **Tastatur:** Alle Tastenkürzel funktionieren weiterhin.
+- **Everything can be operated with mouse clicks:**
+  - Multiplayer: **Host game**, **Join game**, **Connect**, **Back**
+  - Lobby: game mode via the arrows **◀ ▶**, **character selection** by clicking the character or "Change", **Team Bull** / **Team Bear**, **Start game**, **Leave**
+  - Pause menu (**Resume**, **Options**, **Quit**), in-game multiplayer menu and privacy notice
+- **Highlighting:** Buttons light up when the mouse is over them, and the cursor turns into a hand.
+- **Keyboard:** All keyboard shortcuts still work.
 
-## Version 3.5.2 – Musik in den Optionen (15.10.2026)
+## Version 3.5.2 – Music in the options (2026-10-15)
 
-- **Neuer Schalter „Musik“** im Optionsmenü **[O]**: Er schaltet die Musik ein und aus.
-- **Gespeichert:** Die Einstellung bleibt auch nach einem Neustart erhalten, ebenso wenn du die Musik mit der Taste **M** umschaltest.
+- **New "Music" toggle** in the options menu **[O]**: It turns the music on and off.
+- **Saved:** The setting is kept even after a restart, including when you toggle the music with the **M** key.
 
-## Version 3.5.1 – Datenschutz und Open Source (15.10.2026)
+## Version 3.5.1 – Privacy and open source (2026-10-15)
 
-- **Live-Kurse nur mit Zustimmung:** Beim ersten Start erklärt ein Hinweis, dass die Kurse bei Yahoo Finance abgerufen werden. Mit **Enter** stimmst du zu, mit **N** spielst du mit simulierten Kursen.
-- **Neuer Schalter „Live-Kurse“** im Optionsmenü, jederzeit änderbar.
-- **Kein automatischer Abruf mehr:** Die App ruft beim Start nichts mehr von sich aus ab, sondern erst, wenn das Spiel Kurse anfragt.
-- **Open Source:** MARGIN CALL steht jetzt unter der **MIT-Lizenz**. Neu sind außerdem eine Code signing policy mit Datenschutzerklärung und ein Code of Conduct.
-- **Vorbereitung der Windows-Signatur** über die SignPath Foundation: Das Build-Skript reicht die EXE zur Signatur ein, sobald die SignPath-Zugangsdaten hinterlegt sind.
+- **Live prices only with consent:** On first launch, a notice explains that prices are fetched from Yahoo Finance. Press **Enter** to agree, or **N** to play with simulated prices.
+- **New "Live prices" toggle** in the options menu, changeable at any time.
+- **No more automatic fetching:** The app no longer fetches anything on its own at startup, only when the game requests prices.
+- **Open source:** MARGIN CALL is now under the **MIT license**. Also new are a code signing policy with a privacy policy and a Code of Conduct.
+- **Preparation for Windows signing** via the SignPath Foundation: The build script submits the EXE for signing as soon as the SignPath credentials are configured.
 
-## Version 3.5.0 – Spielfiguren, Esc-Menü und Vollbild (15.10.2026)
+## Version 3.5.0 – Player characters, Esc menu and fullscreen (2026-10-15)
 
-- **Zwei Spielfiguren im Multiplayer:** In der Lobby wechselst du mit **[C]** zwischen männlich und weiblich. Rechts in der Lobby siehst du deine Figur groß.
-  - **Männlich:** Hoodie in deiner Spielerfarbe mit „$“-Aufdruck, Goldkette, Basecap, Headset, Bart, Jeans und Sneaker.
-  - **Weiblich:** langer roter Pferdeschwanz, Kleid in deiner Spielerfarbe mit Goldgürtel, goldene Creolen, Sonnenbrille im Haar und Stiefel.
-  - Beide Figuren sehen bewusst ganz anders aus als die Gegner im Anzug.
-  - Im Team-Modus tragen sie die Teamfarbe, dazu Hörner (Team Bulle) oder Bärenohren (Team Bär).
-  - Die Wahl wird gespeichert und beim Beitreten zu einem Host mitgenommen.
-- **Esc pausiert das Spiel.**
-  - **Esc im Pausenmenü beendet das Spiel.** Damit ein einzelner Esc-Druck nicht gleich beendet, reagiert das Menü erst nach einer kurzen Pause.
-  - **P** pausiert und setzt fort wie bisher.
-  - Bei Maussteuerung reicht ein Esc: Der erste Druck gibt die Maus frei und pausiert gleichzeitig.
-  - Im Multiplayer öffnen Esc und P das Multiplayer-Menü. Esc darin beendet, **[L]** verlässt das Spiel, **P** führt zurück.
-  - Im Titelbild beendet **Esc** das Spiel.
-- **Q beendet das Spiel nicht mehr.**
-- **F4** schaltet den Vollbildmodus ein und aus.
-- **Versionsnummer im Dateinamen:** Die Downloads heißen jetzt z. B. `MarginCall-3.5.0-Windows.exe`, `MarginCall-3.5.0-macOS.dmg`, `MarginCall-3.5.0-Linux.AppImage` und `MarginCall-3.5.0-Cardputer.bin`.
+- **Two player characters in multiplayer:** In the lobby, press **[C]** to switch between male and female. Your character is shown large on the right side of the lobby.
+  - **Male:** hoodie in your player color with a "$" print, gold chain, baseball cap, headset, beard, jeans and sneakers.
+  - **Female:** long red ponytail, dress in your player color with a gold belt, gold hoop earrings, sunglasses in her hair and boots.
+  - Both characters deliberately look completely different from the suited enemies.
+  - In team mode they wear the team color, plus horns (Team Bull) or bear ears (Team Bear).
+  - The choice is saved and carried over when joining a host.
+- **Esc pauses the game.**
+  - **Esc in the pause menu quits the game.** So that a single Esc press doesn't quit right away, the menu only responds after a short delay.
+  - **P** pauses and resumes as before.
+  - With mouse control, one Esc is enough: the first press releases the mouse and pauses at the same time.
+  - In multiplayer, Esc and P open the multiplayer menu. Esc there quits, **[L]** leaves the game, **P** goes back.
+  - On the title screen, **Esc** quits the game.
+- **Q no longer quits the game.**
+- **F4** toggles fullscreen mode on and off.
+- **Version number in the file name:** The downloads are now named e.g. `MarginCall-3.5.0-Windows.exe`, `MarginCall-3.5.0-macOS.dmg`, `MarginCall-3.5.0-Linux.AppImage` and `MarginCall-3.5.0-Cardputer.bin`.
 
-## Version 3.4.1 – WASD am PC (15.10.2026)
+## Version 3.4.1 – WASD on PC (2026-10-15)
 
-- **Neue Standardsteuerung am PC** nach dem üblichen Shooter-Schema:
+- **New default controls on PC** following the usual shooter layout:
 
-  | Aktion | Tasten |
+  | Action | Keys |
   |---|---|
-  | Vorwärts / Rückwärts | W / S (zusätzlich ↑ / ↓) |
-  | Seitwärts | A / D |
-  | Drehen | Maus oder ← / → |
-  | Feuern | Leertaste oder linke Maustaste |
+  | Forward / Backward | W / S (also ↑ / ↓) |
+  | Strafe | A / D |
+  | Turn | Mouse or ← / → |
+  | Fire | Space or left mouse button |
 
-- **Ausweichen** per Doppeltipp funktioniert mit den neuen Tasten: W, S, A und D jeweils zweimal schnell antippen.
-- **Gespeicherte Belegung:** Die Tastenbelegung wird einmalig auf die neue Standardbelegung zurückgesetzt. Eigene Belegungen lassen sich wie bisher im Optionsmenü **[O]** einstellen.
-- **Touch-Knöpfe** auf dem Handy: oben A ▲ D, unten Drehen ⟲ ▼ ⟳.
-- Der **Cardputer** bleibt bei **E/S laufen, A/D drehen, W/R seitwärts**.
+- **Dodging** by double-tap works with the new keys: tap W, S, A or D twice quickly.
+- **Saved bindings:** The key bindings are reset once to the new defaults. Custom bindings can still be set in the options menu **[O]**.
+- **Touch buttons** on mobile: top A ▲ D, bottom turn ⟲ ▼ ⟳.
+- The **Cardputer** stays with **E/S to move, A/D to turn, W/R to strafe**.
 
-## Version 3.4 – Eigene App für Windows, macOS und Linux (15.10.2026)
+## Version 3.4 – Standalone app for Windows, macOS and Linux (2026-10-15)
 
-- **Kein Browser mehr:** MARGIN CALL ist jetzt eine eigenständige App mit eigenem Fenster. Es gibt eine Datei pro System:
+- **No more browser:** MARGIN CALL is now a standalone app with its own window. There is one file per system:
 
-  | System | Datei |
+  | System | File |
   |---|---|
   | Windows | `MarginCall-Windows.exe` |
-  | macOS | `MarginCall-macOS.dmg` (Intel und Apple Silicon) |
+  | macOS | `MarginCall-macOS.dmg` (Intel and Apple Silicon) |
   | Linux | `MarginCall-Linux.AppImage` |
 
-  Live-Kurse, Musik, Sounds und Multiplayer sind eingebaut, zusätzliche Software ist nicht nötig.
-- **Beenden:** Das Spiel lässt sich jetzt beenden, über **[Q] Beenden** im Titelbild, im Pausenmenü und im Multiplayer-Menü. Das Schließen des Fensters beendet die App ebenfalls.
-- **Multiplayer-Menü:** **[N] Multiplayer** bietet jetzt die Wahl zwischen **[H] Spiel hosten** und **[J] Spiel beitreten**.
-  - Beim Beitreten gibst du die Adresse des Hosts ein, die in seiner Lobby steht.
-  - Deine Tastenbelegung wird dabei mitgenommen.
-  - Endet das Spiel des Hosts, bringt dich **[H]** zurück zu deinem eigenen Spiel.
-  - Mitspieler im Browser funktionieren weiterhin.
-- **Im Multiplayer** öffnet die Pause-Taste ein kleines Menü mit **[L] Spiel verlassen** und **[Q] Beenden**. Das Spiel läuft dabei weiter.
-- **Credits:** „Made by Wolfgang Rabenstein“ steht im Titelbild und auf den Endbildschirmen, am PC und auf dem Cardputer.
+  Live prices, music, sounds and multiplayer are built in; no additional software is needed.
+- **Quitting:** The game can now be quit, via **[Q] Quit** on the title screen, in the pause menu and in the multiplayer menu. Closing the window also quits the app.
+- **Multiplayer menu:** **[N] Multiplayer** now offers a choice between **[H] Host game** and **[J] Join game**.
+  - When joining, you enter the host's address, which is shown in their lobby.
+  - Your key bindings are carried over.
+  - If the host's game ends, **[H]** takes you back to your own game.
+  - Teammates in the browser still work.
+- **In multiplayer**, the pause key opens a small menu with **[L] Leave game** and **[Q] Quit**. The game keeps running meanwhile.
+- **Credits:** "Made by Wolfgang Rabenstein" appears on the title screen and on the end screens, on the PC and on the Cardputer.
 
-## Version 3.3 – Ausweichen (15.10.2026)
+## Version 3.3 – Dodging (2026-10-15)
 
-- **Ausweichen per Doppeltipp:** Tippst du eine Bewegungsrichtung zweimal schnell hintereinander an (innerhalb von 0,25 s), springt deine Figur ein Stück in diese Richtung.
-- Das geht **nach vorne, nach hinten, nach links und nach rechts**.
-  - Am PC zählen die Tasten aus dem Optionsmenü, also auch die Pfeiltasten.
-  - Auf dem Cardputer sind es E, S, W und R.
-- Ein Sprung bringt dich etwa 1,75 Felder weit in einer Viertelsekunde, danach kannst du 0,6 s lang nicht erneut ausweichen.
-- Klebst du im Öl fest, ist der Sprung nur halb so weit.
-- Beim Ausweichen hörst du einen Whoosh-Sound und siehst Bewegungsstreifen am Bildrand.
-- Ausweichen funktioniert auch im Multiplayer.
+- **Dodge by double-tap:** If you tap a movement direction twice in quick succession (within 0.25 s), your character leaps a short distance in that direction.
+- This works **forward, backward, left and right**.
+  - On PC, the keys from the options menu count, including the arrow keys.
+  - On the Cardputer, it's E, S, W and R.
+- A leap carries you about 1.75 tiles in a quarter of a second; after that you can't dodge again for 0.6 s.
+- If you are stuck in oil, the leap is only half as far.
+- When dodging, you hear a whoosh sound and see motion streaks at the edge of the screen.
+- Dodging also works in multiplayer.
 
-## Version 3.2 – Musik pausiert mit (15.10.2026)
+## Version 3.2 – Music pauses too (2026-10-15)
 
-- **Pause:** Pausierst du das Spiel, pausiert auch die Musik, am PC und auf dem Cardputer. Beim Weiterspielen läuft sie an derselben Stelle weiter.
-- **PC, Tab im Hintergrund:** Wechselst du in einen anderen Browser-Tab oder minimierst das Fenster, verstummen Musik und Sounds, bis du zurückkommst.
-- **PC, Spiel-Server geschlossen:** Wird `MarginCall.exe` beendet, während das Spiel im Browser noch offen ist, hält das Spiel nach wenigen Sekunden an und zeigt „Spiel-Server beendet“. Bisher lief die Musik in diesem Fall im Browser weiter. Startest du die EXE neu, geht es weiter.
+- **Pause:** When you pause the game, the music pauses too, on the PC and on the Cardputer. When you resume, it continues from the same spot.
+- **PC, tab in the background:** If you switch to another browser tab or minimize the window, music and sounds go silent until you come back.
+- **PC, game server closed:** If `MarginCall.exe` is closed while the game is still open in the browser, the game stops after a few seconds and shows "GAME SERVER STOPPED". Previously, the music kept playing in the browser in this case. If you restart the EXE, the game continues.
 
-## Version 3.1 – PC-Version: Optionen und Multiplayer (15.10.2026)
+## Version 3.1 – PC version: options and multiplayer (2026-10-15)
 
-Dieses Update betrifft nur `MarginCall.exe`. Die Cardputer-Version bleibt auf Stand 3.0.
+This update only affects `MarginCall.exe`. The Cardputer version stays at 3.0.
 
-### Neu: Optionsmenü mit Tastatur- und Mausbelegung
+### New: Options menu with keyboard and mouse bindings
 
-- Das Optionsmenü öffnest du mit **[O]** im Titelbild, in der Pause oder in der Lobby.
-- Jede Aktion hat **zwei frei wählbare Belegungen**. Das kann eine Taste oder eine Maustaste sein (links, Mitte, rechts, Maus 4/5).
-- Belegbare Aktionen:
-  - Vorwärts und Rückwärts
-  - Links und rechts drehen
-  - Seitwärts links und rechts
-  - Feuern
+- Open the options menu with **[O]** on the title screen, while paused or in the lobby.
+- Every action has **two freely assignable bindings**. Each can be a key or a mouse button (left, middle, right, mouse 4/5).
+- Bindable actions:
+  - Forward and backward
+  - Turn left and right
+  - Strafe left and right
+  - Fire
   - Pause
-  - Musik
-- Ist eine Taste schon belegt, wird sie bei der alten Aktion automatisch entfernt. So gibt es keine Doppelbelegung.
-- Maus:
-  - Maussteuerung an/aus
-  - Empfindlichkeit in 10 Stufen
-  - Invertieren
-- **Entf** leert eine Belegung. **Standard wiederherstellen** setzt alles zurück.
-- Die Einstellungen werden im Browser gespeichert und gelten beim nächsten Start weiter.
+  - Music
+- If a key is already bound, it is automatically removed from the old action. This prevents duplicate bindings.
+- Mouse:
+  - Mouse control on/off
+  - Sensitivity in 10 steps
+  - Invert
+- **Del** clears a binding. **Restore defaults** resets everything.
+- The settings are saved in the browser and still apply the next time you start.
 
-### Neu: Multiplayer im WLAN (2–4 Spieler)
+### New: Multiplayer over Wi-Fi (2–4 players)
 
-- Im Titelbild öffnet **[N]** die Lobby.
-  - Der erste Spieler in der Lobby ist Host. Er wählt mit ←/→ den Modus und startet mit Enter.
-  - Mitspieler öffnen im selben WLAN die Adresse aus dem Konsolenfenster (`http://<IP>:8080`) und drücken ebenfalls **[N]**.
-- **Koop:**
-  - Ihr spielt gemeinsam alle 5 Level. Mit jedem Mitspieler werden die Gegner zäher, und es kommt mehr Nachschub.
-  - Wer stirbt, steigt nach 6 Sekunden am Levelstart wieder ein, mit 60 % Depotwert und 10 % weniger P&L.
-- **Team Bulle gegen Team Bär:**
-  - Du wählst mit **[1]** Team Bulle oder mit **[2]** Team Bär.
-  - Die Tiere deiner Fraktion greifen dich nicht an und können von dir auch nicht getroffen werden. Sie kämpfen gegen das andere Team.
-  - Steigt der Level-Markt heute, macht Team Bulle 25 % mehr Schaden. Fällt er, gilt das für Team Bär.
-  - Eine Runde dauert 4 Minuten oder bis ein Team 3.000 Punkte hat.
+- On the title screen, **[N]** opens the lobby.
+  - The first player in the lobby is the host. They choose the mode with ←/→ and start with Enter.
+  - Teammates on the same Wi-Fi open the address from the console window (`http://<IP>:8080`) and also press **[N]**.
+- **Co-op:**
+  - You play all 5 levels together. With each additional teammate, enemies get tougher and more reinforcements arrive.
+  - Anyone who dies rejoins at the level start after 6 seconds, with 60% portfolio value and 10% less P&L.
+- **Team Bull vs. Team Bear:**
+  - Choose Team Bull with **[1]** or Team Bear with **[2]**.
+  - The animals of your faction don't attack you and can't be hit by you either. They fight the other team.
+  - If the level's market is up today, Team Bull deals 25% more damage. If it is down, the same applies to Team Bear.
+  - A round lasts 4 minutes or until a team has 3,000 points.
 - **Deathmatch:**
-  - Jeder gegen jeden, die Börsen-Gegner mischen weiter mit. Ein Abschuss bringt 500 P&L.
-  - Eine Runde dauert 4 Minuten oder bis jemand 3.000 P&L hat.
-- In Team und Deathmatch gibt es keine Bosse. Nach jeder Runde geht es im nächsten Level weiter.
-- Mitspieler erscheinen als Trader im farbigen Anzug (Grün, Blau, Orange, Pink) mit Namensschild und Lebensbalken. Im Team-Modus tragen Team Bulle goldene Hörner und Team Bär Bärenohren.
-- Im Multiplayer gibt es keine Pause.
-- Verlässt der Host das Spiel, landen alle wieder im Titelbild.
+  - Everyone against everyone, and the stock market enemies still join in. A kill earns 500 P&L.
+  - A round lasts 4 minutes or until someone has 3,000 P&L.
+- There are no bosses in team and Deathmatch. After each round, play continues in the next level.
+- Teammates appear as traders in colored suits (green, blue, orange, pink) with a name tag and health bar. In team mode, Team Bull wears golden horns and Team Bear wears bear ears.
+- There is no pause in multiplayer.
+- If the host leaves the game, everyone ends up back on the title screen.
 
-## Version 3 – „Bullen gegen Bären“ (15.10.2026)
+## Version 3 – "Bulls vs. Bears" (2026-10-15)
 
-Version 3 verbindet das Spiel mit der echten Börse. Bullen und Bären kämpfen jetzt nicht nur gegen dich, sondern auch gegeneinander. Wie stark welche Seite ist, entscheidet der echte Markt des Tages.
+Version 3 connects the game to the real stock market. Bulls and bears now fight not only against you, but also against each other. The real market of the day decides how strong each side is.
 
-### Auf einen Blick: Version 2 und Version 3
+### At a glance: Version 2 and Version 3
 
 | | Version 2 | Version 3 |
 |---|---|---|
-| Level | 3 | **5** (neu: Öl-Raffinerie, KI-Rechenzentrum) |
-| Gegnertypen | 4 | **9** |
-| Börsendaten | keine, alles erfunden | **echte Tageskurse** von Dow Jones, S&P 500, Nasdaq-100 und Rohöl (WTI) |
-| Bullen und Bären | nur Bären | **beide**, sie bekämpfen sich gegenseitig |
-| Gegner-Nachschub | feste Gegnerzahl pro Level | **laufender Nachschub** je nach Marktlage |
-| KI-Gegenspieler | – | **ALGO-9000** stört das Spiel und ist der Endboss |
-| WLAN | – | **WLAN-Menü** direkt im Spiel |
-| Zuschauen | – | **Bildschirm-Stream** im Browser fürs ganze Netzwerk |
-| PC-Version | – | **MarginCall.exe** für Windows mit Live-Kursen |
-| Soundeffekte | 11 | **16** |
+| Levels | 3 | **5** (new: oil refinery, AI data center) |
+| Enemy types | 4 | **9** |
+| Market data | none, all made up | **real daily prices** of the Dow Jones, S&P 500, Nasdaq-100 and crude oil (WTI) |
+| Bulls and bears | bears only | **both**, and they fight each other |
+| Enemy reinforcements | fixed number of enemies per level | **continuous reinforcements** depending on market conditions |
+| AI opponent | – | **ALGO-9000** disrupts the game and is the final boss |
+| Wi-Fi | – | **Wi-Fi menu** right in the game |
+| Spectating | – | **screen stream** in the browser for the whole network |
+| PC version | – | **MarginCall.exe** for Windows with live prices |
+| Sound effects | 11 | **16** |
 
-### Neu: Echte Börsenkurse
+### New: Real stock prices
 
-- Ist der Cardputer im WLAN, lädt das Spiel beim Start die aktuellen Kurse von **Dow Jones, S&P 500, Nasdaq-100 und Rohöl (WTI)**.
-- Ohne WLAN laufen die Kurse simuliert. Im Spiel sind sie dann mit `SIM` bzw. `*` gekennzeichnet.
-- Jedes Level hängt an einem Markt:
+- If the Cardputer is on Wi-Fi, the game loads the current prices of the **Dow Jones, S&P 500, Nasdaq-100 and crude oil (WTI)** at startup.
+- Without Wi-Fi, the prices are simulated. In the game they are then marked with `SIM` or `*`.
+- Each level is tied to a market:
   - Level 1: Dow Jones
   - Level 2: S&P 500
   - Level 3: Nasdaq-100
-  - Level 4: Öl
-  - Level 5: Mittelwert der drei Indizes
-- **Kräfteverhältnis:** Steigt der Index heute, tauchen mehr und stärkere Bullen auf. Fällt er, gilt das für die Bären.
-- **Intraday-Verlauf:** Der echte Tageschart läuft im Hintergrund mit. Seine kurzfristige Richtung bestimmt, ob als Nächstes ein Bulle oder ein Bär nachrückt.
-- **Ölpreis:**
-  - Steigt Öl, feuern alle Gegner schneller („Energiekrise“).
-  - Fällt Öl, bist du schneller unterwegs.
-- **Anzeigen:**
-  - Ein Laufband oben im Bild zeigt alle vier Kurse.
-  - Die Laufschrift-Wände zeigen den echten Tagesverlauf.
-  - Die Chart-Tafeln zeigen echte Candlesticks.
-- Vor jedem neuen Level werden die Kurse aktualisiert, wenn der letzte Abruf älter als 2 Minuten ist.
+  - Level 4: Oil
+  - Level 5: average of the three indices
+- **Balance of power:** If the index is up today, more and stronger bulls show up. If it is down, the same applies to the bears.
+- **Intraday curve:** The real daily chart runs along in the background. Its short-term direction determines whether a bull or a bear spawns next.
+- **Oil price:**
+  - If oil rises, all enemies fire faster ("energy crisis").
+  - If oil falls, you move faster.
+- **Displays:**
+  - A ticker tape at the top of the screen shows all four prices.
+  - The scrolling-text walls show the real daily curve.
+  - The chart boards show real candlesticks.
+- Before each new level, the prices are updated if the last fetch is older than 2 minutes.
 
-### Neu: Bullen gegen Bären
+### New: Bulls vs. bears
 
-- **Der Bulle** ist ein neuer Gegner mit goldenen Hörnern. Er stürmt mit gesenktem Kopf auf sein Ziel los und rammt es.
-- Bullen und Bären greifen dich an, **hassen sich aber gegenseitig noch mehr**. Treffen sie aufeinander, gehen sie zuerst aufeinander los.
-- Du kannst sie gegeneinander ausspielen. Gegner, die von anderen erledigt werden, zählen am Levelende als „Marktbereinigung“.
-- Short Seller kämpfen für die Bären. Krypto-Blasen kämpfen für die Bullen.
-- Ein neuer Balken im HUD zeigt das aktuelle Kräfteverhältnis: grün sind die Bullen, rot die Bären.
+- **The bull** is a new enemy with golden horns. It charges at its target with its head lowered and rams it.
+- Bulls and bears attack you, **but hate each other even more**. When they meet, they go after each other first.
+- You can play them off against each other. Enemies defeated by others count as "market cleanup" at the end of the level.
+- Short sellers fight for the bears. Crypto bubbles fight for the bulls.
+- A new bar in the HUD shows the current balance of power: green is the bulls, red the bears.
 
-### Neu: ALGO-9000, die manipulierende KI
+### New: ALGO-9000, the manipulating AI
 
-Ab Level 1 greift ALGO-9000 regelmäßig ins Marktgeschehen ein. Im letzten Level passiert das deutlich öfter. Jeder Eingriff wird von einem roten KI-Auge und Störgeräuschen begleitet. Diese Eingriffe gibt es:
+From level 1 on, ALGO-9000 regularly interferes with the market. In the last level this happens much more often. Each intervention is accompanied by a red AI eye and static noise. These are the interventions:
 
-- **Fake News:** Das Kurs-Laufband zeigt falsche Kurse, und zusätzliche Gegner tauchen auf.
-- **Flash Crash:** Alle Bullen und Bären greifen nur noch dich an, und zwar schneller.
-- **Trading-Bots:** Fliegende Drohnen schießen mit Lasern auf dich.
-- **Pump & Dump:** Ein Schwarm Krypto-Blasen erscheint.
-- **Systemmanipulation:** Das Bild flackert, und für ein paar Sekunden sind Drehen und Seitwärtslaufen vertauscht.
-- **Aufhetzen:** Bullen und Bären werden stärker.
+- **Fake News:** The ticker tape shows false prices, and additional enemies appear.
+- **Flash Crash:** All bulls and bears attack only you, and faster.
+- **Trading Bots:** Flying drones shoot lasers at you.
+- **Pump & Dump:** A swarm of crypto bubbles appears.
+- **System manipulation:** The screen flickers, and for a few seconds turning and strafing are swapped.
+- **Stirring up:** Bulls and bears get stronger.
 
-In **Level 5 (Rechenzentrum)** ist ALGO-9000 der **Endboss**:
-- Er feuert Laserfächer und ruft laufend Bots herbei.
-- Bei halber Energie löst er einen Flash Crash aus.
-- Der Tresor zum Ausgang öffnet sich erst, wenn ALGO-9000 abgeschaltet ist.
+In **level 5 (data center)**, ALGO-9000 is the **final boss**:
+- It fires laser fans and keeps summoning bots.
+- At half health it triggers a Flash Crash.
+- The vault to the exit only opens once ALGO-9000 has been shut down.
 
-### Neu: Öl-Level und Öl-Gegner
+### New: Oil level and oil enemies
 
-- **Level 4 „Raffinerie“** spielt zwischen Rohrleitungen und Ölfässern.
-- **Ölbaron:** trägt Zylinder, Monokel und Zigarre und wirft Ölfässer. Ein Treffer bremst dich kurz aus.
-- **Ölschlick:** ein schwarzes, glänzendes Monster. Erwischt es dich, klebst du 3 Sekunden lang fest („Ölpest“).
+- **Level 4 "Refinery"** takes place among pipelines and oil barrels.
+- **Oil baron:** wears a top hat, monocle and cigar and throws oil barrels. A hit slows you down briefly.
+- **Oil slick:** a black, glossy monster. If it catches you, you are stuck for 3 seconds ("oil spill").
 
-### Neu: WLAN und Bildschirm-Stream
+### New: Wi-Fi and screen stream
 
-- Im Titelbild öffnet **[W]** das WLAN-Menü:
-  1. Netz mit `;` und `.` auswählen.
-  2. Passwort eintippen. **Tab** blendet es ein oder aus.
-  3. Mit Enter verbinden.
-- Die Zugangsdaten werden auf dem Cardputer gespeichert. Ab dem nächsten Start verbindet er sich automatisch.
-- **[F]** im WLAN-Menü löscht die gespeicherten Zugangsdaten.
-- **Stream:** Jeder im selben Netzwerk kann im Browser zuschauen, unter `http://margincall.local` oder der IP-Adresse, die im Titelbild und im Pausenmenü steht.
-  - Die Zuschauer sehen das Spiel live und darunter die aktuellen Kurse.
-  - Schaut jemand zu, leuchtet im HUD ein roter Punkt.
-  - Das WLAN-Menü und damit dein Passwort wird **nie** übertragen.
+- On the title screen, **[W]** opens the Wi-Fi menu:
+  1. Select a network with `;` and `.`.
+  2. Type the password. **Tab** shows or hides it.
+  3. Connect with Enter.
+- The credentials are saved on the Cardputer. From the next start on, it connects automatically.
+- **[F]** in the Wi-Fi menu deletes the saved credentials.
+- **Stream:** Anyone on the same network can watch in the browser, at `http://margincall.local` or the IP address shown on the title screen and in the pause menu.
+  - Viewers see the game live with the current prices below it.
+  - When someone is watching, a red dot lights up in the HUD.
+  - The Wi-Fi menu, and therefore your password, is **never** transmitted.
 
-### Neu: PC-Version (`MarginCall.exe`)
+### New: PC version (`MarginCall.exe`)
 
-- Ein Doppelklick startet das Spiel im Browser, mit echten, minütlich aktualisierten Kursen.
-- Die Spiellogik ist dieselbe wie auf dem Cardputer, nur in höherer Auflösung.
-- Steuerung:
-  - Tastatur wie auf dem Cardputer
-  - Zusätzlich die Pfeiltasten
-  - Maussteuerung: ins Bild klicken, dann dreht die Maus die Ansicht, Linksklick feuert
-- Andere Geräte im selben WLAN können über die angezeigte Adresse (`http://<IP>:8080`) mitspielen, auch auf dem Handy mit Touch-Steuerung.
-- Windows warnt beim ersten Start, weil die Datei nicht signiert ist. Klicke dann auf „Weitere Informationen“ und „Trotzdem ausführen“.
+- A double-click starts the game in the browser, with real prices updated every minute.
+- The game logic is the same as on the Cardputer, just at a higher resolution.
+- Controls:
+  - Keyboard as on the Cardputer
+  - Plus the arrow keys
+  - Mouse control: click into the screen, then the mouse turns the view and left-click fires
+- Other devices on the same Wi-Fi can join in via the displayed address (`http://<IP>:8080`), even on a phone with touch controls.
+- Windows shows a warning on first launch because the file is not signed. In that case, click "More info" and "Run anyway".
 
-### Neue Sounds
+### New sounds
 
-| Sound | Wann |
+| Sound | When |
 |---|---|
-| Bullen-Brüllen | Ein Bulle stürmt los oder trifft |
-| Bären-Knurren | Ein Bär schlägt zu |
-| Daten-Kreischen | ALGO-9000 greift ein |
-| Öl-Gluckern | Ölbaron wirft, Ölschlick trifft |
-| Laser | Trading-Bots und ALGO-9000 feuern |
+| Bull roar | A bull charges or hits |
+| Bear growl | A bear strikes |
+| Data screech | ALGO-9000 intervenes |
+| Oil gurgle | Oil baron throws, oil slick hits |
+| Laser | Trading bots and ALGO-9000 fire |
 
-Alle Sounds aus Version 2 sind weiterhin dabei, dazu die Musik, die bei wenig Depotwert schneller wird.
+All sounds from Version 2 are still included, plus the music, which speeds up when your portfolio value is low.
 
-### Geändert
+### Changed
 
-- **Schaden:** Dein Bullen-Blaster macht jetzt 2 Schaden pro Treffer, weil die Gegner robuster geworden sind.
-- **Spielende:** Am Levelende und beim Game Over stehen getrennt deine eigenen Abschüsse und die Marktbereinigung.
-- **Titelbild:** Es zeigt alle vier Kurse mit Tagesveränderung und dem Hinweis LIVE oder SIM, dazu den WLAN- und Stream-Status.
-- **HUD:** Neu sind der Kräftebalken Bullen gegen Bären und die Tagesveränderung des Level-Markts.
-- **Siegbildschirm:** Er heißt jetzt „ALGO-9000 besiegt – der Markt ist frei“.
+- **Damage:** Your bull blaster now deals 2 damage per hit, because the enemies have become tougher.
+- **End of game:** At the end of a level and on Game Over, your own kills and the market cleanup are listed separately.
+- **Title screen:** It shows all four prices with their daily change and the LIVE or SIM indicator, plus the Wi-Fi and stream status.
+- **HUD:** New are the bulls-vs-bears power bar and the daily change of the level's market.
+- **Victory screen:** It is now called "ALGO-9000 defeated – the market is free".
 
-### Unverändert
+### Unchanged
 
-- Steuerung:
-  - E/S vor/zurück
-  - A/D drehen
-  - W/R seitwärts
-  - Leertaste/Enter feuern
-  - P Pause
-  - M Musik
-- Installation über den M5Launcher: `MarginCall.bin` auf die SD-Karte kopieren und über **SD → Install** installieren.
+- Controls:
+  - E/S forward/backward
+  - A/D turn
+  - W/R strafe
+  - Space/Enter fire
+  - P pause
+  - M music
+- Installation via the M5Launcher: copy `MarginCall.bin` to the SD card and install it via **SD → Install**.
 
-### Bekannte Einschränkungen
+### Known limitations
 
-- **Kursquelle:** Die Kurse kommen von Yahoo Finance. Fällt die Quelle aus oder ändert sich ihr Format, spielt das Spiel automatisch mit simulierten Kursen weiter.
-- **Stream:** Je nach WLAN-Qualität zeigt er nur wenige Bilder pro Sekunde und hat weniger Farbtiefe als das Display.
-- **Speicher:** Die Cardputer-Version nutzt den Speicher fast vollständig aus. Läuft beim Kursabruf etwas schief, zeigt der Ladebildschirm „FEHLER – SIMULIERT“, und das Spiel läuft mit simulierten Kursen weiter.
+- **Price source:** The prices come from Yahoo Finance. If the source goes down or its format changes, the game automatically continues with simulated prices.
+- **Stream:** Depending on Wi-Fi quality, it shows only a few frames per second and has less color depth than the display.
+- **Memory:** The Cardputer version uses almost all of the available memory. If something goes wrong while fetching prices, the loading screen shows "ERROR – SIMULATED", and the game continues with simulated prices.

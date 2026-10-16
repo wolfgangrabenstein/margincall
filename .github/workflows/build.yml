@@ -119,7 +119,7 @@ jobs:
             Downloads für Windows, macOS, Linux und den M5Stack Cardputer ADV – siehe Assets unten.
 
             Code signing: Free code signing provided by SignPath.io, certificate by SignPath Foundation (Windows-EXE).
-            Änderungen: [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) ·
+            Changes / Änderungen: [CHANGELOG (English)](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) · [Deutsch](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.de.md) ·
             [Code signing policy](https://github.com/${{ github.repository }}/blob/main/CODE_SIGNING_POLICY.md) ·
             [Datenschutz](https://github.com/${{ github.repository }}/blob/main/CODE_SIGNING_POLICY.md#privacy-policy--datenschutz)
 
