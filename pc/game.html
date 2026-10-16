@@ -184,7 +184,8 @@ function storeWall(idx) {
 }
 const S = {}; ["BEAR0","BEAR1","SELL0","SELL1","BUB0","BUB1","SHARK0","SHARK1","BULL0","BULL1","BARON0","BARON1",
   "SLICK0","SLICK1","BOT0","BOT1","ALGO0","ALGO1","DEAD","PROJ","PROJ_OIL","LASER","CASH","DIV",
-  "AVM0","AVM1","AVM2","AVM3","AVMBULL","AVMBEAR","AVF0","AVF1","AVF2","AVF3","AVFBULL","AVFBEAR"].forEach((n, i) => S[n] = i);
+  "AVM0","AVM1","AVM2","AVM3","AVMBULL","AVMBEAR","AVF0","AVF1","AVF2","AVF3","AVFBULL","AVFBEAR",
+  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5"].forEach((n, i) => S[n] = i);
 const sprTex = [];
 function storeSprite(idx) { sprTex[idx] = tmp.slice(); }
 
@@ -434,6 +435,37 @@ function genSprites() {
   tclear(N); tcirc(16, 21, 10, RGB(180, 120, 10)); tcirc(16, 21, 8.5, RGB(255, 200, 50));
   trect(14, 19, 4, 8, RGB(20, 170, 60)); ttri(10, 20, 22, 20, 16, 13, RGB(20, 170, 60)); tcirc(12, 16, 1.5, RGB(255, 255, 220));
   storeSprite(S.DIV);
+  // Piraten der Steueroase: 3 Typen (Kapitaen, Matrose, Freibeuter), je 2 Bilder (Laufen, Saebel erhoben)
+  for (let k = 0; k < 3; k++) for (let f = 0; f < 2; f++) {
+    tclear(N);
+    const skin = k == 2 ? RGB(165, 110, 70) : RGB(235, 190, 150), boot = RGB(40, 28, 20), black = RGB(15, 15, 18), steel = RGB(205, 210, 220), gold = RGB(255, 200, 40);
+    const shirt = k == 0 ? RGB(170, 30, 35) : k == 1 ? RGB(235, 235, 235) : RGB(230, 220, 200);
+    const pants = k == 0 ? RGB(40, 35, 60) : k == 1 ? RGB(30, 30, 35) : RGB(110, 80, 50);
+    trect(11, 21, 4, 8, pants); trect(17, 21, 4, 8, pants);
+    trect(10, 28, 5, 3, boot); trect(17, 28, 5, 3, boot);
+    trect(10, 12, 12, 10, shirt);
+    if (k == 0) { trect(9, 12, 4, 12, shirt); trect(19, 12, 4, 12, shirt); trect(13, 12, 6, 10, RGB(240, 230, 210)); trect(9, 20, 14, 2, black); trect(15, 20, 2, 2, gold); }
+    if (k == 1) for (let y = 13; y < 22; y += 3) trect(10, y, 12, 1, RGB(200, 30, 40));
+    if (k == 2) { trect(10, 12, 3, 10, RGB(25, 45, 100)); trect(19, 12, 3, 10, RGB(25, 45, 100)); }
+    tcirc(16, 8, 4.5, skin);
+    trect(13, 7, 2, 2, black);
+    if (k == 1) { trect(17, 6, 3, 3, black); tline(11, 5, 21, 7, black); } else trect(18, 7, 2, 2, black);
+    if (k == 0) tellipse(16, 11.5, 4, 2.2, RGB(90, 55, 30)); else trect(15, 11, 3, 1, RGB(120, 40, 40));
+    if (k == 0) { ttri(7, 5, 25, 5, 16, -2, black); trect(9, 2, 14, 4, RGB(25, 25, 30)); tcirc(16, 3, 1.3, RGB(240, 240, 240)); }
+    if (k == 1) { tellipse(16, 4.5, 5, 2.5, RGB(200, 30, 40)); ttri(20, 4, 25, 3, 23, 8, RGB(200, 30, 40)); }
+    if (k == 2) { tellipse(16, 4.5, 5, 2.5, RGB(40, 140, 60)); tcirc(11.5, 9.5, 1, gold); }
+    const arm = k == 1 ? RGB(235, 235, 235) : k == 2 ? skin : shirt;
+    trect(6, 13, 4, 8, arm); tcirc(8, 21.5, 1.6, skin);
+    if (!f) {
+      trect(22, 13, 4, 8, arm);
+      if (k == 2) { tline(24, 21, 26, 24, steel); tline(26, 24, 24, 26, steel); } else tcirc(24, 21.5, 1.6, skin);
+      tline(25, 22, 30, 29, steel, 2);
+    } else {
+      trect(22, 5, 4, 9, arm); tcirc(24, 4.5, 1.6, skin);
+      tline(24, 4, 30, -2, steel, 2); trect(22, 3, 5, 1, gold);
+    }
+    storeSprite(S.PIR0 + k * 2 + f);
+  }
   // Spielerfiguren (nur Multiplayer): maennlich / weiblich, je 4 Spielerfarben + Team Bulle + Team Baer.
   // Bewusst ganz anders als die NPCs: Streetwear statt Anzug, offene Farben, Headset, Sneaker bzw. Kleid.
   const AV_COLORS = [[PCOLOR[0], 0], [PCOLOR[1], 0], [PCOLOR[2], 0], [PCOLOR[3], 0], [[40, 200, 90], 1], [[220, 50, 50], 2]];
@@ -527,7 +559,7 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15 };
 let state = ST.TITLE;
 let enemies = [], items = [], projs = [];
 let px = 0, py = 0, dirX = 1, dirY = 0, planeX = 0, planeY = PLANE;   // Kamera des lokalen Spielers
@@ -674,7 +706,7 @@ function spawnEnemy(type, x, y) {
   const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.6 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.6 : 1)), str, alive: true, awake: false, gone: false,
-    halfDone: false, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
+    halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
   return e;
 }
@@ -795,7 +827,7 @@ function damagePlayer(pl, d, why, attacker = null) {
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
   pl.hp = 0;
-  if (island) { endIsland(L("CAUGHT BY THE BEARS – YOU KEEP YOUR GOLD", "VON DEN BÄREN ERWISCHT – DEIN GOLD BLEIBT DIR"), false); return; }
+  if (island) { endIsland(L("CAUGHT BY THE PIRATES – YOU KEEP YOUR GOLD", "VON PIRATEN ERWISCHT – DEIN GOLD BLEIBT DIR"), false); return; }
   if (HC()) {   // Hardcore: Insolvenz ist endgueltig, der Lauf endet
     pl.deaths++; deathPenalty = 0;
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
@@ -832,7 +864,7 @@ function killEnemy(e, byPlayer) {
   if (e.type === E.BUBBLE || e.type === E.BOT) e.gone = true;
   if (byPlayer) {
     byPlayer.kills++; addScore(byPlayer, ti.pts);
-    const m = { [E.BEAR]: L("BEAR DOWN!", "BÄR ERLEGT!"), [E.BULL]: L("BULL DOWN!", "BULLE ERLEGT!"), [E.SELLER]: L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT"), [E.BUBBLE]: L("BUBBLE BURST", "BLASE GEPLATZT"),
+    const m = { [E.BEAR]: island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BÄR ERLEGT!"), [E.BULL]: L("BULL DOWN!", "BULLE ERLEGT!"), [E.SELLER]: L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT"), [E.BUBBLE]: L("BUBBLE BURST", "BLASE GEPLATZT"),
       [E.SHARK]: L("HEDGE FUND SMASHED! TO THE VAULT!", "HEDGEFONDS ZERSCHLAGEN! ZUM TRESOR!"), [E.ALGO]: L("ALGO-9000 SHUT DOWN! TO THE VAULT!", "ALGO-9000 ABGESCHALTET! ZUM TRESOR!") }[e.type];
     if (ti.boss) sayAll(m, 3); else sayTo(byPlayer, m || `${ti.name} ${L("DOWN", "ERLEDIGT")}`);
   } else {
@@ -1008,7 +1040,7 @@ function updateEnemy(e, dt) {
     }
     return;
   }
-  const hitMsg = e.f === F.BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : L("BEAR CLAW! PRICE DROP", "BÄRENTATZE! KURSVERLUST");
+  const hitMsg = e.f === F.BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : e.pir !== undefined ? L("CUTLASS SLASH!", "SÄBELHIEB!") : L("BEAR CLAW! PRICE DROP", "BÄRENTATZE! KURSVERLUST");
   switch (e.type) {
     case E.BEAR:
       e.roarCd -= dt;
@@ -1431,7 +1463,7 @@ screen.addEventListener("mousedown", e => {
       const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
       if (b) { onKeyPress(b.key); return; }
     }
-    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN, ST.CREDITS].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
+    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN, ST.CREDITS, ST.OUTRO].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
   if (state === ST.PLAY && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
@@ -1537,6 +1569,9 @@ function onKeyPress(k) {
       break;
     case ST.CREDITS:
       if (k === "enter" || k === "Escape" || k === " ") startIsland();
+      break;
+    case ST.OUTRO:
+      if (k === "enter" || k === "Escape" || k === " ") state = ST.WIN;
       break;
     case ST.WIN:
       if (k === "enter" && isHost()) {
@@ -1876,6 +1911,7 @@ const ISLE_TIME = 75, ISLE_COINS = 30, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 100
 const ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 15;   // Hoehengitter -6..26, Sichtweite in Feldern
 let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleResult = "";
 let creditsT = 0;
+let isleExtra = [], isleEyeZ = null;   // Schlussszene: zusaetzliche Dreiecke, feste Augenhoehe
 const isleV = new Float32Array(ISLE_N * ISLE_N);
 let isleObjs = [];   // feste Dreiecke der Deko: [x0,y0,z0, x1,y1,z1, x2,y2,z2, r,g,b]
 // Inselform: flacher Huegel mit kleinem Gipfel, der Rand faellt unter den Meeresspiegel
@@ -1964,7 +2000,7 @@ function startIsland() {
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
   const taken = isleBuildObjects();
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
-  for (let k = 0; k < 5; k++) { const c = isleFreeCell(7); if (c) spawnEnemy(E.BEAR, c[0], c[1]).awake = true; }
+  for (let k = 0; k < 5; k++) { const c = isleFreeCell(7); if (c) { const e = spawnEnemy(E.BEAR, c[0], c[1]); e.awake = true; e.pir = rnd() % 3; } }
   state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
 }
@@ -1980,7 +2016,7 @@ function updateIsland(dt) {
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
     isleSpawnT = HC() ? 4.5 : 6;
-    if (bearsAlive < (HC() ? 10 : 8)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]); }
+    if (bearsAlive < (HC() ? 10 : 8)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]).pir = rnd() % 3; }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);
@@ -1994,7 +2030,8 @@ function islandCoin(pl) {
 function endIsland(msg, all) {
   if (all) players.forEach(p => addScore(p, ISLE_ALL_BONUS));
   island = false; islandDone = true; isleAll = all; isleResult = msg;
-  state = ST.WIN; musicStop(); sfx(all ? "KACHING" : "BELL"); document.exitPointerLock?.();
+  musicStop(); sfx(all ? "KACHING" : "BELL"); document.exitPointerLock?.();
+  if (isMP()) state = ST.WIN; else startOutro();
 }
 
 // ---- Low-Poly-Renderer
@@ -2027,7 +2064,7 @@ function isleFill(ax, ay, bx, by, cx, cy, col) {   // flach gefuelltes Dreieck (
 }
 function renderIsland() {
   if (!isleSky) isleSky = isleSkyRows();
-  const hor = VH >> 1, eye = isleGround(px, py) + .5, rx = planeX / PLANE, ry = planeY / PLANE, foc = RW / 2 / PLANE;
+  const hor = VH >> 1, eye = isleEyeZ !== null ? isleEyeZ : isleGround(px, py) + .5, rx = planeX / PLANE, ry = planeY / PLANE, foc = RW / 2 / PLANE;
   for (let y = 0; y < VH; y++) fb.fill(isleSky[y], y * RW, (y + 1) * RW);
   // Sonne knapp ueber dem Horizont
   { const sx = ISLE_SUN[0] * 100, sy = ISLE_SUN[1] * 100, cz = sx * dirX + sy * dirY;
@@ -2071,6 +2108,7 @@ function renderIsland() {
       }
     }
   // Deko, Muenzen
+  for (const o of isleExtra) addTri([o[0], o[1], o[2]], [o[3], o[4], o[5]], [o[6], o[7], o[8]], [o[9], o[10], o[11]]);
   for (const o of isleObjs) { const mx = (o[0] + o[3] + o[6]) / 3 - px, my = (o[1] + o[4] + o[7]) / 3 - py; if (mx * mx + my * my < ISLE_R * ISLE_R) addTri([o[0], o[1], o[2]], [o[3], o[4], o[5]], [o[6], o[7], o[8]], [o[9], o[10], o[11]]); }
   for (const it of items) {
     if (!it.active || it.type !== 2 || (it.x - px) ** 2 + (it.y - py) ** 2 > ISLE_R * ISLE_R) continue;
@@ -2082,7 +2120,7 @@ function renderIsland() {
     }
   }
   // Figuren (Baeren, Beute) als Billboards
-  for (const e of enemies) if (!e.gone) list.push({ d: (e.x - px) * dirX + (e.y - py) * dirY, spr: e.alive ? TYPES[e.type].spr + ((e.attackAnim > 0 || (e.anim % .6) < .3) ? 1 : 0) : S.DEAD, sc: e.alive ? TYPES[e.type].scale : .6, x: e.x, y: e.y, hurt: e.alive && e.hurt > 0 });
+  for (const e of enemies) if (!e.gone) list.push({ d: (e.x - px) * dirX + (e.y - py) * dirY, spr: e.alive ? (e.pir !== undefined ? S.PIR0 + e.pir * 2 : TYPES[e.type].spr) + ((e.attackAnim > 0 || (e.anim % .6) < .3) ? 1 : 0) : S.DEAD, sc: e.alive ? TYPES[e.type].scale : .6, x: e.x, y: e.y, hurt: e.alive && e.hurt > 0 });
   for (const it of items) if (it.active && it.type < 2) list.push({ d: (it.x - px) * dirX + (it.y - py) * dirY, spr: it.type ? S.DIV : S.CASH, sc: .5, x: it.x, y: it.y });
   list.sort((a, b) => b.d - a.d);
   const proj = p => [RW / 2 + p[0] / p[2] * foc, hor - p[1] / p[2] * PROJ];
@@ -2112,6 +2150,102 @@ function renderIsland() {
     const S2 = P.map(proj);
     for (let k = 1; k + 1 < S2.length; k++) isleFill(S2[0][0], S2[0][1], S2[k][0], S2[k][1], S2[k + 1][0], S2[k + 1][1], it.col);
   }
+}
+
+// ---- Schlussszene nach der Steueroase: der Spieler im Liegestuhl auf seiner Yacht, mit Sonnenbrille und Cocktail.
+// Echtzeit mit dem Low-Poly-Renderer, Kamerafahrt im Bogen auf die Yacht zu; ENTER ueberspringt.
+const OUTRO_LEN = 13, OUTRO_X = 10, OUTRO_Y = 23.2;
+let outroT = 0;
+function startOutro() {
+  outroT = 0; state = ST.OUTRO; enemies = []; items = []; projs = [];
+  isleObjs = isleObjs.filter(o => Math.hypot((o[0] + o[3] + o[6]) / 3 - OUTRO_X, (o[1] + o[4] + o[7]) / 3 - OUTRO_Y) > 4);   // Insel-Yacht nicht doppelt
+}
+function outroScene(t) {
+  const T = [], tri = (a, b, c, col) => T.push([...a, ...b, ...c, ...col]), quad = (a, b, c, d, col) => { tri(a, b, c, col); tri(a, c, d, col); };
+  const box = (x0, y0, z0, x1, y1, z1, col, top = col) => {
+    quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], top);
+    quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], col); quad([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], col);
+    quad([x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1], col); quad([x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1], col);
+  };
+  const rib = (a, b, w, col) => {   // duenner Stab von a nach b (zwei gekreuzte Baender)
+    tri([a[0] - w, a[1], a[2]], [a[0] + w, a[1], a[2]], [b[0] + w, b[1], b[2]], col); tri([a[0] - w, a[1], a[2]], [b[0] + w, b[1], b[2]], [b[0] - w, b[1], b[2]], col);
+    tri([a[0], a[1], a[2] - w], [a[0], a[1], a[2] + w], [b[0], b[1], b[2] + w], col); tri([a[0], a[1], a[2] - w], [b[0], b[1], b[2] + w], [b[0], b[1], b[2] - w], col);
+  };
+  const X = OUTRO_X, Y = OUTRO_Y, D = .55, Lh = 2.8, B = 1;
+  const white = [240, 240, 245], navy = [30, 50, 110], teak = [180, 130, 80];
+  // Rumpf (Bug nach Osten)
+  const d = [[X + Lh, Y - B, D], [X - Lh, Y - B, D], [X - Lh, Y + B, D], [X + Lh, Y + B, D]], k = [[X + Lh, Y - B * .6, 0], [X - Lh, Y - B * .6, 0], [X - Lh, Y + B * .6, 0], [X + Lh, Y + B * .6, 0]], bow = [X + Lh + .9, Y, D];
+  quad(k[0], k[1], d[1], d[0], white); quad(k[2], k[3], d[3], d[2], white); quad(k[1], k[2], d[2], d[1], navy);
+  tri(k[0], d[0], bow, white); tri(k[3], bow, d[3], white); tri(d[0], d[3], bow, teak);
+  quad(d[0], d[1], d[2], d[3], teak);
+  quad([X - Lh, Y + B, .2], [X + Lh, Y + B, .2], [X + Lh, Y + B, .28], [X - Lh, Y + B, .28], navy);   // Zierstreifen
+  // Kajuete mit Fenstern
+  box(X - Lh + .2, Y - .75, D, X - .5, Y + .75, D + .65, white);
+  quad([X - Lh + .5, Y + .76, D + .3], [X - .8, Y + .76, D + .3], [X - .8, Y + .76, D + .52], [X - Lh + .5, Y + .76, D + .52], [40, 60, 90]);
+  // Sonnenschirm
+  const sx = X + 1.75, sy = Y - .95;
+  box(sx - .03, sy - .03, D, sx + .03, sy + .03, D + 1.45, [220, 220, 220]);
+  for (let i = 0; i < 8; i++) {
+    const a0 = i * .785, a1 = (i + 1) * .785;
+    tri([sx, sy, D + 1.6], [sx + Math.cos(a0) * .95, sy + Math.sin(a0) * .95, D + 1.25], [sx + Math.cos(a1) * .95, sy + Math.sin(a1) * .95, D + 1.25], i % 2 ? [240, 240, 240] : [220, 50, 60]);
+  }
+  // Liegestuhl (Blick nach Sueden, zur Kamera)
+  const cx = X + .9, c0 = [40, 110, 200], c1 = [245, 245, 245];
+  for (const [ax, ay] of [[-.3, .7], [.3, .7], [-.3, -.05], [.3, -.05]]) box(cx + ax - .025, Y + ay - .025, D, cx + ax + .025, Y + ay + .025, D + .25, teak);
+  for (let i = 0; i < 4; i++) { const y0 = Y - .05 + i * .2, y1 = y0 + .2; quad([cx - .32, y0, D + .26], [cx + .32, y0, D + .26], [cx + .32, y1, D + .26], [cx - .32, y1, D + .26], i % 2 ? c1 : c0); }
+  for (let i = 0; i < 3; i++) { const u0 = i / 3, u1 = (i + 1) / 3, ya = Y - .05 - u0 * .5, yb = Y - .05 - u1 * .5, za = D + .26 + u0 * .62, zb = D + .26 + u1 * .62;
+    quad([cx - .32, ya, za], [cx + .32, ya, za], [cx + .32, yb, zb], [cx - .32, yb, zb], i % 2 ? c1 : c0); }
+  // Spieler: Beine, Shorts, Hawaiihemd, Kopf mit Sonnenbrille
+  const skin = [235, 190, 150], hz = D + .3;
+  box(cx - .17, Y + .3, hz, cx - .03, Y + .78, hz + .1, skin); box(cx + .03, Y + .3, hz, cx + .17, Y + .78, hz + .1, skin);
+  box(cx - .19, Y + .05, hz, cx + .19, Y + .32, hz + .14, [40, 90, 200]);
+  quad([cx - .2, Y + .06, hz + .15], [cx + .2, Y + .06, hz + .15], [cx + .2, Y - .4, D + .78], [cx - .2, Y - .4, D + .78], [255, 120, 40]);
+  for (const [fx, fy] of [[-.1, -.05], [.08, -.2], [-.05, -.3]]) tri([cx + fx, Y + fy, hz + .17 + (-fy) * .9], [cx + fx + .07, Y + fy, hz + .17 + (-fy) * .9], [cx + fx + .03, Y + fy - .06, hz + .22 + (-fy) * .9], [255, 230, 60]);
+  const hx = cx, hy = Y - .48, hzz = D + 1.0, r = .2;
+  const P = [[hx + r, hy, hzz], [hx - r, hy, hzz], [hx, hy + r, hzz], [hx, hy - r, hzz], [hx, hy, hzz + r], [hx, hy, hzz - r]];
+  for (const [a, b] of [[0, 2], [2, 1], [1, 3], [3, 0]]) { tri(P[a], P[b], P[4], [90, 60, 35]); tri(P[a], P[b], P[5], skin); }
+  quad([hx - .19, hy + .17, hzz - .03], [hx + .19, hy + .17, hzz - .03], [hx + .19, hy + .17, hzz + .07], [hx - .19, hy + .17, hzz + .07], [10, 10, 12]);   // Sonnenbrille
+  quad([hx - .15, hy + .175, hzz], [hx - .03, hy + .175, hzz], [hx - .03, hy + .175, hzz + .05], [hx - .15, hy + .175, hzz + .05], [60, 40, 120]);
+  quad([hx + .03, hy + .175, hzz], [hx + .15, hy + .175, hzz], [hx + .15, hy + .175, hzz + .05], [hx + .03, hy + .175, hzz + .05], [60, 40, 120]);
+  quad([hx - .06, hy + .18, hzz - .1], [hx + .06, hy + .18, hzz - .1], [hx + .05, hy + .18, hzz - .07], [hx - .05, hy + .18, hzz - .07], [190, 60, 60]);   // Grinsen
+  // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
+  const ph = (t % 4) / 4, lift = ph < .3 ? Math.sin(ph / .3 * Math.PI) : 0;
+  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .1, hy + .2, hzz - .05];
+  const hand = rest.map((v, i) => v + (mouth[i] - v) * lift);
+  rib(sh, hand, .035, skin);
+  const g0 = [hand[0], hand[1], hand[2] + .02], gr = .07, gh = .18, full = Math.max(.15, 1 - t / OUTRO_LEN * .85);
+  for (let i = 0; i < 6; i++) {
+    const a0 = i * 1.047, a1 = (i + 1) * 1.047, lz = g0[2] + gh * full;
+    tri(g0, [g0[0] + Math.cos(a0) * gr, g0[1] + Math.sin(a0) * gr, g0[2] + gh], [g0[0] + Math.cos(a1) * gr, g0[1] + Math.sin(a1) * gr, g0[2] + gh], [200, 230, 240]);
+    tri([g0[0], g0[1], lz], [g0[0] + Math.cos(a0) * gr * full, g0[1] + Math.sin(a0) * gr * full, lz], [g0[0] + Math.cos(a1) * gr * full, g0[1] + Math.sin(a1) * gr * full, lz], [255, 140, 40]);
+  }
+  rib([g0[0] + .02, g0[1], g0[2] + .1], [g0[0] + .06, g0[1] - .02, g0[2] + .3], .01, [255, 60, 160]);
+  tri([g0[0] - .02, g0[1], g0[2] + .3], [g0[0] - .12, g0[1] + .03, g0[2] + .22], [g0[0] + .07, g0[1] - .03, g0[2] + .22], [255, 80, 180]);
+  return T;
+}
+function renderOutro(dt) {
+  // Kamerafahrt: im Bogen von weit draussen bis nah an den Liegestuhl
+  const u = Math.min(1, outroT / (OUTRO_LEN - 3)), e = u * u * (3 - 2 * u);
+  const tx = OUTRO_X + .9, ty = OUTRO_Y - .1, ang = .45 + e * .85, dist = 10 - e * 6.6;
+  px = tx + Math.cos(ang) * dist; py = ty + Math.sin(ang) * dist;
+  const dl = Math.hypot(tx - px, ty - py); dirX = (tx - px) / dl; dirY = (ty - py) / dl; planeX = -dirY * PLANE; planeY = dirX * PLANE;
+  isleEyeZ = 1.8 - e * .55; isleExtra = outroScene(outroT);
+  renderIsland();
+  isleEyeZ = null; isleExtra = [];
+  lg.putImageData(img, 0, 0);
+  g.fillStyle = "#000"; g.fillRect(0, 0, DW, DH);
+  const h = Math.round(DW * VH / RW), y0 = Math.round((DH - h) / 2);
+  g.drawImage(low, 0, 0, RW, VH, 0, y0, DW, h);   // Breitbild mit schwarzen Balken
+  const fade = Math.min(1, outroT / 1.2);
+  if (fade < 1) { g.fillStyle = `rgba(0,0,0,${(1 - fade).toFixed(2)})`; g.fillRect(0, 0, DW, DH); }
+  if (outroT > OUTRO_LEN - 5) {
+    const a = Math.min(1, (outroT - (OUTRO_LEN - 5)) / 1.5);
+    g.globalAlpha = a;
+    text(L("EARLY RETIREMENT.", "AUSGESORGT."), DW / 2, y0 + h + 10, "#ffd232", 34, "center");
+    g.globalAlpha = 1;
+  }
+  if (outroT > OUTRO_LEN - 1) { g.fillStyle = `rgba(0,0,0,${Math.min(1, outroT - (OUTRO_LEN - 1)).toFixed(2)})`; g.fillRect(0, 0, DW, DH); }
+  zoneButton(DW - 250, DH - 46, 230, 32, L("[ENTER] SKIP", "[ENTER] ÜBERSPRINGEN"), "#8290b0", "enter", 14);
 }
 
 // ---- Abspann nach dem Endboss (kurz, mit ENTER ueberspringbar)
@@ -2202,7 +2336,7 @@ function renderHUD() {
     const bx = 560, bw = 380;
     g.fillStyle = "#3a3010"; g.fillRect(bx, HUD_Y + 36, bw, 14);
     g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / ISLE_COINS, 14);
-    text(`GOLD ${isleCoins}/${ISLE_COINS}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`${L("BEARS", "BÄREN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
+    text(`GOLD ${isleCoins}/${ISLE_COINS}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`${L("PIRATES", "PIRATEN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
     text(`☀ ${L("TAX HAVEN", "STEUEROASE")}  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ${L("ALL COINS", "ALLE MÜNZEN")} = +$${ISLE_ALL_BONUS.toLocaleString(LOC())}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
   } else {
     const bx = 560, bw = 380, tot = bullsAlive + bearsAlive, gw2 = tot ? bw * bullsAlive / tot : bw / 2;
@@ -3076,6 +3210,7 @@ function frame(now) {
       else renderEnd(L("BANKRUPT", "INSOLVENZ"), L(`Bankruptcy no. ${me.deaths} – penalty −$${deathPenalty.toLocaleString(LOC())} (25 % of P&L)`, `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString(LOC())} (25 % des P&L)`), "#ff3c3c", false);
       break;
     case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) startIsland(); break;
+    case ST.OUTRO: gameTime += dt; outroT += dt; renderOutro(dt); if (outroT > OUTRO_LEN) state = ST.WIN; break;
     case ST.WIN: gameTime += dt;
       if (islandDone) { renderEnd(L("TAX HAVEN", "STEUEROASE"), `${isleResult}  ·  Gold ${isleCoins}/${ISLE_COINS}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString(LOC())}` : ""}`, "#ffd232", true); break; }
       renderEnd(L("BULL MARKET!", "BULLENMARKT!"), me.winBonus ? L(`ALGO-9000 defeated – bull market bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " incl. clean sheet"}`, `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " inkl. weißer Weste"}`) : L("ALGO-9000 defeated – the market is free", "ALGO-9000 besiegt – der Markt ist frei"), "#ffd232", true);

@@ -42,7 +42,7 @@ static uint16_t wallTex[NUM_WALL][TEX * TEX];       // RGB565 (nicht geswappt), 
 
 enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
        S_BULL0, S_BULL1, S_BARON0, S_BARON1, S_SLICK0, S_SLICK1, S_BOT0, S_BOT1, S_ALGO0, S_ALGO1,
-       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, NUM_SPR };
+       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, NUM_SPR };
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
@@ -442,6 +442,37 @@ static void genSprites() {
   trect(14, 19, 4, 8, RGB(20, 170, 60)); ttri(10, 20, 22, 20, 16, 13, RGB(20, 170, 60));
   tcirc(12, 16, 1.5f, RGB(255, 255, 220));
   storeSprite(S_DIV);
+  // Piraten der Steueroase: 3 Typen (Kapitaen, Matrose, Freibeuter), je 2 Bilder (Laufen, Saebel erhoben)
+  for (int k = 0; k < 3; k++) for (int f = 0; f < 2; f++) {
+    tclear(0);
+    uint32_t skin = k == 2 ? RGB(165, 110, 70) : RGB(235, 190, 150), boot = RGB(40, 28, 20), black = RGB(15, 15, 18), steel = RGB(205, 210, 220), gold = RGB(255, 200, 40);
+    uint32_t shirt = k == 0 ? RGB(170, 30, 35) : k == 1 ? RGB(235, 235, 235) : RGB(230, 220, 200);
+    uint32_t pants = k == 0 ? RGB(40, 35, 60) : k == 1 ? RGB(30, 30, 35) : RGB(110, 80, 50);
+    trect(11, 21, 4, 8, pants); trect(17, 21, 4, 8, pants);
+    trect(10, 28, 5, 3, boot); trect(17, 28, 5, 3, boot);
+    trect(10, 12, 12, 10, shirt);
+    if (k == 0) { trect(9, 12, 4, 12, shirt); trect(19, 12, 4, 12, shirt); trect(13, 12, 6, 10, RGB(240, 230, 210)); trect(9, 20, 14, 2, black); trect(15, 20, 2, 2, gold); }
+    if (k == 1) for (int y = 13; y < 22; y += 3) trect(10, y, 12, 1, RGB(200, 30, 40));
+    if (k == 2) { trect(10, 12, 3, 10, RGB(25, 45, 100)); trect(19, 12, 3, 10, RGB(25, 45, 100)); }
+    tcirc(16, 8, 4.5, skin);
+    trect(13, 7, 2, 2, black);
+    if (k == 1) { trect(17, 6, 3, 3, black); tline(11, 5, 21, 7, black); } else trect(18, 7, 2, 2, black);
+    if (k == 0) tellipse(16, 11.5, 4, 2.2, RGB(90, 55, 30)); else trect(15, 11, 3, 1, RGB(120, 40, 40));
+    if (k == 0) { ttri(7, 5, 25, 5, 16, -2, black); trect(9, 2, 14, 4, RGB(25, 25, 30)); tcirc(16, 3, 1.3, RGB(240, 240, 240)); }
+    if (k == 1) { tellipse(16, 4.5, 5, 2.5, RGB(200, 30, 40)); ttri(20, 4, 25, 3, 23, 8, RGB(200, 30, 40)); }
+    if (k == 2) { tellipse(16, 4.5, 5, 2.5, RGB(40, 140, 60)); tcirc(11.5, 9.5, 1, gold); }
+    uint32_t arm = k == 1 ? RGB(235, 235, 235) : k == 2 ? skin : shirt;
+    trect(6, 13, 4, 8, arm); tcirc(8, 21.5, 1.6, skin);
+    if (!f) {
+      trect(22, 13, 4, 8, arm);
+      if (k == 2) { tline(24, 21, 26, 24, steel); tline(26, 24, 24, 26, steel); } else tcirc(24, 21.5, 1.6, skin);
+      tline(25, 22, 30, 29, steel, 2);
+    } else {
+      trect(22, 5, 4, 9, arm); tcirc(24, 4.5, 1.6, skin);
+      tline(24, 4, 30, -2, steel, 2); trect(22, 3, 5, 1, gold);
+    }
+    storeSprite(S_PIR0 + k * 2 + f);
+  }
 }
 
 // ---------------------------------------------------------------- Level
@@ -603,6 +634,7 @@ static const char* const TYPE_NAME_EN[NUM_TYPES] = {"BEAR", "SHORT SELLER", "CRY
 struct Enemy {
   float x, y; uint8_t type, faction; int16_t hp; bool alive, awake, gone, halfDone;
   float cd, anim, hurt, attackAnim, think, deadT, str, chargeT, chargeCd, mdx, mdy, spawnCd;
+  int8_t pir;       // Piratentyp in der Steueroase (-1 = keiner)
   int16_t target;   // -1 = Spieler, -2 = keins, sonst Index
 };
 struct Item { float x, y; uint8_t type; bool active, stray; };   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
@@ -640,7 +672,7 @@ static TickSeg tickSegs[M_COUNT * 2 + STOCK_COUNT];
 static int nTickSegs, tickChars;
 static int bullsAlive, bearsAlive;
 
-enum State { ST_TITLE, ST_PLAY, ST_PAUSE, ST_LEVELDONE, ST_DEAD, ST_WIN, ST_WIFI_LIST, ST_WIFI_PASS, ST_CREDITS };
+enum State { ST_TITLE, ST_PLAY, ST_PAUSE, ST_LEVELDONE, ST_DEAD, ST_WIN, ST_WIFI_LIST, ST_WIFI_PASS, ST_CREDITS, ST_OUTRO };
 static State state = ST_TITLE;
 
 static void say(const char* s, float t = 2.0f) { strncpy(msg, s, sizeof(msg) - 1); msg[sizeof(msg) - 1] = 0; msgT = t; }
@@ -734,7 +766,7 @@ static int spawnEnemy(uint8_t type, float x, float y) {
   Enemy& e = enemies[i];
   e = {};
   e.x = x; e.y = y; e.type = type; e.faction = TYPES[type].faction;
-  e.alive = true; e.target = -2;
+  e.alive = true; e.target = -2; e.pir = -1;
   e.str = type == E_BULL ? animalStrength(true) : (type == E_BEAR ? animalStrength(false) : 1.0f);
   e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.6f : 1.0f));
   e.cd = 1.0f + frand(); e.anim = frand() * 6; e.think = frand() * 0.4f;
@@ -852,7 +884,7 @@ static void damagePlayer(int d, const char* why) {
   if (why) say(why, 1.2f);
   if (hp <= 0) {
     hp = 0;
-    if (island) { endIsland(L("CAUGHT BY THE BEARS", "VON DEN BAEREN ERWISCHT"), false); return; }   // beendet nur das Bonus-Level
+    if (island) { endIsland(L("CAUGHT BY THE PIRATES", "VON PIRATEN ERWISCHT"), false); return; }   // beendet nur das Bonus-Level
     deaths++; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH);
   }
 }
@@ -877,7 +909,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     kills++; pnl += hardcore ? ti.pts * 3 / 2 : ti.pts;
     char b[48];
     switch (e.type) {
-      case E_BEAR:   say(L("BEAR DOWN!", "BAER ERLEGT!")); break;
+      case E_BEAR:   say(island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BAER ERLEGT!")); break;
       case E_BULL:   say(L("BULL DOWN!", "BULLE ERLEGT!")); break;
       case E_SELLER: say(L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT")); break;
       case E_BUBBLE: say(L("BUBBLE BURST", "BLASE GEPLATZT")); break;
@@ -1081,7 +1113,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
     }
     return;
   }
-  const char* hitMsg = e.faction == F_BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : L("BEAR CLAW! PRICE DROP", "BAERENTATZE! KURSVERLUST");
+  const char* hitMsg = e.faction == F_BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : e.pir >= 0 ? L("CUTLASS SLASH!", "SAEBELHIEB!") : L("BEAR CLAW! PRICE DROP", "BAERENTATZE! KURSVERLUST");
   switch (e.type) {
     case E_BEAR:
       // Gebruell auf der Jagd (spawnCd dient beim Baer als Gebruell-Timer)
@@ -1264,14 +1296,111 @@ static void startIsland() {
     float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
     isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
   }
-  for (int k = 0; k < 5; k++) { float x, y; if (isleFreeCell(7, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].awake = true; } }
+  for (int k = 0; k < 5; k++) { float x, y; if (isleFreeCell(7, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { enemies[i].awake = true; enemies[i].pir = rnd() % 3; } } }
   state = ST_PLAY; fireCd = 0.4f; musicStart();
   { char b[48]; snprintf(b, sizeof(b), L("TAX HAVEN! %d S - GRAB THE GOLD", "STEUEROASE! %d S - SAMMLE DAS GOLD"), ISLE_TIME); say(b, 3.0f); }
+}
+// ---- Schlussszene nach der Steueroase: der Spieler im Liegestuhl auf seiner Yacht, mit Sonnenbrille und Cocktail.
+// Echtzeit mit dem Low-Poly-Renderer, Kamerafahrt im Bogen auf die Yacht zu; ENTER ueberspringt.
+static constexpr float OUTRO_LEN = 13, OUTRO_X = 10, OUTRO_Y = 23.2f;
+static float outroT, isleEyeZ = -1;   // isleEyeZ >= 0: feste Augenhoehe statt Gelaende
+static constexpr int MAX_EXTRA_TRI = 200;
+static IsleTri isleExtra[MAX_EXTRA_TRI]; static int nIsleExtra;
+static void oTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
+  if (nIsleExtra >= MAX_EXTRA_TRI) return;
+  IsleTri& t = isleExtra[nIsleExtra++];
+  for (int k = 0; k < 3; k++) { t.v[k] = a[k]; t.v[3 + k] = b[k]; t.v[6 + k] = c[k]; }
+  t.r = r; t.g = g; t.b = bl;
+}
+static void oQuad(const float* a, const float* b, const float* c, const float* d, uint8_t r, uint8_t g, uint8_t bl) { oTri(a, b, c, r, g, bl); oTri(a, c, d, r, g, bl); }
+static void oBox(float x0, float y0, float z0, float x1, float y1, float z1, uint8_t r, uint8_t g, uint8_t bl) {
+  float a[3] = {x0, y0, z1}, b[3] = {x1, y0, z1}, c[3] = {x1, y1, z1}, d[3] = {x0, y1, z1};
+  float e[3] = {x0, y0, z0}, f[3] = {x1, y0, z0}, gg[3] = {x1, y1, z0}, h[3] = {x0, y1, z0};
+  oQuad(a, b, c, d, r, g, bl); oQuad(e, f, b, a, r, g, bl); oQuad(h, gg, c, d, r, g, bl); oQuad(e, h, d, a, r, g, bl); oQuad(f, gg, c, b, r, g, bl);
+}
+static void oRib(const float* a, const float* b, float w, uint8_t r, uint8_t g, uint8_t bl) {   // duenner Stab von a nach b
+  float a0[3] = {a[0] - w, a[1], a[2]}, a1[3] = {a[0] + w, a[1], a[2]}, b0[3] = {b[0] - w, b[1], b[2]}, b1[3] = {b[0] + w, b[1], b[2]};
+  oQuad(a0, a1, b1, b0, r, g, bl);
+  float c0[3] = {a[0], a[1], a[2] - w}, c1[3] = {a[0], a[1], a[2] + w}, d0[3] = {b[0], b[1], b[2] - w}, d1[3] = {b[0], b[1], b[2] + w};
+  oQuad(c0, c1, d1, d0, r, g, bl);
+}
+static void outroScene(float t) {
+  nIsleExtra = 0;
+  const float X = OUTRO_X, Y = OUTRO_Y, D = 0.55f, Lh = 2.8f, B = 1;
+  // Rumpf (Bug nach Osten)
+  float d[4][3] = {{X + Lh, Y - B, D}, {X - Lh, Y - B, D}, {X - Lh, Y + B, D}, {X + Lh, Y + B, D}};
+  float k[4][3] = {{X + Lh, Y - B * 0.6f, 0}, {X - Lh, Y - B * 0.6f, 0}, {X - Lh, Y + B * 0.6f, 0}, {X + Lh, Y + B * 0.6f, 0}};
+  float bow[3] = {X + Lh + 0.9f, Y, D};
+  oQuad(k[0], k[1], d[1], d[0], 240, 240, 245); oQuad(k[2], k[3], d[3], d[2], 240, 240, 245); oQuad(k[1], k[2], d[2], d[1], 30, 50, 110);
+  oTri(k[0], d[0], bow, 240, 240, 245); oTri(k[3], bow, d[3], 240, 240, 245); oTri(d[0], d[3], bow, 180, 130, 80);
+  oQuad(d[0], d[1], d[2], d[3], 180, 130, 80);
+  // Kajuete
+  oBox(X - Lh + 0.2f, Y - 0.75f, D, X - 0.5f, Y + 0.75f, D + 0.65f, 240, 240, 245);
+  { float a[3] = {X - Lh + 0.5f, Y + 0.76f, D + 0.3f}, b[3] = {X - 0.8f, Y + 0.76f, D + 0.3f}, c[3] = {X - 0.8f, Y + 0.76f, D + 0.52f}, e[3] = {X - Lh + 0.5f, Y + 0.76f, D + 0.52f};
+    oQuad(a, b, c, e, 40, 60, 90); }
+  // Sonnenschirm
+  const float sx = X + 1.75f, sy = Y - 0.95f;
+  oBox(sx - 0.03f, sy - 0.03f, D, sx + 0.03f, sy + 0.03f, D + 1.45f, 220, 220, 220);
+  for (int i = 0; i < 8; i++) {
+    float a0 = i * 0.785f, a1 = (i + 1) * 0.785f;
+    float tp[3] = {sx, sy, D + 1.6f}, p0[3] = {sx + cosf(a0) * 0.95f, sy + sinf(a0) * 0.95f, D + 1.25f}, p1[3] = {sx + cosf(a1) * 0.95f, sy + sinf(a1) * 0.95f, D + 1.25f};
+    if (i % 2) oTri(tp, p0, p1, 240, 240, 240); else oTri(tp, p0, p1, 220, 50, 60);
+  }
+  // Liegestuhl
+  const float cx = X + 0.9f;
+  for (int i = 0; i < 4; i++) {
+    float y0 = Y - 0.05f + i * 0.2f, y1 = y0 + 0.2f;
+    float a[3] = {cx - 0.32f, y0, D + 0.26f}, b[3] = {cx + 0.32f, y0, D + 0.26f}, c[3] = {cx + 0.32f, y1, D + 0.26f}, e[3] = {cx - 0.32f, y1, D + 0.26f};
+    if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 40, 110, 200);
+  }
+  for (int i = 0; i < 3; i++) {
+    float u0 = i / 3.0f, u1 = (i + 1) / 3.0f, ya = Y - 0.05f - u0 * 0.5f, yb = Y - 0.05f - u1 * 0.5f, za = D + 0.26f + u0 * 0.62f, zb = D + 0.26f + u1 * 0.62f;
+    float a[3] = {cx - 0.32f, ya, za}, b[3] = {cx + 0.32f, ya, za}, c[3] = {cx + 0.32f, yb, zb}, e[3] = {cx - 0.32f, yb, zb};
+    if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 40, 110, 200);
+  }
+  oBox(cx - 0.3f, Y + 0.68f, D, cx - 0.25f, Y + 0.73f, D + 0.25f, 180, 130, 80); oBox(cx + 0.25f, Y + 0.68f, D, cx + 0.3f, Y + 0.73f, D + 0.25f, 180, 130, 80);
+  // Spieler
+  const float hz = D + 0.3f;
+  oBox(cx - 0.17f, Y + 0.3f, hz, cx - 0.03f, Y + 0.78f, hz + 0.1f, 235, 190, 150); oBox(cx + 0.03f, Y + 0.3f, hz, cx + 0.17f, Y + 0.78f, hz + 0.1f, 235, 190, 150);
+  oBox(cx - 0.19f, Y + 0.05f, hz, cx + 0.19f, Y + 0.32f, hz + 0.14f, 40, 90, 200);
+  { float a[3] = {cx - 0.2f, Y + 0.06f, hz + 0.15f}, b[3] = {cx + 0.2f, Y + 0.06f, hz + 0.15f}, c[3] = {cx + 0.2f, Y - 0.4f, D + 0.78f}, e[3] = {cx - 0.2f, Y - 0.4f, D + 0.78f};
+    oQuad(a, b, c, e, 255, 120, 40); }
+  const float hx = cx, hy = Y - 0.48f, hzz = D + 1.0f, r = 0.2f;
+  float P[6][3] = {{hx + r, hy, hzz}, {hx - r, hy, hzz}, {hx, hy + r, hzz}, {hx, hy - r, hzz}, {hx, hy, hzz + r}, {hx, hy, hzz - r}};
+  const int E[4][2] = {{0, 2}, {2, 1}, {1, 3}, {3, 0}};
+  for (auto& e : E) { oTri(P[e[0]], P[e[1]], P[4], 90, 60, 35); oTri(P[e[0]], P[e[1]], P[5], 235, 190, 150); }
+  { float a[3] = {hx - 0.19f, hy + 0.17f, hzz - 0.03f}, b[3] = {hx + 0.19f, hy + 0.17f, hzz - 0.03f}, c[3] = {hx + 0.19f, hy + 0.17f, hzz + 0.07f}, e[3] = {hx - 0.19f, hy + 0.17f, hzz + 0.07f};
+    oQuad(a, b, c, e, 10, 10, 12); }   // Sonnenbrille
+  // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
+  float ph = fmodf(t, 4) / 4, lift = ph < 0.3f ? sinf(ph / 0.3f * 3.1416f) : 0;
+  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.1f, hy + 0.2f, hzz - 0.05f}, hand[3];
+  for (int i = 0; i < 3; i++) hand[i] = rest[i] + (mouth[i] - rest[i]) * lift;
+  oRib(sh, hand, 0.035f, 235, 190, 150);
+  float g0[3] = {hand[0], hand[1], hand[2] + 0.02f}; const float gr = 0.07f, gh = 0.18f; float full = max(0.15f, 1 - t / OUTRO_LEN * 0.85f), lz = g0[2] + gh * full;
+  for (int i = 0; i < 6; i++) {
+    float a0 = i * 1.047f, a1 = (i + 1) * 1.047f;
+    float p0[3] = {g0[0] + cosf(a0) * gr, g0[1] + sinf(a0) * gr, g0[2] + gh}, p1[3] = {g0[0] + cosf(a1) * gr, g0[1] + sinf(a1) * gr, g0[2] + gh};
+    oTri(g0, p0, p1, 200, 230, 240);
+    float lc[3] = {g0[0], g0[1], lz}, l0[3] = {g0[0] + cosf(a0) * gr * full, g0[1] + sinf(a0) * gr * full, lz}, l1[3] = {g0[0] + cosf(a1) * gr * full, g0[1] + sinf(a1) * gr * full, lz};
+    oTri(lc, l0, l1, 255, 140, 40);
+  }
+  { float s0[3] = {g0[0] + 0.02f, g0[1], g0[2] + 0.1f}, s1[3] = {g0[0] + 0.06f, g0[1] - 0.02f, g0[2] + 0.3f}; oRib(s0, s1, 0.01f, 255, 60, 160);
+    float u0[3] = {g0[0] - 0.02f, g0[1], g0[2] + 0.3f}, u1[3] = {g0[0] - 0.12f, g0[1] + 0.03f, g0[2] + 0.22f}, u2[3] = {g0[0] + 0.07f, g0[1] - 0.03f, g0[2] + 0.22f}; oTri(u0, u1, u2, 255, 80, 180); }
+}
+static void startOutro() {
+  outroT = 0; state = ST_OUTRO; nEnemies = nItems = 0;
+  int n = 0;   // Insel-Yacht nicht doppelt zeichnen
+  for (int i = 0; i < nIsleObj; i++) {
+    const IsleTri& o = isleObj[i]; float mx = (o.v[0] + o.v[3] + o.v[6]) / 3 - OUTRO_X, my = (o.v[1] + o.v[4] + o.v[7]) / 3 - OUTRO_Y;
+    if (mx * mx + my * my > 16) isleObj[n++] = o;
+  }
+  nIsleObj = n;
 }
 static void endIsland(const char* msg, bool all) {
   if (all) pnl += hardcore ? ISLE_ALL_BONUS * 3 / 2 : ISLE_ALL_BONUS;
   island = false; islandDone = true; isleAll = all; isleResult = msg;
-  state = ST_WIN; musicStop(); sfxPlay(all ? SFX_ID_KACHING : SFX_ID_BELL);
+  musicStop(); sfxPlay(all ? SFX_ID_KACHING : SFX_ID_BELL);
+  startOutro();
 }
 static void islandCoin() {
   isleCoins++; pnl += hardcore ? ISLE_COIN_PTS * 3 / 2 : ISLE_COIN_PTS;
@@ -1291,7 +1420,7 @@ static void updateIsland(float dt) {
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren ruecken nach
     isleSpawnT = hardcore ? 4.5f : 6;
-    float x, y; if (bearsAlive < (hardcore ? 10 : 8) && isleFreeCell(8, false, x, y)) spawnEnemy(E_BEAR, x, y);
+    float x, y; if (bearsAlive < (hardcore ? 10 : 8) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].pir = rnd() % 3; }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);
@@ -1379,7 +1508,7 @@ static void renderIsland() {
     isleSkyReady = true;
   }
   for (int y = 0; y < VH; y++) { uint16_t* row = fb + y * SW; for (int x = 0; x < SW; x++) row[x] = isleSky[y]; }
-  isleEye = isleGround(px, py) + 0.5f;
+  isleEye = isleEyeZ >= 0 ? isleEyeZ : isleGround(px, py) + 0.5f;
   { float c[3]; isleCam(px + ISLE_SUN[0] * 100, py + ISLE_SUN[1] * 100, isleEye, c);   // Sonne knapp ueber dem Horizont
     if (c[2] > 1) { int cx = SW / 2 + c[0] / c[2] * PROJ, r = 8; uint16_t sc = swp(c565(255, 225, 140));
       for (int y = -r; y <= r; y++) for (int x = -r; x <= r; x++) if (x * x + y * y <= r * r) { int X = cx + x, Y = hor - 10 + y; if (X >= 0 && X < SW && Y >= 0 && Y < hor) fb[Y * SW + X] = sc; } } }
@@ -1407,7 +1536,7 @@ static void renderIsland() {
     }
   // Figuren und Muenzen zuerst einplanen, damit sie bei vollem Puffer nicht fehlen
   for (int i = 0; i < nEnemies; i++) { const Enemy& e = enemies[i]; if (e.gone) continue;
-    isleAddSprite(e.x, e.y, e.alive ? TYPES[e.type].spr + ((e.attackAnim > 0 || fmodf(e.anim, 0.6f) < 0.3f) ? 1 : 0) : S_DEAD, e.alive ? TYPES[e.type].scale : 0.6f, e.alive && e.hurt > 0); }
+    isleAddSprite(e.x, e.y, e.alive ? (e.pir >= 0 ? S_PIR0 + e.pir * 2 : TYPES[e.type].spr) + ((e.attackAnim > 0 || fmodf(e.anim, 0.6f) < 0.3f) ? 1 : 0) : S_DEAD, e.alive ? TYPES[e.type].scale : 0.6f, e.alive && e.hurt > 0); }
   for (int i = 0; i < nItems; i++) {
     const Item& it = items[i]; if (!it.active || dist2Player(it.x, it.y) > ISLE_R * ISLE_R) continue;
     if (it.type < 2) { isleAddSprite(it.x, it.y, it.type ? S_DIV : S_CASH, 0.5f, false); continue; }
@@ -1419,6 +1548,7 @@ static void renderIsland() {
       isleAddTri(ctr, p0, p1, 255, k % 2 ? 205 : 180, k % 2 ? 50 : 30);
     }
   }
+  for (int k = 0; k < nIsleExtra; k++) { const IsleTri& o = isleExtra[k]; isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b); }
   for (int k = 0; k < nIsleObj; k++) { const IsleTri& o = isleObj[k];
     float mx = (o.v[0] + o.v[3] + o.v[6]) / 3 - px, my = (o.v[1] + o.v[4] + o.v[7]) / 3 - py;
     if (mx * mx + my * my < ISLE_R * ISLE_R) isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b); }
@@ -2141,6 +2271,21 @@ void loop() {
         if (enterHit) { creditsT = 0; state = ST_CREDITS; }   // weiter: Abspann, dann Steueroase
       }
       break;
+    case ST_OUTRO: {
+      gameTime += dt; outroT += dt;
+      // Kamerafahrt: im Bogen von weit draussen bis nah an den Liegestuhl
+      float u = min(1.0f, outroT / (OUTRO_LEN - 3)), e = u * u * (3 - 2 * u);
+      float tx = OUTRO_X + 0.9f, ty = OUTRO_Y - 0.1f, ang = 0.45f + e * 0.85f, dist = 10 - e * 6.6f;
+      px = tx + cosf(ang) * dist; py = ty + sinf(ang) * dist;
+      float dl = sqrtf((tx - px) * (tx - px) + (ty - py) * (ty - py)); dirX = (tx - px) / dl; dirY = (ty - py) / dl; planeX = -dirY * PLANE; planeY = dirX * PLANE;
+      isleEyeZ = 1.8f - e * 0.55f; outroScene(outroT);
+      renderIsland();
+      isleEyeZ = -1; nIsleExtra = 0;
+      canvas.fillRect(0, VH, SW, SH - VH, c565(0, 0, 0));
+      if (outroT > OUTRO_LEN - 5) centerText(L("EARLY RETIREMENT.", "AUSGESORGT."), VH + 8, 1, c565(255, 210, 50));
+      if (enterHit || outroT > OUTRO_LEN) state = ST_WIN;
+      break;
+    }
     case ST_CREDITS:
       gameTime += dt; creditsT += dt;
       renderCredits();
