@@ -1,5 +1,10 @@
 # MARGIN CALL – Changelog
 
+## Version 3.10.1 – Online-Rangliste ist live (16.10.2026)
+
+- **Die Online-Rangliste ist freigeschaltet.** Nach einem Solo-Lauf mit **Tab** „Auch online eintragen“ wählen. Im Highscore-Menü (**H**) siehst du dann unter [2] und [3] die weltweite Gesamt- und Tagesrangliste mit deinem Platz.
+- Server: https://margincall-highscores.margincall.workers.dev (Cloudflare Worker + D1).
+
 ## Version 3.10.0 – Online-Rangliste vorbereitet, ruhigeres Licht (16.10.2026)
 
 - **Licht flackert nur noch beim ALGO-Angriff:** Bisher flackerte es bei jeder starken Kursbewegung und während der ganzen Manipulation mehrmals pro Sekunde. Jetzt flackert es nur in den ersten 0,7 Sekunden, wenn ALGO-9000 zuschlägt (auch beim Kippen von Pump & Dump). Im Multiplayer flackert es bei allen gleichzeitig.

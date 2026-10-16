@@ -5,5 +5,5 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "margincall-highscores"
-# Nach "npx wrangler d1 create margincall-highscores" die ausgegebene ID hier eintragen:
-database_id = "00000000-0000-0000-0000-000000000000"
+# ID aus "npx wrangler d1 create margincall-highscores"
+database_id = "80df487f-d4d3-4d3f-926c-302ee10a5c10"
