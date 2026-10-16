@@ -1304,7 +1304,7 @@ static void startIsland() {
 // Echtzeit mit dem Low-Poly-Renderer, Kamerafahrt im Bogen auf die Yacht zu; ENTER ueberspringt.
 static constexpr float OUTRO_LEN = 13, OUTRO_X = 10, OUTRO_Y = 23.2f;
 static float outroT, isleEyeZ = -1;   // isleEyeZ >= 0: feste Augenhoehe statt Gelaende
-static constexpr int MAX_EXTRA_TRI = 200;
+static constexpr int MAX_EXTRA_TRI = 170;
 static IsleTri isleExtra[MAX_EXTRA_TRI]; static int nIsleExtra;
 static void oTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
   if (nIsleExtra >= MAX_EXTRA_TRI) return;
@@ -1431,7 +1431,7 @@ static const float ISLE_SUN[3] = {-0.62f / 1.0035f, 0.28f / 1.0035f, 0.73f / 1.0
 static const uint8_t ISLE_FOG[3] = {255, 160, 110};
 static uint16_t isleSky[VH]; static bool isleSkyReady = false;
 struct IsleItem { float d; float x[4], y[4]; uint16_t col; uint8_t n; int8_t spr; bool hurt; };
-static constexpr int MAX_ISLE_ITEMS = 900;
+static constexpr int MAX_ISLE_ITEMS = 720;
 static IsleItem isleItems[MAX_ISLE_ITEMS]; static uint16_t isleOrder[MAX_ISLE_ITEMS]; static int nIsleItems;
 
 static void isleFill(float ax, float ay, float bx, float by, float cx, float cy, uint16_t col) {
