@@ -27,7 +27,7 @@ Current version **3.17.2** – click a file and the download starts right away:
 | [**MarginCall-3.17.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.2/MarginCall-3.17.2-Linux.AppImage) | Linux (x86_64) |
 | [**MarginCall-3.17.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.2/MarginCall-3.17.2-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
-Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md) (German)
+Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md)
 
 ### First start
 
