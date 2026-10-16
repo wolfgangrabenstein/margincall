@@ -1,5 +1,15 @@
 # MARGIN CALL – Changelog
 
+## Version 3.13.0 – Abspann und Bonus-Level „Steueroase“ (16.10.2026)
+
+- **Kurzer Abspann nach dem Endboss:** Nach dem Sieg über ALGO-9000 und dem Bullenmarkt-Bonus läuft ein Abspann von rund 15 Sekunden. Mit Enter lässt er sich überspringen.
+- **Bonus-Level „Steueroase“:** Danach geht es auf eine Tropeninsel im Freien, mit ganz neuer Low-Poly-Grafik statt Doom-Gängen.
+  - **Grafik:** Sonnenuntergang, Sandstrand, türkisfarbenes Flachwasser, glitzerndes Meer, Palmen, eine Strandbar, eine Luxusyacht vor der Küste und drehende Goldmünzen. Ein eigener kleiner 3D-Renderer zeichnet flach schattierte Dreiecke mit Sonnenlicht und Abenddunst.
+  - **Ziel:** 90 Sekunden Zeit, 20 Goldmünzen einsammeln, während „Steuerfahnder-Bären“ dich jagen. Jede Münze bringt +500 $, alle 20 zusammen +10.000 $ extra, in Hardcore jeweils 1,5-fach.
+  - **Kein Risiko für den Lauf:** Wirst du erwischt oder läuft die Zeit ab, endet nur das Bonus-Level, das gesammelte Gold bleibt dir. Danach folgt wie gewohnt der Highscore.
+  - **Start:** Du bekommst volles Depot und +20 Cash.
+- **Cardputer:** Abspann und Steueroase laufen auch auf dem Cardputer, mit 10 Feldern Sichtweite und sparsamerer Geometrie.
+
 ## Version 3.12.0 – Bullenmarkt-Bonus fürs Durchspielen (16.10.2026)
 
 - **Wer ALGO-9000 besiegt und das Spiel durchspielt, bekommt einen Bullenmarkt-Bonus auf den Highscore:**

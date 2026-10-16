@@ -12,6 +12,7 @@
 #include <math.h>
 #include "audio.h"
 #include "net.h"
+#include <algorithm>
 
 // ---------------------------------------------------------------- Konstanten
 static constexpr int SW = 240, SH = 135;
@@ -621,13 +622,16 @@ static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
 static float realChg, manipChg, manipT, dumpAt;
 static bool hardcore;
+// Bonus-Level Steueroase nach dem Sieg (Code weiter unten)
+static bool island, islandDone, isleAll;
+static void endIsland(const char* msg, bool all);
 // Ticker als farbige Segmente: Index, danach seine Einzelwerte
 struct TickSeg { char t[28]; uint16_t col; };
 static TickSeg tickSegs[M_COUNT * 2 + STOCK_COUNT];
 static int nTickSegs, tickChars;
 static int bullsAlive, bearsAlive;
 
-enum State { ST_TITLE, ST_PLAY, ST_PAUSE, ST_LEVELDONE, ST_DEAD, ST_WIN, ST_WIFI_LIST, ST_WIFI_PASS };
+enum State { ST_TITLE, ST_PLAY, ST_PAUSE, ST_LEVELDONE, ST_DEAD, ST_WIN, ST_WIFI_LIST, ST_WIFI_PASS, ST_CREDITS };
 static State state = ST_TITLE;
 
 static void say(const char* s, float t = 2.0f) { strncpy(msg, s, sizeof(msg) - 1); msg[sizeof(msg) - 1] = 0; msgT = t; }
@@ -818,7 +822,7 @@ static void loadLevel(int lv) {
 }
 
 // Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
-static void newGame() { hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; loadLevel(0); }
+static void newGame() { hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; island = islandDone = false; loadLevel(0); }
 
 static bool freeAt(float x, float y, float r) {
   return !solidCell((int)(x - r), (int)(y - r)) && !solidCell((int)(x + r), (int)(y - r)) &&
@@ -836,7 +840,11 @@ static void damagePlayer(int d, const char* why) {
   if (hardcore) d = (int)roundf(d * 1.5f);
   hp -= d; hurtT = 0.35f; sfxPlay(SFX_ID_PHONE);
   if (why) say(why, 1.2f);
-  if (hp <= 0) { hp = 0; deaths++; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH); }
+  if (hp <= 0) {
+    hp = 0;
+    if (island) { endIsland("VON DEN BAEREN ERWISCHT", false); return; }   // beendet nur das Bonus-Level
+    deaths++; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH);
+  }
 }
 
 static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8_t faction, uint8_t spr) {
@@ -1112,6 +1120,332 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
   }
 }
 
+static void drawChartBackground(uint16_t up, uint16_t down);
+static void centerText(const char* s, int y, int size, uint16_t col);
+// ================================================================ BONUS-LEVEL: STEUEROASE
+// Nach dem Sieg ueber ALGO-9000: eine Tropeninsel im Freien. Statt Raycasting zeichnet ein kleiner Low-Poly-Renderer
+// flach schattierte Dreiecke, nach Entfernung sortiert (Maleralgorithmus, kein Tiefenpuffer -> wenig RAM).
+// Die Insel liegt auf dem normalen 20x20-Raster: Wasser ('~') ist fuer Bewegung und Baeren eine Wand.
+static constexpr int ISLE_TIME = 90, ISLE_COINS = 20, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
+static constexpr long ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
+static float isleT, isleSpawnT, creditsT;
+static int isleCoins;
+static const char* isleResult = "";
+static float isleV[ISLE_N * ISLE_N];
+struct IsleTri { float v[9]; uint8_t r, g, b; };
+static constexpr int MAX_OBJ_TRI = 300;
+static IsleTri isleObj[MAX_OBJ_TRI]; static int nIsleObj;
+
+static float isleShape(float x, float y) {   // flacher Huegel mit kleinem Gipfel, Rand unter dem Meeresspiegel
+  float r = sqrtf((x - 10) * (x - 10) + (y - 10.5f) * (y - 10.5f) * 1.3225f);
+  float n = sinf(x * 1.3f) * cosf(y * 1.1f) * 0.15f + sinf(x * 0.7f + y * 0.9f) * 0.2f;
+  float pk = 1 - sqrtf((x - 12) * (x - 12) + (y - 8) * (y - 8)) / 2.4f;
+  return (1 - r / 8.3f) * 0.75f + n * 0.6f - 0.06f + max(0.0f, pk) * 0.8f;
+}
+static float isleVert(int i, int j) {
+  i = constrain(i - ISLE_MIN, 0, ISLE_N - 1); j = constrain(j - ISLE_MIN, 0, ISLE_N - 1);
+  return isleV[j * ISLE_N + i];
+}
+static float isleGround(float x, float y) {   // begehbare Hoehe (Wasser = 0)
+  int i = (int)floorf(x), j = (int)floorf(y); float tx = x - i, ty = y - j;
+  float h = (isleVert(i, j) * (1 - tx) + isleVert(i + 1, j) * tx) * (1 - ty) + (isleVert(i, j + 1) * (1 - tx) + isleVert(i + 1, j + 1) * tx) * ty;
+  return max(0.0f, h);
+}
+static float isleTaken[64][2]; static int nIsleTaken;
+static bool isleFreeCell(float minDist, bool avoid, float& ox, float& oy) {
+  for (int t = 0; t < 200; t++) {
+    int x = 1 + rnd() % (MAP_W - 2), y = 1 + rnd() % (MAP_H - 2); float cx = x + 0.5f, cy = y + 0.5f;
+    if (world[y][x] != '.' || sqrtf(dist2Player(cx, cy)) < minDist) continue;
+    bool bad = false;
+    if (avoid) for (int k = 0; k < nIsleTaken; k++) if (fabsf(isleTaken[k][0] - cx) + fabsf(isleTaken[k][1] - cy) < 1.2f) bad = true;
+    if (bad) continue;
+    ox = cx; oy = cy; return true;
+  }
+  return false;
+}
+static void isleTake(float x, float y) { if (nIsleTaken < 64) { isleTaken[nIsleTaken][0] = x; isleTaken[nIsleTaken][1] = y; nIsleTaken++; } }
+static void isleAddObj(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
+  if (nIsleObj >= MAX_OBJ_TRI) return;
+  IsleTri& t = isleObj[nIsleObj++];
+  for (int k = 0; k < 3; k++) { t.v[k] = a[k]; t.v[3 + k] = b[k]; t.v[6 + k] = c[k]; }
+  t.r = r; t.g = g; t.b = bl;
+}
+static void isleQuad(const float* a, const float* b, const float* c, const float* d, uint8_t r, uint8_t g, uint8_t bl) {
+  isleAddObj(a, b, c, r, g, bl); isleAddObj(a, c, d, r, g, bl);
+}
+static void isleBuildObjects() {
+  nIsleObj = 0; nIsleTaken = 0;
+  // Palmen nahe am Strand: dreikantiger, geneigter Stamm + 5 haengende Wedel
+  for (int k = 0, tries = 0; k < 12 && tries < 400; tries++) {
+    float x = 1 + rnd() % (MAP_W - 2) + 0.5f, y = 1 + rnd() % (MAP_H - 2) + 0.5f, h = isleGround(x, y);
+    if (world[(int)y][(int)x] != '.' || h < 0.08f || h > 0.45f || dist2Player(x, y) < 4) continue;
+    bool near = false; for (int q = 0; q < nIsleTaken; q++) if (fabsf(isleTaken[q][0] - x) + fabsf(isleTaken[q][1] - y) < 2.5f) near = true;
+    if (near) continue;
+    isleTake(x, y); k++;
+    float lean = atan2f(y - 10.5f, x - 10), lx = cosf(lean) * 0.35f, ly = sinf(lean) * 0.35f, H = 1.7f + frand() * 0.5f;
+    float ring[3][3][3];   // [Hoehe][Ecke][xyz]
+    const float ts[3] = {0, 0.5f, 1}, ws[3] = {0.09f, 0.07f, 0.05f};
+    for (int s = 0; s < 3; s++) for (int i = 0; i < 3; i++) {
+      float a = i * 2.094f, t = ts[s];
+      ring[s][i][0] = x + lx * t * t + cosf(a) * ws[s]; ring[s][i][1] = y + ly * t * t + sinf(a) * ws[s]; ring[s][i][2] = h + H * t;
+    }
+    for (int s = 0; s < 2; s++) for (int i = 0; i < 3; i++) {
+      int j = (i + 1) % 3; uint8_t br = i ? 140 : 120, bg = i ? 100 : 85, bb = i ? 60 : 50;
+      isleQuad(ring[s][i], ring[s][j], ring[s + 1][j], ring[s + 1][i], br, bg, bb);
+    }
+    float top[3] = {x + lx, y + ly, h + H};
+    for (int i = 0; i < 5; i++) {
+      float a = i * 1.257f + frand() * 0.3f, dx = cosf(a), dy = sinf(a);
+      float l[3] = {top[0] + dx * 1.1f - dy * 0.22f, top[1] + dy * 1.1f + dx * 0.22f, top[2] - 0.35f};
+      float r[3] = {top[0] + dx * 1.1f + dy * 0.22f, top[1] + dy * 1.1f - dx * 0.22f, top[2] - 0.35f};
+      float tip[3] = {top[0] + dx * 1.7f, top[1] + dy * 1.7f, top[2] - 0.85f};
+      isleAddObj(top, l, r, i % 2 ? 40 : 60, i % 2 ? 150 : 175, i % 2 ? 60 : 70);
+      isleAddObj(l, r, tip, 35, 130, 55);
+    }
+  }
+  // Strandbar: Holzbox mit Strohdach
+  { float x = 9.5f, y = 14.5f; isleFreeCell(3, true, x, y); isleTake(x, y);
+    float bh = isleGround(x, y), s = 0.45f, H = 0.55f, c[4][2] = {{x - s, y - s}, {x + s, y - s}, {x + s, y + s}, {x - s, y + s}};
+    for (int i = 0; i < 4; i++) { int j = (i + 1) % 4;
+      float a0[3] = {c[i][0], c[i][1], bh}, b0[3] = {c[j][0], c[j][1], bh}, b1[3] = {c[j][0], c[j][1], bh + H}, a1[3] = {c[i][0], c[i][1], bh + H};
+      isleQuad(a0, b0, b1, a1, 175, 120, 70); }
+    float o = s + 0.2f, R[4][2] = {{x - o, y - o}, {x + o, y - o}, {x + o, y + o}, {x - o, y + o}}, tip[3] = {x, y, bh + H + 0.55f};
+    for (int i = 0; i < 4; i++) { int j = (i + 1) % 4; float a[3] = {R[i][0], R[i][1], bh + H}, b[3] = {R[j][0], R[j][1], bh + H};
+      isleAddObj(a, b, tip, i % 2 ? 230 : 210, i % 2 ? 200 : 180, i % 2 ? 110 : 95); } }
+  // Luxusyacht vor der Kueste
+  { float yx = 16.5f, yy = 19;
+    for (int t = 0; t < 40; t++) { float a = frand() * 6.283f; yx = 10 + cosf(a) * 10.5f; yy = 10.5f + sinf(a) * 9.5f; if (isleShape(yx, yy) < -0.3f) break; }
+    float ang = atan2f(yy - 10.5f, yx - 10) + 1.5708f, ca = cosf(ang), sa = sinf(ang);
+    auto P = [&](float u, float v, float z, float* o) { o[0] = yx + ca * u - sa * v; o[1] = yy + sa * u + ca * v; o[2] = z; };
+    const float L = 1.6f, B = 0.45f;
+    float bow[3], d[4][3], k[4][3];
+    P(L + 0.5f, 0, 0.35f, bow);
+    P(L, -B, 0.35f, d[0]); P(-L, -B, 0.35f, d[1]); P(-L, B, 0.35f, d[2]); P(L, B, 0.35f, d[3]);
+    P(L, -B * 0.6f, 0, k[0]); P(-L, -B * 0.6f, 0, k[1]); P(-L, B * 0.6f, 0, k[2]); P(L, B * 0.6f, 0, k[3]);
+    isleQuad(k[0], k[1], d[1], d[0], 40, 70, 140); isleQuad(k[2], k[3], d[3], d[2], 40, 70, 140); isleQuad(k[1], k[2], d[2], d[1], 40, 70, 140);
+    isleAddObj(k[0], d[0], bow, 40, 70, 140); isleAddObj(k[3], bow, d[3], 40, 70, 140); isleAddObj(d[0], d[3], bow, 240, 240, 245);
+    isleQuad(d[0], d[1], d[2], d[3], 220, 200, 160);
+    float c0[4][3], c1[4][3];
+    P(0.6f, -0.3f, 0.35f, c0[0]); P(-0.9f, -0.3f, 0.35f, c0[1]); P(-0.9f, 0.3f, 0.35f, c0[2]); P(0.6f, 0.3f, 0.35f, c0[3]);
+    for (int i = 0; i < 4; i++) { c1[i][0] = c0[i][0]; c1[i][1] = c0[i][1]; c1[i][2] = 0.8f; }
+    for (int i = 0; i < 4; i++) { int j = (i + 1) % 4; if (i == 0) isleQuad(c0[i], c0[j], c1[j], c1[i], 90, 160, 220); else isleQuad(c0[i], c0[j], c1[j], c1[i], 240, 240, 245); }
+    isleQuad(c1[0], c1[1], c1[2], c1[3], 240, 240, 245); }
+  // ein paar Felsen
+  for (int k = 0; k < 4; k++) {
+    float x, y; if (!isleFreeCell(2.5f, true, x, y)) break; isleTake(x, y);
+    float h = isleGround(x, y), s = 0.25f + frand() * 0.2f, top[3] = {x, y, h + s * 1.3f}, b[3][3];
+    for (int i = 0; i < 3; i++) { b[i][0] = x + cosf(i * 2.1f) * s; b[i][1] = y + sinf(i * 2.1f) * s; b[i][2] = h; }
+    for (int i = 0; i < 3; i++) isleAddObj(b[i], b[(i + 1) % 3], top, 135, 128, 118);
+  }
+}
+static void startIsland() {
+  island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5;
+  for (int j = 0; j < ISLE_N; j++) for (int i = 0; i < ISLE_N; i++) isleV[j * ISLE_N + i] = isleShape(i + ISLE_MIN, j + ISLE_MIN);
+  for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++) world[y][x] = isleGround(x + 0.5f, y + 0.5f) > 0.06f ? '.' : '~';
+  nEnemies = nItems = 0; marketKills = 0;
+  for (auto& p : projs) p.active = false;
+  manipChg = manipT = dumpAt = 0; manipDrawn = 0; marketEffect();
+  aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
+  int sy = MAP_H - 2; while (sy > 2 && world[sy][10] != '.') sy--;   // Start am Suedstrand, Blick zur Inselmitte
+  px = 10.5f; py = sy - 0.5f; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
+  hp = 100; ammo = min(99, ammo + 20); histN = 0;
+  isleBuildObjects();
+  for (int k = 0; k < ISLE_COINS; k++) {
+    float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
+    isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
+  }
+  for (int k = 0; k < 3; k++) { float x, y; if (isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].awake = true; } }
+  state = ST_PLAY; fireCd = 0.4f; musicStart();
+  say("STEUEROASE! 90 S - SAMMLE DAS GOLD", 3.0f);
+}
+static void endIsland(const char* msg, bool all) {
+  if (all) pnl += hardcore ? ISLE_ALL_BONUS * 3 / 2 : ISLE_ALL_BONUS;
+  island = false; islandDone = true; isleAll = all; isleResult = msg;
+  state = ST_WIN; musicStop(); sfxPlay(all ? SFX_ID_KACHING : SFX_ID_BELL);
+}
+static void islandCoin() {
+  isleCoins++; pnl += hardcore ? ISLE_COIN_PTS * 3 / 2 : ISLE_COIN_PTS;
+  char b[48]; snprintf(b, sizeof(b), "GOLD %d/%d - STEUERFREI!", isleCoins, ISLE_COINS); say(b, 1.2f);
+  pickT = 0.25f; sfxPlay(SFX_ID_COINS);
+}
+static void updateIsland(float dt) {
+  isleT -= dt;
+  bullsAlive = bearsAlive = 0;
+  for (int i = 0; i < nEnemies; i++) {
+    Enemy& e = enemies[i];
+    if (e.gone) continue;
+    if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
+    bearsAlive++; e.awake = true; updateEnemy(e, i, dt);
+    if (state != ST_PLAY) return;
+  }
+  isleSpawnT -= dt;
+  if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren ruecken nach
+    isleSpawnT = hardcore ? 6 : 9;
+    float x, y; if (bearsAlive < (hardcore ? 7 : 5) && isleFreeCell(8, false, x, y)) spawnEnemy(E_BEAR, x, y);
+  }
+  if (isleCoins >= ISLE_COINS) endIsland("ALLE MUENZEN - STEUERFREI!", true);
+  else if (isleT <= 0) endIsland("ZEIT UM - DIE STEUERFAHNDUNG KOMMT", false);
+}
+
+// ---- Low-Poly-Renderer
+static const float ISLE_SUN[3] = {-0.62f / 1.0035f, 0.28f / 1.0035f, 0.73f / 1.0035f};   // tiefe Abendsonne im Westen
+static const uint8_t ISLE_FOG[3] = {255, 160, 110};
+static uint16_t isleSky[VH]; static bool isleSkyReady = false;
+struct IsleItem { float d; float x[4], y[4]; uint16_t col; uint8_t n; int8_t spr; bool hurt; };
+static constexpr int MAX_ISLE_ITEMS = 720;
+static IsleItem isleItems[MAX_ISLE_ITEMS]; static uint16_t isleOrder[MAX_ISLE_ITEMS]; static int nIsleItems;
+
+static void isleFill(float ax, float ay, float bx, float by, float cx, float cy, uint16_t col) {
+  if (ay > by) { std::swap(ax, bx); std::swap(ay, by); }
+  if (ay > cy) { std::swap(ax, cx); std::swap(ay, cy); }
+  if (by > cy) { std::swap(bx, cx); std::swap(by, cy); }
+  if (cy < 0 || ay >= VH || cy - ay < 0.01f) return;
+  int y0 = max(0, (int)ceilf(ay)), y1 = min(VH - 1, (int)floorf(cy - 1e-4f));
+  for (int y = y0; y <= y1; y++) {
+    float xl = ax + (cx - ax) * (y - ay) / (cy - ay);
+    float xr = y < by ? ax + (bx - ax) * (y - ay) / max(1e-4f, by - ay) : bx + (cx - bx) * (y - by) / max(1e-4f, cy - by);
+    int x0 = (int)ceilf(min(xl, xr)), x1 = (int)floorf(max(xl, xr) - 1e-4f);
+    if (x0 < 0) x0 = 0; if (x1 >= SW) x1 = SW - 1;
+    uint16_t* row = fb + y * SW;
+    for (int x = x0; x <= x1; x++) row[x] = col;
+  }
+}
+static float isleEye;
+static void isleCam(float x, float y, float z, float* o) {   // Welt -> Kamera (x rechts, y oben, z vorne)
+  float dx = x - px, dy = y - py, rx = planeX / PLANE, ry = planeY / PLANE;
+  o[0] = dx * rx + dy * ry; o[1] = z - isleEye; o[2] = dx * dirX + dy * dirY;
+}
+static void isleAddTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
+  if (nIsleItems >= MAX_ISLE_ITEMS) return;
+  const float NEAR = 0.12f, lim = 1.3f * PLANE;
+  float P[3][3]; isleCam(a[0], a[1], a[2], P[0]); isleCam(b[0], b[1], b[2], P[1]); isleCam(c[0], c[1], c[2], P[2]);
+  if (P[0][2] < NEAR && P[1][2] < NEAR && P[2][2] < NEAR) return;
+  bool allR = true, allL = true;
+  for (int k = 0; k < 3; k++) { if (!(P[k][0] > P[k][2] * lim + 0.5f)) allR = false; if (!(-P[k][0] > P[k][2] * lim + 0.5f)) allL = false; }
+  if (allR || allL) return;
+  // flache Schattierung nach Sonnenstand, Dunst nach Entfernung
+  float ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = sqrtf(nx * nx + ny * ny + nz * nz);
+  if (nl < 1e-6f) nl = 1; nx /= nl; ny /= nl; nz /= nl; if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  float lum = 0.55f + 0.5f * max(0.0f, nx * ISLE_SUN[0] + ny * ISLE_SUN[1] + nz * ISLE_SUN[2]);
+  float d = (P[0][2] + P[1][2] + P[2][2]) / 3, f = constrain((d - 4) / (ISLE_R - 4), 0.0f, 1.0f);
+  int cr = r * lum + (ISLE_FOG[0] - r * lum) * f, cg = g * lum + (ISLE_FOG[1] - g * lum) * f, cb = bl * lum + (ISLE_FOG[2] - bl * lum) * f;
+  // an der nahen Ebene abschneiden, dann projizieren
+  float Q[4][3]; int n = 0;
+  for (int k = 0; k < 3; k++) {
+    const float* A = P[k]; const float* B = P[(k + 1) % 3];
+    bool ain = A[2] >= NEAR, bin = B[2] >= NEAR;
+    if (ain && n < 4) { Q[n][0] = A[0]; Q[n][1] = A[1]; Q[n][2] = A[2]; n++; }
+    if (ain != bin && n < 4) { float t = (NEAR - A[2]) / (B[2] - A[2]); Q[n][0] = A[0] + (B[0] - A[0]) * t; Q[n][1] = A[1] + (B[1] - A[1]) * t; Q[n][2] = NEAR; n++; }
+  }
+  if (n < 3) return;
+  IsleItem& it = isleItems[nIsleItems++];
+  it.d = d; it.n = n; it.spr = -1; it.hurt = false;
+  it.col = swp(c565(constrain(cr, 0, 255), constrain(cg, 0, 255), constrain(cb, 0, 255)));
+  for (int k = 0; k < n; k++) { it.x[k] = SW / 2 + Q[k][0] / Q[k][2] * PROJ; it.y[k] = VH / 2 - Q[k][1] / Q[k][2] * PROJ; }
+}
+static void isleAddSprite(float x, float y, int spr, float sc, bool hurt) {
+  if (nIsleItems >= MAX_ISLE_ITEMS) return;
+  float c[3]; isleCam(x, y, isleGround(x, y), c); if (c[2] < 0.2f) return;
+  float size = PROJ / c[2] * sc; if (size < 1) return;
+  IsleItem& it = isleItems[nIsleItems++];
+  it.d = c[2]; it.spr = spr; it.hurt = hurt; it.n = 0;
+  float bottom = VH / 2 - c[1] / c[2] * PROJ;
+  it.x[0] = SW / 2 + c[0] / c[2] * PROJ - size / 2; it.y[0] = bottom - size; it.x[1] = size;
+}
+static void renderIsland() {
+  for (int x = 0; x < SW; x++) zbuf[x] = 1e9f;   // Treffertest beim Schiessen: keine Waende
+  const int hor = VH / 2;
+  if (!isleSkyReady) {   // Sonnenuntergang oben, Meer unten
+    for (int y = 0; y < VH; y++) {
+      float c[3];
+      if (y < hor) { float t = (float)y / hor;
+        const float a[3] = {45, 30, 95}, m[3] = {200, 85, 125};
+        for (int k = 0; k < 3; k++) c[k] = t < 0.55f ? a[k] + (m[k] - a[k]) * t / 0.55f : m[k] + (ISLE_FOG[k] - m[k]) * (t - 0.55f) / 0.45f;
+      } else { float t = min(1.0f, (float)(y - hor) / (VH - hor) * 2.2f); const float s[3] = {25, 120, 150};
+        for (int k = 0; k < 3; k++) c[k] = ISLE_FOG[k] + (s[k] - ISLE_FOG[k]) * t; }
+      isleSky[y] = swp(c565(c[0], c[1], c[2]));
+    }
+    isleSkyReady = true;
+  }
+  for (int y = 0; y < VH; y++) { uint16_t* row = fb + y * SW; for (int x = 0; x < SW; x++) row[x] = isleSky[y]; }
+  isleEye = isleGround(px, py) + 0.5f;
+  { float c[3]; isleCam(px + ISLE_SUN[0] * 100, py + ISLE_SUN[1] * 100, isleEye, c);   // Sonne knapp ueber dem Horizont
+    if (c[2] > 1) { int cx = SW / 2 + c[0] / c[2] * PROJ, r = 8; uint16_t sc = swp(c565(255, 225, 140));
+      for (int y = -r; y <= r; y++) for (int x = -r; x <= r; x++) if (x * x + y * y <= r * r) { int X = cx + x, Y = hor - 10 + y; if (X >= 0 && X < SW && Y >= 0 && Y < hor) fb[Y * SW + X] = sc; } } }
+  { uint16_t gl = swp(c565(255, 225, 175));   // Glitzern auf dem Meer
+    for (int k = 0; k < 60; k++) { int y = hor + 1 + rnd() % (VH - hor - 1), x = rnd() % SW; if (fb[y * SW + x] == isleSky[y]) fb[y * SW + x] = gl; } }
+  nIsleItems = 0;
+  // Gelaende (reine Wasserfelder liefert der Hintergrund)
+  int ci = (int)floorf(px), cj = (int)floorf(py);
+  for (int j = max(ISLE_MIN, cj - ISLE_R); j < min(ISLE_MIN + ISLE_N - 1, cj + ISLE_R); j++)
+    for (int i = max(ISLE_MIN, ci - ISLE_R); i < min(ISLE_MIN + ISLE_N - 1, ci + ISLE_R); i++) {
+      float h00 = isleVert(i, j), h10 = isleVert(i + 1, j), h01 = isleVert(i, j + 1), h11 = isleVert(i + 1, j + 1);
+      if (h00 <= 0 && h10 <= 0 && h01 <= 0 && h11 <= 0) continue;
+      if ((i + 0.5f - px) * dirX + (j + 0.5f - py) * dirY < -1.5f) continue;   // hinter der Kamera
+      float v00[3] = {(float)i, (float)j, max(0.0f, h00)}, v10[3] = {(float)i + 1, (float)j, max(0.0f, h10)};
+      float v01[3] = {(float)i, (float)j + 1, max(0.0f, h01)}, v11[3] = {(float)i + 1, (float)j + 1, max(0.0f, h11)};
+      int nn = ((i * 7 + j * 13) % 5 + 5) % 5 * 6;
+      const float* T[2][3] = {{v00, v10, v11}, {v00, v11, v01}};
+      for (int t = 0; t < 2; t++) {
+        float ah = (T[t][0][2] + T[t][1][2] + T[t][2][2]) / 3;
+        if (ah < 0.04f) isleAddTri(T[t][0], T[t][1], T[t][2], 70, 205, 200);
+        else if (ah < 0.2f) isleAddTri(T[t][0], T[t][1], T[t][2], 235, 210, 150);
+        else if (ah < 0.95f) isleAddTri(T[t][0], T[t][1], T[t][2], 80 + nn, 170 + nn, 75);
+        else isleAddTri(T[t][0], T[t][1], T[t][2], 150, 140, 125);
+      }
+    }
+  // Figuren und Muenzen zuerst einplanen, damit sie bei vollem Puffer nicht fehlen
+  for (int i = 0; i < nEnemies; i++) { const Enemy& e = enemies[i]; if (e.gone) continue;
+    isleAddSprite(e.x, e.y, e.alive ? TYPES[e.type].spr + ((e.attackAnim > 0 || fmodf(e.anim, 0.6f) < 0.3f) ? 1 : 0) : S_DEAD, e.alive ? TYPES[e.type].scale : 0.6f, e.alive && e.hurt > 0); }
+  for (int i = 0; i < nItems; i++) {
+    const Item& it = items[i]; if (!it.active || dist2Player(it.x, it.y) > ISLE_R * ISLE_R) continue;
+    if (it.type < 2) { isleAddSprite(it.x, it.y, it.type ? S_DIV : S_CASH, 0.5f, false); continue; }
+    float z = isleGround(it.x, it.y) + 0.35f + sinf(gameTime * 3 + it.x) * 0.06f, a = gameTime * 2.5f + it.x * 3, ca = cosf(a) * 0.22f, sa = sinf(a) * 0.22f;
+    float ctr[3] = {it.x, it.y, z};
+    for (int k = 0; k < 8; k++) {   // drehende Goldmuenze als Achteck
+      float t0 = k * 0.785f, t1 = (k + 1) * 0.785f;
+      float p0[3] = {it.x + ca * cosf(t0), it.y + sa * cosf(t0), z + 0.22f * sinf(t0)}, p1[3] = {it.x + ca * cosf(t1), it.y + sa * cosf(t1), z + 0.22f * sinf(t1)};
+      isleAddTri(ctr, p0, p1, 255, k % 2 ? 205 : 180, k % 2 ? 50 : 30);
+    }
+  }
+  for (int k = 0; k < nIsleObj; k++) { const IsleTri& o = isleObj[k];
+    float mx = (o.v[0] + o.v[3] + o.v[6]) / 3 - px, my = (o.v[1] + o.v[4] + o.v[7]) / 3 - py;
+    if (mx * mx + my * my < ISLE_R * ISLE_R) isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b); }
+  for (int i = 0; i < nIsleItems; i++) isleOrder[i] = i;
+  std::sort(isleOrder, isleOrder + nIsleItems, [](uint16_t a, uint16_t b) { return isleItems[a].d > isleItems[b].d; });
+  static const uint16_t white = swp(c565(255, 255, 255));
+  for (int o = 0; o < nIsleItems; o++) {
+    const IsleItem& it = isleItems[isleOrder[o]];
+    if (it.spr >= 0) {
+      int size = (int)it.x[1], left = (int)it.x[0], top = (int)it.y[0]; if (size < 1) continue;
+      const uint16_t* tex = sprTex[it.spr]; float step = (float)TEX / size;
+      for (int x = max(0, left); x < min(SW, left + size); x++) { int tx = (int)((x - left) * step);
+        for (int y = max(0, top); y < min(VH, top + size); y++) { uint16_t c = tex[(int)((y - top) * step) * TEX + tx]; if (c) fb[y * SW + x] = it.hurt ? white : c; } }
+      continue;
+    }
+    for (int k = 1; k + 1 < it.n; k++) isleFill(it.x[0], it.y[0], it.x[k], it.y[k], it.x[k + 1], it.y[k + 1], it.col);
+  }
+}
+
+// ---- Abspann nach dem Endboss (kurz, mit ENTER ueberspringbar)
+static constexpr float CREDITS_LEN = 15;
+static void renderCredits() {
+  drawChartBackground(c565(20, 90, 45), c565(40, 40, 40));
+  canvas.fillRect(0, 0, SW, SH, c565(0, 0, 0));
+  static const struct { const char* s; uint8_t size; uint16_t col; } L[] = {
+    {"MARGIN CALL", 2, c565(255, 210, 50)}, {"", 1, 0}, {"EIN BOERSEN-SHOOTER VON", 1, c565(160, 160, 180)}, {"WOLFGANG RABENSTEIN", 1, c565(255, 255, 255)}, {"", 1, 0},
+    {"CODE-ASSISTENZ: CLAUDE (ANTHROPIC)", 1, c565(200, 200, 215)}, {"LIVE-KURSE: YAHOO FINANCE", 1, c565(200, 200, 215)}, {"HARDWARE: M5STACK CARDPUTER ADV", 1, c565(200, 200, 215)}, {"", 1, 0},
+    {"KEIN BAER WURDE ERNSTHAFT VERLETZT.", 1, c565(160, 160, 180)}, {"KEINE ANLAGEBERATUNG.", 1, c565(160, 160, 180)}, {"", 1, 0},
+    {"DER MARKT IST FREI.", 1, c565(80, 255, 130)}, {"DOCH WOHIN MIT DEM GELD...?", 1, c565(80, 255, 130)}, {"", 1, 0},
+    {"AB IN DIE STEUEROASE!", 2, c565(255, 210, 50)},
+  };
+  int total = 0; for (auto& l : L) total += l.size * 8 + 4;
+  float t = min(1.0f, creditsT / (CREDITS_LEN - 2));
+  int y = SH - (int)(t * (SH / 2 + total - 16));   // laeuft von unten nach oben, die letzte Zeile bleibt in der Mitte stehen
+  for (auto& l : L) { if (l.s[0] && y > -20 && y < SH) centerText(l.s, y, l.size, l.col); y += l.size * 8 + 4; }
+}
+
 static void updateGame(float dt) {
   gameTime += dt;
   musicSetPanic(hp < 30);
@@ -1187,10 +1521,13 @@ static void updateGame(float dt) {
     Item& it = items[i];
     if (!it.active) continue;
     if (dist2Player(it.x, it.y) > 0.3f) continue;
+    if (it.type == 2) { it.active = false; islandCoin(); continue; }   // Goldmuenze in der Steueroase
     if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + (hardcore ? 7 : 10)); say(hardcore ? "CASHFLOW +7" : "CASHFLOW +10", 1.2f); }
     else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? "DIVIDENDE AUSGESCHUETTET +15%" : "DIVIDENDE AUSGESCHUETTET +20%", 1.2f); }
     it.active = false; pickT = 0.25f; pnl += 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
   }
+
+  if (island) { updateIsland(dt); return; }
 
   // Intraday-Replay: Momentum des echten Kursverlaufs steuert den Nachschub
   replayT -= dt;
@@ -1726,7 +2063,16 @@ void loop() {
     case ST_PLAY:
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
       updateGame(dt);
-      renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); renderWeapon(); renderHUD();
+      if (island) renderIsland(); else { renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
+      renderWeapon(); renderHUD();
+      if (island) {   // HUD in der Steueroase: Gold und Zeit statt Bullen/Baeren und Kurs
+        canvas.fillRect(146, VH + 10, SW - 146, 17, c565(8, 12, 26));
+        canvas.fillRect(148, VH + 12, 88, 5, c565(58, 48, 16));
+        canvas.fillRect(148, VH + 12, 88 * isleCoins / ISLE_COINS, 5, c565(255, 200, 40));
+        char b[24]; snprintf(b, sizeof(b), "GOLD %d/%d %d:%02d", isleCoins, ISLE_COINS, (int)max(0.0f, isleT) / 60, (int)max(0.0f, isleT) % 60);
+        canvas.setTextSize(1); canvas.setTextDatum(top_left); canvas.setTextColor(isleT < 15 ? c565(255, 80, 80) : c565(255, 210, 50));
+        canvas.drawString(b, 148, VH + 19);
+      }
       break;
     case ST_PAUSE:
       canvas.fillRect(30, 36, 180, 40, c565(0, 0, 0));
@@ -1756,9 +2102,21 @@ void loop() {
       break;
     case ST_WIN:
       gameTime += dt;
-      { char sub[48]; snprintf(sub, sizeof(sub), "BULLENMARKT-BONUS +$%ld%s", winBonus, deaths ? "" : " (OHNE TOD)");
-        renderEndScreen("BULLENMARKT!", sub, c565(255, 210, 50), true); }
-      if (enterHit) { state = ST_TITLE; musicStart(); }
+      if (islandDone) {   // Auswertung der Steueroase
+        char sub[48]; snprintf(sub, sizeof(sub), "%s %d/%d", isleAll ? "ALLES GOLD!" : "GOLD", isleCoins, ISLE_COINS);
+        renderEndScreen("STEUEROASE", isleResult, c565(255, 210, 50), true);
+        centerText(sub, 88, 1, c565(255, 210, 50));
+        if (enterHit) { state = ST_TITLE; musicStart(); }
+      } else {
+        char sub[48]; snprintf(sub, sizeof(sub), "BULLENMARKT-BONUS +$%ld%s", winBonus, deaths ? "" : " (OHNE TOD)");
+        renderEndScreen("BULLENMARKT!", sub, c565(255, 210, 50), true);
+        if (enterHit) { creditsT = 0; state = ST_CREDITS; }   // weiter: Abspann, dann Steueroase
+      }
+      break;
+    case ST_CREDITS:
+      gameTime += dt; creditsT += dt;
+      renderCredits();
+      if (enterHit || creditsT > CREDITS_LEN) startIsland();
       break;
     case ST_WIFI_LIST:
       gameTime += dt;

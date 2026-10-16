@@ -54,7 +54,7 @@
 // Live-Kurse kommen vom lokalen Spiel-Server (MarginCall.exe) unter /api/market.
 // =====================================================================================
 
-const APP_VERSION = "3.12.0";
+const APP_VERSION = "3.13.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -522,7 +522,7 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14 };
 let state = ST.TITLE;
 let enemies = [], items = [], projs = [];
 let px = 0, py = 0, dirX = 1, dirY = 0, planeX = 0, planeY = PLANE;   // Kamera des lokalen Spielers
@@ -756,6 +756,7 @@ function loadLevel(lv) {
   sfxAll("BELL"); musicStart(); emit(["music", 1]);
 }
 function newGame() {
+  island = islandDone = false;
   players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.deaths = 0; });
   loadLevel(0);
 }
@@ -784,6 +785,7 @@ function damagePlayer(pl, d, why, attacker = null) {
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
   pl.hp = 0;
+  if (island) { endIsland("VON DEN BÄREN ERWISCHT – DEIN GOLD BLEIBT DIR", false); return; }
   if (HC()) {   // Hardcore: Insolvenz ist endgueltig, der Lauf endet
     pl.deaths++; deathPenalty = 0;
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
@@ -1192,7 +1194,7 @@ const appUrl = (base, extra = "") => `${base}/?app=1&home=${HOME_PORT}&cfg=${enc
 function goHome() { location.href = appUrl(`http://127.0.0.1:${HOME_PORT}`); }
 function backToTitle() {   // Esc im Spiel: immer erst ins Hauptmenue, ganz beendet wird nur von dort
   if (isMP()) { leaveMP(); return; }
-  mpMenu = false; state = ST.TITLE; musicStart(); document.exitPointerLock?.();
+  mpMenu = false; island = false; state = ST.TITLE; musicStart(); document.exitPointerLock?.();
 }
 function quitGame() {
   if (IN_APP) { location.href = "http://margincall.quit/"; return; }
@@ -1384,7 +1386,7 @@ screen.addEventListener("mousedown", e => {
       const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
       if (b) { onKeyPress(b.key); return; }
     }
-    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
+    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN, ST.CREDITS].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
   if (state === ST.PLAY && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
@@ -1489,9 +1491,13 @@ function onKeyPress(k) {
       else if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
       else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
+    case ST.CREDITS:
+      if (k === "enter" || k === "Escape" || k === " ") startIsland();
+      break;
     case ST.WIN:
       if (k === "enter" && isHost()) {
-        if (isMP()) { mode = "solo"; state = ST.LOBBY; players.forEach(p => p.ready = false); hostSendLobby(); musicStart(); } else finishRun(true);
+        if (isMP()) { mode = "solo"; state = ST.LOBBY; players.forEach(p => p.ready = false); hostSendLobby(); musicStart(); }
+        else if (islandDone) finishRun(true); else startCredits();
       }
       if (k === "Escape" && isMP()) leaveMP();
       break;
@@ -1582,6 +1588,7 @@ function updateGame(dt) {
     if (!it.active) continue;
     for (const pl of players) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
+      if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
       if (it.type === 0) { if (pl.ammo >= 99) continue; const n = HC() ? 7 : 10; pl.ammo = Math.min(99, pl.ammo + n); sayTo(pl, `CASHFLOW +${n}`, 1.2); }
       else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `DIVIDENDE AUSGESCHÜTTET +${n} %`, 1.2); }
       it.active = false; addScore(pl, 25);
@@ -1591,6 +1598,7 @@ function updateGame(dt) {
     }
   }
   items = items.filter(i => i.active);
+  if (island) { updateIsland(dt); return; }
 
   replayT -= dt;
   const m = levelMarket();
@@ -1800,6 +1808,274 @@ function renderWeapon() {
   void k;
 }
 
+// ================================================================ BONUS-LEVEL: STEUEROASE
+// Nach dem Sieg ueber ALGO-9000: eine Tropeninsel im Freien. Statt Raycasting-Gaengen zeichnet ein kleiner
+// Low-Poly-Renderer flach schattierte Dreiecke, sortiert nach Entfernung (Maleralgorithmus, kein Tiefenpuffer –
+// genauso laeuft es auf dem Cardputer). Die Insel liegt auf dem normalen 20x20-Raster: Wasser ist fuer Bewegung,
+// Baeren und Schuesse eine Wand, so funktionieren Kollision, Gegner-KI und Schiessen unveraendert.
+const ISLE_TIME = 90, ISLE_COINS = 20, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
+const ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 15;   // Hoehengitter -6..26, Sichtweite in Feldern
+let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleResult = "";
+let creditsT = 0;
+const isleV = new Float32Array(ISLE_N * ISLE_N);
+let isleObjs = [];   // feste Dreiecke der Deko: [x0,y0,z0, x1,y1,z1, x2,y2,z2, r,g,b]
+// Inselform: flacher Huegel mit kleinem Gipfel, der Rand faellt unter den Meeresspiegel
+function isleShape(x, y) {
+  const r = Math.hypot(x - 10, (y - 10.5) * 1.15);
+  const n = Math.sin(x * 1.3) * Math.cos(y * 1.1) * .15 + Math.sin(x * .7 + y * .9) * .2;
+  return (1 - r / 8.3) * .75 + n * .6 - .06 + Math.max(0, 1 - Math.hypot(x - 12, y - 8) / 2.4) * .8;
+}
+const isleVert = (i, j) => isleV[clamp(j - ISLE_MIN, 0, ISLE_N - 1) * ISLE_N + clamp(i - ISLE_MIN, 0, ISLE_N - 1)];
+function isleGround(x, y) {   // begehbare Hoehe (Wasser = 0)
+  const i = Math.floor(x), j = Math.floor(y), tx = x - i, ty = y - j;
+  const h = (isleVert(i, j) * (1 - tx) + isleVert(i + 1, j) * tx) * (1 - ty) + (isleVert(i, j + 1) * (1 - tx) + isleVert(i + 1, j + 1) * tx) * ty;
+  return Math.max(0, h);
+}
+function isleFreeCell(minDist, avoid = []) {   // zufaellige Landzelle weit genug vom Spieler
+  for (let t = 0; t < 200; t++) {
+    const x = 1 + rnd() % (MAP - 2), y = 1 + rnd() % (MAP - 2), cx = x + .5, cy = y + .5;
+    if (world[y][x] !== "." || Math.hypot(cx - px, cy - py) < minDist) continue;
+    if (avoid.some(a => Math.hypot(a[0] - cx, a[1] - cy) < 1)) continue;
+    return [cx, cy];
+  }
+  return null;
+}
+function isleBuildObjects() {
+  const T = [], tri = (a, b, c, col) => T.push([...a, ...b, ...c, ...col]);
+  const quad = (a, b, c, d, col) => { tri(a, b, c, col); tri(a, c, d, col); };
+  const g = (x, y) => isleGround(x, y);
+  const taken = [];
+  // Palmen nahe am Strand: dreikantiger, leicht geneigter Stamm + 5 haengende Wedel
+  for (let k = 0, tries = 0; k < 12 && tries < 400; tries++) {
+    const x = 1 + rnd() % (MAP - 2) + .5, y = 1 + rnd() % (MAP - 2) + .5, h = g(x, y);
+    if (world[y | 0][x | 0] !== "." || h < .08 || h > .45 || Math.hypot(x - px, y - py) < 2 || taken.some(t => Math.hypot(t[0] - x, t[1] - y) < 2.2)) continue;
+    taken.push([x, y]); k++;
+    const lean = Math.atan2(y - 10.5, x - 10), lx = Math.cos(lean) * .35, ly = Math.sin(lean) * .35, H = 1.7 + frand() * .5;
+    const ring = (t, w) => [0, 1, 2].map(i => { const a = i * 2.094; return [x + lx * t * t + Math.cos(a) * w, y + ly * t * t + Math.sin(a) * w, h + H * t]; });
+    const r0 = ring(0, .09), r1 = ring(.5, .07), r2 = ring(1, .05);
+    for (let i = 0; i < 3; i++) {
+      const j = (i + 1) % 3, bark = i ? [140, 100, 60] : [120, 85, 50];
+      quad(r0[i], r0[j], r1[j], r1[i], bark); quad(r1[i], r1[j], r2[j], r2[i], bark);
+    }
+    const top = [x + lx, y + ly, h + H];
+    for (let i = 0; i < 5; i++) {
+      const a = i * 1.257 + frand() * .3, dx = Math.cos(a), dy = Math.sin(a);
+      tri(top, [top[0] + dx * 1.1 - dy * .22, top[1] + dy * 1.1 + dx * .22, top[2] - .35], [top[0] + dx * 1.1 + dy * .22, top[1] + dy * 1.1 - dx * .22, top[2] - .35], i % 2 ? [40, 150, 60] : [60, 175, 70]);
+      tri([top[0] + dx * 1.1 - dy * .22, top[1] + dy * 1.1 + dx * .22, top[2] - .35], [top[0] + dx * 1.1 + dy * .22, top[1] + dy * 1.1 - dx * .22, top[2] - .35], [top[0] + dx * 1.7, top[1] + dy * 1.7, top[2] - .85], [35, 130, 55]);
+    }
+  }
+  // Strandbar: Holzbox mit Strohdach
+  const bar = isleFreeCell(3, taken) || [9.5, 14.5], bh = g(bar[0], bar[1]);
+  { const [x, y] = bar, s = .45, H = .55, c = [[x - s, y - s], [x + s, y - s], [x + s, y + s], [x - s, y + s]], wood = [175, 120, 70];
+    for (let i = 0; i < 4; i++) { const a = c[i], b = c[(i + 1) % 4]; quad([...a, bh], [...b, bh], [...b, bh + H], [...a, bh + H], wood); }
+    const R = [[x - s - .2, y - s - .2], [x + s + .2, y - s - .2], [x + s + .2, y + s + .2], [x - s - .2, y + s + .2]], tip = [x, y, bh + H + .55];
+    for (let i = 0; i < 4; i++) { const a = R[i], b = R[(i + 1) % 4]; tri([...a, bh + H], [...b, bh + H], tip, i % 2 ? [230, 200, 110] : [210, 180, 95]); }
+    taken.push(bar); }
+  // Luxusyacht vor der Kueste
+  { let yx = 16.5, yy = 19; for (let t = 0; t < 40; t++) { const a = frand() * 6.283; yx = 10 + Math.cos(a) * 10.5; yy = 10.5 + Math.sin(a) * 9.5; if (isleShape(yx, yy) < -.3) break; }
+    const ang = Math.atan2(yy - 10.5, yx - 10) + Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang);
+    const P = (u, v, z) => [yx + ca * u - sa * v, yy + sa * u + ca * v, z];
+    const L = 1.6, B = .45, white = [240, 240, 245], blue = [40, 70, 140];
+    const bow = P(L + .5, 0, .35), d = [P(L, -B, .35), P(-L, -B, .35), P(-L, B, .35), P(L, B, .35)], k = [P(L, -B * .6, 0), P(-L, -B * .6, 0), P(-L, B * .6, 0), P(L, B * .6, 0)];
+    quad(k[0], k[1], d[1], d[0], blue); quad(k[2], k[3], d[3], d[2], blue); quad(k[1], k[2], d[2], d[1], blue);
+    tri(k[0], d[0], bow, blue); tri(k[3], bow, d[3], blue); tri(d[0], d[3], bow, white);
+    quad(d[0], d[1], d[2], d[3], [220, 200, 160]);
+    const c0 = [P(.6, -.3, .35), P(-.9, -.3, .35), P(-.9, .3, .35), P(.6, .3, .35)], c1 = c0.map(v => [v[0], v[1], .8]);
+    for (let i = 0; i < 4; i++) quad(c0[i], c0[(i + 1) % 4], c1[(i + 1) % 4], c1[i], i === 0 ? [90, 160, 220] : white);
+    quad(c1[0], c1[1], c1[2], c1[3], white); }
+  // ein paar Felsen
+  for (let k = 0; k < 4; k++) {
+    const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c);
+    const [x, y] = c, h = g(x, y), s = .25 + frand() * .2, top = [x, y, h + s * 1.3], b = [0, 1, 2].map(i => [x + Math.cos(i * 2.1) * s, y + Math.sin(i * 2.1) * s, h]);
+    for (let i = 0; i < 3; i++) tri(b[i], b[(i + 1) % 3], top, [135, 128, 118]);
+  }
+  isleObjs = T;
+  return taken;
+}
+function startCredits() { creditsT = 0; state = ST.CREDITS; musicStart(); document.exitPointerLock?.(); }
+function startIsland() {
+  island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5;
+  for (let j = 0; j < ISLE_N; j++) for (let i = 0; i < ISLE_N; i++) isleV[j * ISLE_N + i] = isleShape(i + ISLE_MIN, j + ISLE_MIN);
+  world = []; for (let y = 0; y < MAP; y++) { world.push([]); for (let x = 0; x < MAP; x++) world[y].push(isleGround(x + .5, y + .5) > .06 ? "." : "~"); }
+  enemies = []; items = []; projs = []; hist = []; histT = 0;
+  manipChg = manipT = dumpAt = 0; marketEffect(); manipDrawn = 0;
+  aiFaceT = fakeT = crashT = glitchT = invertT = 0;
+  let sy = MAP - 2; while (sy > 2 && world[sy][10] !== ".") sy--;   // Start am Suedstrand, Blick zur Inselmitte
+  px = 10.5; py = sy - .5; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
+  players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
+  const taken = isleBuildObjects();
+  for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
+  for (let k = 0; k < 3; k++) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]).awake = true; }
+  state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
+  say(`STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`, 3);
+}
+function updateIsland(dt) {
+  isleT -= dt;
+  bullsAlive = bearsAlive = 0;
+  for (const e of enemies) {
+    if (e.gone) continue;
+    if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
+    bearsAlive++; e.awake = true; updateEnemy(e, dt);
+    if (state !== ST.PLAY) return;
+  }
+  isleSpawnT -= dt;
+  if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
+    isleSpawnT = HC() ? 6 : 9;
+    if (bearsAlive < (HC() ? 7 : 5)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]); }
+  }
+  if (isleCoins >= ISLE_COINS) endIsland("ALLE MÜNZEN – STEUERFREIES VERMÖGEN!", true);
+  else if (isleT <= 0) endIsland("ZEIT UM – DIE STEUERFAHNDUNG IST DA", false);
+}
+function islandCoin(pl) {
+  isleCoins++; addScore(pl, ISLE_COIN_PTS);
+  sayTo(pl, `GOLD ${isleCoins}/${ISLE_COINS}  ·  STEUERFREI +$${ISLE_COIN_PTS}`, 1.2);
+  if (pl.local) pickT = .25;
+  sfxTo(pl, "COINS");
+}
+function endIsland(msg, all) {
+  if (all) players.forEach(p => addScore(p, ISLE_ALL_BONUS));
+  island = false; islandDone = true; isleAll = all; isleResult = msg;
+  state = ST.WIN; musicStop(); sfx(all ? "KACHING" : "BELL"); document.exitPointerLock?.();
+}
+
+// ---- Low-Poly-Renderer
+const ISLE_SUN = (() => { const v = [-.62, .28, .73], l = Math.hypot(...v); return v.map(c => c / l); })();   // tiefe Abendsonne im Westen
+const ISLE_FOG = [255, 160, 110];
+let isleSky = null;
+function isleSkyRows() {   // Sonnenuntergang oben, Meer unten (Hintergrund fuer alles, was nicht gezeichnet wird)
+  const rows = new Uint32Array(VH), hor = VH >> 1, mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  for (let y = 0; y < VH; y++) {
+    let c;
+    if (y < hor) { const t = y / hor; c = t < .55 ? mix([45, 30, 95], [200, 85, 125], t / .55) : mix([200, 85, 125], ISLE_FOG, (t - .55) / .45); }
+    else { const t = (y - hor) / (VH - hor); c = mix(ISLE_FOG, [25, 120, 150], Math.min(1, t * 2.2)); }
+    rows[y] = RGB(c[0], c[1], c[2]);
+  }
+  return rows;
+}
+function isleFill(ax, ay, bx, by, cx, cy, col) {   // flach gefuelltes Dreieck (Bildschirmkoordinaten)
+  if (ay > by) [ax, ay, bx, by] = [bx, by, ax, ay];
+  if (ay > cy) [ax, ay, cx, cy] = [cx, cy, ax, ay];
+  if (by > cy) [bx, by, cx, cy] = [cx, cy, bx, by];
+  if (cy < 0 || ay >= VH || cy - ay < .01) return;
+  const y0 = Math.max(0, Math.ceil(ay)), y1 = Math.min(VH - 1, Math.floor(cy - 1e-6));
+  for (let y = y0; y <= y1; y++) {
+    const xl = ax + (cx - ax) * (y - ay) / (cy - ay);
+    const xr = y < by ? ax + (bx - ax) * (y - ay) / Math.max(1e-6, by - ay) : bx + (cx - bx) * (y - by) / Math.max(1e-6, cy - by);
+    let x0 = Math.ceil(Math.min(xl, xr)), x1 = Math.floor(Math.max(xl, xr) - 1e-6);
+    if (x0 < 0) x0 = 0; if (x1 >= RW) x1 = RW - 1;
+    if (x0 <= x1) fb.fill(col, y * RW + x0, y * RW + x1 + 1);
+  }
+}
+function renderIsland() {
+  if (!isleSky) isleSky = isleSkyRows();
+  const hor = VH >> 1, eye = isleGround(px, py) + .5, rx = planeX / PLANE, ry = planeY / PLANE, foc = RW / 2 / PLANE;
+  for (let y = 0; y < VH; y++) fb.fill(isleSky[y], y * RW, (y + 1) * RW);
+  // Sonne knapp ueber dem Horizont
+  { const sx = ISLE_SUN[0] * 100, sy = ISLE_SUN[1] * 100, cz = sx * dirX + sy * dirY;
+    if (cz > 1) { const cx = RW / 2 + (sx * rx + sy * ry) / cz * foc, r = 11;
+      for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r) { const X = (cx + x) | 0, Y = hor - 14 + y; if (X >= 0 && X < RW && Y >= 0 && Y < hor) fb[Y * RW + X] = RGB(255, 225, 140); } } }
+  for (let k = 0; k < 90; k++) {   // Glitzern auf dem Meer
+    const y = hor + 1 + rnd() % (VH - hor - 1), x = rnd() % RW, o = y * RW + x;
+    if (fb[o] === isleSky[y]) fb[o] = RGB(255, 225, 175);
+  }
+  const list = [], NEAR = .12;
+  // Weltpunkt -> Kamera (x rechts, y oben, z vorne)
+  const cam = (x, y, z) => { const dx = x - px, dy = y - py; return [dx * rx + dy * ry, z - eye, dx * dirX + dy * dirY]; };
+  const addTri = (a, b, c, base) => {
+    const A = cam(a[0], a[1], a[2]), B = cam(b[0], b[1], b[2]), C = cam(c[0], c[1], c[2]);
+    if (A[2] < NEAR && B[2] < NEAR && C[2] < NEAR) return;
+    const lim = 1.3 * PLANE;   // grob ausserhalb des Sichtfelds -> weglassen
+    if (A[0] > A[2] * lim + .5 && B[0] > B[2] * lim + .5 && C[0] > C[2] * lim + .5) return;
+    if (-A[0] > A[2] * lim + .5 && -B[0] > B[2] * lim + .5 && -C[0] > C[2] * lim + .5) return;
+    // flache Schattierung nach Sonnenstand, Dunst nach Entfernung
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const nl = Math.hypot(nx, ny, nz) || 1;
+    nx /= nl; ny /= nl; nz /= nl; if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    const lum = .55 + .5 * Math.max(0, nx * ISLE_SUN[0] + ny * ISLE_SUN[1] + nz * ISLE_SUN[2]);
+    const d = (A[2] + B[2] + C[2]) / 3, f = clamp((d - 6) / (ISLE_R - 6), 0, 1);
+    const col = RGB(base[0] * lum + (ISLE_FOG[0] - base[0] * lum) * f, base[1] * lum + (ISLE_FOG[1] - base[1] * lum) * f, base[2] * lum + (ISLE_FOG[2] - base[2] * lum) * f);
+    list.push({ d, A, B, C, col });
+  };
+  // Gelaende (reine Wasserfelder liefert der Hintergrund)
+  const ci = Math.floor(px), cj = Math.floor(py);
+  for (let j = Math.max(ISLE_MIN, cj - ISLE_R); j < Math.min(ISLE_MIN + ISLE_N - 1, cj + ISLE_R); j++)
+    for (let i = Math.max(ISLE_MIN, ci - ISLE_R); i < Math.min(ISLE_MIN + ISLE_N - 1, ci + ISLE_R); i++) {
+      const h00 = isleVert(i, j), h10 = isleVert(i + 1, j), h01 = isleVert(i, j + 1), h11 = isleVert(i + 1, j + 1);
+      if (h00 <= 0 && h10 <= 0 && h01 <= 0 && h11 <= 0) continue;
+      if ((i + .5 - px) * dirX + (j + .5 - py) * dirY < -1.5) continue;   // hinter der Kamera
+      const c = (a, b, h) => [a, b, Math.max(0, h)];
+      const v00 = c(i, j, h00), v10 = c(i + 1, j, h10), v01 = c(i, j + 1, h01), v11 = c(i + 1, j + 1, h11);
+      for (const t of [[v00, v10, v11], [v00, v11, v01]]) {
+        const ah = (t[0][2] + t[1][2] + t[2][2]) / 3, n = ((i * 7 + j * 13) % 5) * 6;
+        const base = ah < .04 ? [70, 205, 200] : ah < .2 ? [235, 210, 150] : ah < .95 ? [80 + n, 170 + n, 75] : [150, 140, 125];
+        addTri(t[0], t[1], t[2], base);
+      }
+    }
+  // Deko, Muenzen
+  for (const o of isleObjs) { const mx = (o[0] + o[3] + o[6]) / 3 - px, my = (o[1] + o[4] + o[7]) / 3 - py; if (mx * mx + my * my < ISLE_R * ISLE_R) addTri([o[0], o[1], o[2]], [o[3], o[4], o[5]], [o[6], o[7], o[8]], [o[9], o[10], o[11]]); }
+  for (const it of items) {
+    if (!it.active || it.type !== 2 || (it.x - px) ** 2 + (it.y - py) ** 2 > ISLE_R * ISLE_R) continue;
+    const z = isleGround(it.x, it.y) + .35 + Math.sin(gameTime * 3 + it.x) * .06, a = gameTime * 2.5 + it.x * 3, ca = Math.cos(a) * .22, sa = Math.sin(a) * .22;
+    const ctr = [it.x, it.y, z];
+    for (let k = 0; k < 8; k++) {   // drehende Goldmuenze als Achteck
+      const t0 = k * .785, t1 = (k + 1) * .785;
+      addTri(ctr, [it.x + ca * Math.cos(t0), it.y + sa * Math.cos(t0), z + .22 * Math.sin(t0)], [it.x + ca * Math.cos(t1), it.y + sa * Math.cos(t1), z + .22 * Math.sin(t1)], k % 2 ? [255, 205, 50] : [240, 180, 30]);
+    }
+  }
+  // Figuren (Baeren, Beute) als Billboards
+  for (const e of enemies) if (!e.gone) list.push({ d: (e.x - px) * dirX + (e.y - py) * dirY, spr: e.alive ? TYPES[e.type].spr + ((e.attackAnim > 0 || (e.anim % .6) < .3) ? 1 : 0) : S.DEAD, sc: e.alive ? TYPES[e.type].scale : .6, x: e.x, y: e.y, hurt: e.alive && e.hurt > 0 });
+  for (const it of items) if (it.active && it.type < 2) list.push({ d: (it.x - px) * dirX + (it.y - py) * dirY, spr: it.type ? S.DIV : S.CASH, sc: .5, x: it.x, y: it.y });
+  list.sort((a, b) => b.d - a.d);
+  const proj = p => [RW / 2 + p[0] / p[2] * foc, hor - p[1] / p[2] * PROJ];
+  const clipNear = (P) => {   // Polygon an der nahen Ebene abschneiden
+    const out = [];
+    for (let k = 0; k < P.length; k++) {
+      const a = P[k], b = P[(k + 1) % P.length], ain = a[2] >= NEAR, bin = b[2] >= NEAR;
+      if (ain) out.push(a);
+      if (ain !== bin) { const t = (NEAR - a[2]) / (b[2] - a[2]); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR]); }
+    }
+    return out;
+  };
+  const white = RGB(255, 255, 255);
+  for (const it of list) {
+    if (it.spr !== undefined) {
+      const c = cam(it.x, it.y, isleGround(it.x, it.y)); if (c[2] < .2) continue;
+      const full = PROJ / c[2], size = Math.floor(full * it.sc); if (size < 1) continue;
+      const scrX = Math.floor(RW / 2 + c[0] / c[2] * foc), bottom = Math.floor(hor - c[1] / c[2] * PROJ), top = bottom - size, left = scrX - (size >> 1), step = TEX / size, tex = sprTex[it.spr];
+      for (let x = Math.max(0, left); x < Math.min(RW, left + size); x++) {
+        const tx = Math.floor((x - left) * step);
+        for (let y = Math.max(0, top); y < Math.min(VH, bottom); y++) { const col = tex[Math.floor((y - top) * step) * 32 + tx]; if (col) fb[y * RW + x] = it.hurt ? white : col; }
+      }
+      continue;
+    }
+    let P = [it.A, it.B, it.C];
+    if (P.some(p => p[2] < NEAR)) { P = clipNear(P); if (P.length < 3) continue; }
+    const S2 = P.map(proj);
+    for (let k = 1; k + 1 < S2.length; k++) isleFill(S2[0][0], S2[0][1], S2[k][0], S2[k][1], S2[k + 1][0], S2[k + 1][1], it.col);
+  }
+}
+
+// ---- Abspann nach dem Endboss (kurz, mit ENTER ueberspringbar)
+const CREDITS_LEN = 18;
+const CREDIT_LINES = [
+  ["MARGIN CALL", 46, "#ffd232"], ["", 10], ["Ein Börsen-Shooter von", 18, "#a0a0b4"], ["WOLFGANG RABENSTEIN", 30, "#ffffff"], ["", 18],
+  ["Idee, Design & Entwicklung", 16, "#8290b0"], ["Wolfgang Rabenstein", 20, "#e6e6f0"], ["", 8],
+  ["Code-Assistenz", 16, "#8290b0"], ["Claude (Anthropic)", 20, "#e6e6f0"], ["", 8],
+  ["Live-Kurse", 16, "#8290b0"], ["Yahoo Finance", 20, "#e6e6f0"], ["", 8],
+  ["Technik", 16, "#8290b0"], ["Tauri · Rust · Cloudflare · M5Stack Cardputer", 20, "#e6e6f0"], ["", 18],
+  ["Kein Bulle und kein Bär wurde ernsthaft verletzt.", 16, "#a0a0b4"], ["Keine Anlageberatung.", 16, "#a0a0b4"], ["", 26],
+  ["Der Markt ist frei.", 22, "#50ff82"], ["Doch wohin mit dem ganzen Geld …?", 22, "#50ff82"], ["", 14],
+  ["AB IN DIE STEUEROASE!", 34, "#ffd232"],
+];
+function renderCredits() {
+  chartBackground("#145a2d", "#282828");
+  g.fillStyle = "rgba(0,0,0,.82)"; g.fillRect(0, 0, DW, DH);
+  const total = CREDIT_LINES.reduce((s, l) => s + l[1] + 12, 0), t = Math.min(1, creditsT / (CREDITS_LEN - 2));
+  let y = DH - t * (DH / 2 + total - 40);   // laeuft von unten nach oben, die letzte Zeile bleibt in der Mitte stehen
+  for (const [s, size, col] of CREDIT_LINES) { if (s && y > -60 && y < DH) text(s, DW / 2, y, col, size, "center"); y += size + 12; }
+  zoneButton(DW - 250, DH - 50, 230, 34, "[ENTER] ÜBERSPRINGEN", "#8290b0", "enter", 14);
+}
+
 // ---------------------------------------------------------------- HUD & Screens (hochaufgeloest)
 const FONT = (px, w = 700) => `${w} ${px}px Consolas, "Lucida Console", monospace`;
 function text(s, x, y, col, px = 18, align = "left") { g.font = FONT(px); g.textAlign = align; g.textBaseline = "top"; g.fillStyle = col; g.fillText(s, x, y); }
@@ -1859,6 +2135,12 @@ function renderHUD() {
       text(`FRAGS ${me.frags || 0}   ·   TODE ${me.deaths || 0}   ·   KILLS ${me.kills}`, 560, HUD_Y + 36, "#ffd232", 16);
       rank.slice(0, 4).forEach((p, i) => text(`${i + 1}.${p.name.replace("TRADER ", "").slice(0, 6)} ${p.frags || 0}/${p.deaths || 0}`, 560 + i * 96, HUD_Y + 62, rgbCss(playerColor(p)), 12));
     }
+  } else if (island) {
+    const bx = 560, bw = 380;
+    g.fillStyle = "#3a3010"; g.fillRect(bx, HUD_Y + 36, bw, 14);
+    g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / ISLE_COINS, 14);
+    text(`GOLD ${isleCoins}/${ISLE_COINS}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`BÄREN ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
+    text(`☀ STEUEROASE  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ALLE MÜNZEN = +$${ISLE_ALL_BONUS.toLocaleString("de-DE")}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
   } else {
     const bx = 560, bw = 380, tot = bullsAlive + bearsAlive, gw2 = tot ? bw * bullsAlive / tot : bw / 2;
     g.fillStyle = "#1ec850"; g.fillRect(bx, HUD_Y + 36, gw2, 14);
@@ -2078,7 +2360,7 @@ function renderEnd(title, sub, col, bull) {
       zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT", "#50ff82", "enter", 16);
       zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
     }
-  } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
+  } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, islandDone ? "[ENTER] HIGHSCORE EINTRAGEN" : "[ENTER] WEITER", "#ffd232", "enter", 18);
   else if (state === ST.ROUNDEND) {   // Countdown bis zum naechsten Level
     const t = Math.max(0, Math.ceil(roundT));
     text(`NÄCHSTES LEVEL IN ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
@@ -2661,7 +2943,7 @@ function renderScoreOverlay() {
 // ---------------------------------------------------------------- Hauptschleife
 let last = performance.now(), lobbyT = 0;
 function renderPlay(dt) {
-  marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker();
+  if (island) renderIsland(); else { marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
   lg.putImageData(img, 0, 0); if (!me.dead) renderWeapon();
   g.drawImage(low, 0, 0, RW, VH, 0, 0, DW, HUD_Y);
   renderHUD();
@@ -2727,7 +3009,9 @@ function frame(now) {
       if (HC()) renderEnd("GAME OVER", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei", "#ff3c3c", false);
       else renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false);
       break;
+    case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) startIsland(); break;
     case ST.WIN: gameTime += dt;
+      if (islandDone) { renderEnd("STEUEROASE", `${isleResult}  ·  Gold ${isleCoins}/${ISLE_COINS}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString("de-DE")}` : ""}`, "#ffd232", true); break; }
       renderEnd("BULLENMARKT!", me.winBonus ? `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString("de-DE")}${me.deaths ? "" : " inkl. weißer Weste"}` : "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true);
       break;
   }
