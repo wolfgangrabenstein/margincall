@@ -1,5 +1,11 @@
 # MARGIN CALL – Changelog
 
+## Version 3.16.1 – Online-Rangliste mit einem Knopfdruck (16.10.2026)
+
+- **Online eintragen ist jetzt vorausgewählt.** Nach einem Lauf stellt **„[ENTER] Speichern & online stellen“** Name und Punkte in die Online-Rangliste. Es wird weiterhin nichts automatisch übertragen: Jeder Upload braucht diesen ausdrücklich beschrifteten Knopf.
+- **Nur lokal:** Mit **TAB** speicherst du nur lokal, mit **ESC** gar nicht. Dauerhaft umstellen kannst du das unter *Options → Online leaderboard*. Wer die Online-Rangliste schon früher ausgeschaltet hat, bleibt bei „nur lokal“.
+- Datenschutz-Hinweis beim ersten Start, README und Datenschutzerklärung sind angepasst, inklusive Rechtsgrundlage, Widerspruch und Löschung.
+
 ## Version 3.16.0 – Piraten, Schlussszene, größere Steueroase, sichtbarer Timer (16.10.2026)
 
 - **Piraten statt Bären in der Steueroase:** drei Typen, die sich nur im Aussehen unterscheiden:
