@@ -1,5 +1,13 @@
 # MARGIN CALL – Changelog
 
+## Version 3.8.1 – Härterer Koop (16.10.2026)
+
+- **Gegner skalieren stärker mit der Spielerzahl:**
+  - **+60 % Energie** pro zusätzlichem Spieler, bisher +35 %.
+  - **3 zusätzliche Gegner pro Mitspieler** zu Levelbeginn, passend zum Level: Bullen und Bären nach Marktlage, im Öl-Level auch Ölschlick und Ölbarone, im KI-Level Trading-Bots.
+  - **Mehr und schnellerer Nachschub:** bis zu 4 Gegner mehr pro Mitspieler gleichzeitig, rund 50 % schneller pro Mitspieler.
+- **Beispiel mit 2 Spielern:** 12 statt 9 Gegner zu Beginn, ein Bär hält 10 statt 6 Treffer aus.
+
 ## Version 3.8.0 – Nicknames, Spielnamen, Rundenpause, Tab-Statistik (16.10.2026)
 
 - **Nickname für den Multiplayer:** Im Multiplayer-Menü und in der Lobby mit **[K]** (oder Klick) änderbar, bis 12 Zeichen.

@@ -603,7 +603,7 @@ function spawnEnemy(type, x, y) {
   if (!e) { if (enemies.length >= 64) e = enemies.find(o => !o.alive); if (!e) { e = {}; enemies.push(e); } }
   const ti = TYPES[type];
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
-  const coop = mode === "coop" ? 1 + .35 * (players.length - 1) : 1;
+  const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop), maxhp: Math.round(ti.hp * coop), str, alive: true, awake: false, gone: false,
     halfDone: false, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
@@ -672,6 +672,14 @@ function loadLevel(lv) {
     const s = mode === "dm" || mode === "team" ? (findHiddenCell(4) || spots[i % spots.length]) : spots[i % spots.length];
     placePlayer(pl, s[0], s[1], startDir[0], startDir[1]);
   });
+  if (mode === "coop" && players.length > 1) {   // Koop: 3 zusaetzliche Gegner pro Mitspieler, passend zum Level
+    const extra = { 3: [E.SLICK, E.BARON], 4: [E.BOT] }[lv] || [];
+    for (let k = 0; k < 3 * (players.length - 1); k++) {
+      const c = findHiddenCell(5); if (!c) continue;
+      const type = extra.length && k % 3 === 2 ? extra[rnd() % extra.length] : (frand() < pBullBase ? E.BULL : E.BEAR);
+      spawnEnemy(type, c[0], c[1]);
+    }
+  }
   hist = []; histT = 0;
   spawnT = 6; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
@@ -1498,8 +1506,9 @@ function updateGame(dt) {
   }
   spawnT -= dt;
   if (spawnT <= 0) {
-    spawnT = (7 + frand() * 5) / Math.max(1, players.length * .7);
-    if (bullsAlive + bearsAlive < 9 + players.length * 2) {
+    const extraPl = mode === "coop" ? players.length - 1 : 0;   // Koop: mehr und schnellerer Nachschub
+    spawnT = (7 + frand() * 5) / (1 + .5 * extraPl);
+    if (bullsAlive + bearsAlive < 9 + (mode === "coop" ? 4 * extraPl : 2 * (players.length - 1))) {
       const c = findHiddenCell(5);
       if (c) spawnEnemy(frand() < clamp(pBullBase + momentum * 1.5, .1, .9) ? E.BULL : E.BEAR, c[0], c[1]);
     }
