@@ -14,6 +14,7 @@
   - Zu Beginn 5 statt 3 Piraten, sie rücken schneller nach: bis zu 8, in Hardcore 10.
   - Nur noch 75 statt 90 Sekunden, alle Münzen zu holen ist damit fast unmöglich.
 - **Timer gut sichtbar:** Die Restzeit steht groß oben rechts im Bild, darunter der Münzstand. In den letzten 15 Sekunden wird sie rot und blinkt, auch auf dem Cardputer.
+- **Hardcore noch etwas härter:** Gegner haben das 1,8-fache statt 1,6-fache an Energie, feuern 45 % statt 35 % öfter, ihre Geschosse sind 30 % statt 25 % schneller, und du nimmst das 1,65-fache statt 1,5-fache an Schaden.
 - **Namen bis 15 Zeichen:** für Highscores (lokal und online) und Nicknames, bisher 12.
 - **Spielname nur noch beim Hosten:** Im Multiplayer-Menü gibt es kein Spielnamen-Feld mehr. Der Host benennt sein Spiel in der Lobby mit **[G]**.
 

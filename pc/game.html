@@ -705,7 +705,7 @@ function spawnEnemy(type, x, y) {
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
   const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
-  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.6 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.6 : 1)), str, alive: true, awake: false, gone: false,
+  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.8 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.8 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
   return e;
@@ -820,7 +820,7 @@ function addScore(pl, pts) {
 }
 function damagePlayer(pl, d, why, attacker = null) {
   if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
-  if (HC()) d *= 1.5;
+  if (HC()) d *= 1.65;
   pl.hp -= Math.round(d);
   if (pl.local) hurtT = .35; else emit(["hurt", pl.id]);
   sfxTo(pl, "PHONE");
@@ -853,7 +853,7 @@ function respawnPlayer(pl) {
 }
 function spawnProj(x, y, ang, spd, dmg, f, spr) {
   if (projs.length > 60) return;
-  if (HC()) spd *= 1.25;
+  if (HC()) spd *= 1.3;
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
@@ -995,7 +995,7 @@ function meleeHit(e, dmgP, dmgE, why) {
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
 function updateEnemy(e, dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.35 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   const spd = crashT > 0 ? 1.4 : 1, animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
