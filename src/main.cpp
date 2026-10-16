@@ -13,6 +13,7 @@
 #include "audio.h"
 #include "net.h"
 #include <algorithm>
+#include <Preferences.h>
 
 // ---------------------------------------------------------------- Konstanten
 static constexpr int SW = 240, SH = 135;
@@ -22,6 +23,10 @@ static constexpr int MAP_W = 20, MAP_H = 20;
 static constexpr int NUM_LEVELS = 5;
 static constexpr float PLANE = 0.66f;
 static constexpr float PROJ = SW / (2.0f * PLANE);   // quadratische Pixel
+
+// Sprache: Englisch ist Standard, Deutsch per [L] im Titelbild (wird gespeichert). L(en, de) waehlt den Text.
+static bool langDe = false;
+static inline const char* L(const char* en, const char* de) { return langDe ? de : en; }
 
 static constexpr uint16_t c565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -558,6 +563,9 @@ static const char* const LEVELS[NUM_LEVELS][MAP_H] = {
 static const char* const LEVEL_NAMES[NUM_LEVELS] = {
   "DOW JONES: SCHALTERHALLE", "S&P 500: HANDELSPARKETT", "NASDAQ-100: HEDGEFONDS-TRESOR",
   "OEL: RAFFINERIE", "ALGO-9000: RECHENZENTRUM"};
+static const char* const LEVEL_NAMES_EN[NUM_LEVELS] = {
+  "DOW JONES: BANKING HALL", "S&P 500: TRADING FLOOR", "NASDAQ-100: HEDGE FUND VAULT",
+  "OIL: REFINERY", "ALGO-9000: DATA CENTER"};
 static const int LEVEL_MARKET[NUM_LEVELS] = {M_DOW, M_SPX, M_NDX, M_OIL, M_NDX};
 
 static char world[MAP_H][MAP_W];
@@ -590,6 +598,7 @@ static const TypeInfo TYPES[NUM_TYPES] = {
   {F_AI,      3, 2.0f, 0.70f, S_BOT0,    100, false, "TRADING-BOT"},
   {F_AI,     80, 0.0f, 1.50f, S_ALGO0,  5000, true,  "ALGO-9000"},
 };
+static const char* const TYPE_NAME_EN[NUM_TYPES] = {"BEAR", "SHORT SELLER", "CRYPTO BUBBLE", "HEDGE FUND SHARK", "BULL", "OIL BARON", "OIL SLICK", "TRADING BOT", "ALGO-9000"};
 
 struct Enemy {
   float x, y; uint8_t type, faction; int16_t hp; bool alive, awake, gone, halfDone;
@@ -644,6 +653,7 @@ static bool hostileFactions(uint8_t a, uint8_t b) { return (a == F_BULL && b == 
 // ---------------------------------------------------------------- Live-Markt
 static const Market& levelMarket() { return markets[LEVEL_MARKET[level]]; }
 
+static void applyLang() { markets[M_OIL].label = L("OIL", "OEL"); }
 static void buildTicker() {
   const uint16_t magenta = c565(255, 60, 200), yellow = c565(255, 200, 60);
   nTickSegs = 0; tickChars = 0;
@@ -815,7 +825,7 @@ static void loadLevel(int lv) {
   histN = 0; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
-  char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, LEVEL_NAMES[lv]);
+  char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, L(LEVEL_NAMES_EN[lv], LEVEL_NAMES[lv]));
   say(b, 3.0f);
   sfxPlay(SFX_ID_BELL);   // Eroeffnungsglocke
   musicStart();
@@ -842,7 +852,7 @@ static void damagePlayer(int d, const char* why) {
   if (why) say(why, 1.2f);
   if (hp <= 0) {
     hp = 0;
-    if (island) { endIsland("VON DEN BAEREN ERWISCHT", false); return; }   // beendet nur das Bonus-Level
+    if (island) { endIsland(L("CAUGHT BY THE BEARS", "VON DEN BAEREN ERWISCHT"), false); return; }   // beendet nur das Bonus-Level
     deaths++; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH);
   }
 }
@@ -867,17 +877,17 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     kills++; pnl += hardcore ? ti.pts * 3 / 2 : ti.pts;
     char b[48];
     switch (e.type) {
-      case E_BEAR:   say("BAER ERLEGT!"); break;
-      case E_BULL:   say("BULLE ERLEGT!"); break;
-      case E_SELLER: say("SHORT SELLER LIQUIDIERT"); break;
-      case E_BUBBLE: say("BLASE GEPLATZT"); break;
-      case E_SHARK:  say("HEDGEFONDS ZERSCHLAGEN! ZUM TRESOR!", 3); break;
-      case E_ALGO:   say("ALGO-9000 ABGESCHALTET! ZUM TRESOR!", 3); break;
-      default: snprintf(b, sizeof(b), "%s ERLEDIGT", ti.name); say(b);
+      case E_BEAR:   say(L("BEAR DOWN!", "BAER ERLEGT!")); break;
+      case E_BULL:   say(L("BULL DOWN!", "BULLE ERLEGT!")); break;
+      case E_SELLER: say(L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT")); break;
+      case E_BUBBLE: say(L("BUBBLE BURST", "BLASE GEPLATZT")); break;
+      case E_SHARK:  say(L("HEDGE FUND SMASHED! TO THE VAULT!", "HEDGEFONDS ZERSCHLAGEN! ZUM TRESOR!"), 3); break;
+      case E_ALGO:   say(L("ALGO-9000 SHUT DOWN! TO THE VAULT!", "ALGO-9000 ABGESCHALTET! ZUM TRESOR!"), 3); break;
+      default: snprintf(b, sizeof(b), "%s %s", L(TYPE_NAME_EN[e.type], ti.name), L("DOWN", "ERLEDIGT")); say(b);
     }
   } else {
     marketKills++;
-    if (dist2Player(e.x, e.y) < 64) say(e.type == E_BEAR || e.type == E_SELLER ? "BULLEN TRAMPELN BAEREN NIEDER" : "BAEREN ZERFLEISCHEN BULLEN", 1.5f);
+    if (dist2Player(e.x, e.y) < 64) say(e.type == E_BEAR || e.type == E_SELLER ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BAEREN NIEDER") : L("BEARS MAUL THE BULLS", "BAEREN ZERFLEISCHEN BULLEN"), 1.5f);
   }
   sfxNear(e.type == E_BUBBLE ? SFX_ID_POP : e.type == E_SLICK ? SFX_ID_OIL : SFX_ID_STAMP, e.x, e.y, 10);
   float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : 0.38f) : 0.22f;
@@ -896,7 +906,7 @@ static void hurtEnemy(Enemy& t, int dmg, bool byPlayer) {
 // Meldung passt in msg[48]: "ALGO: FLASH CRASH! KURS -5.00%"
 static void manipulate(float chg, float t, const char* what) {
   manipChg = chg; manipT = t; dumpAt = 0; marketEffect();
-  char b[48]; snprintf(b, sizeof(b), "ALGO: %s KURS %+.2f%%", what, chg);
+  char b[48]; snprintf(b, sizeof(b), "ALGO: %s %s %+.2f%%", what, L("PRICE", "KURS"), chg);
   say(b, 2.5f);
 }
 static void aiEvent(int forced = -1) {
@@ -906,13 +916,13 @@ static void aiEvent(int forced = -1) {
   switch (ev) {
     case 0: fakeT = 10; spawnNear(frand() < 0.5f ? E_BULL : E_BEAR, 2); manipulate((frand() < 0.5f ? -1 : 1) * (2 + frand() * 2), 20, "FAKE NEWS!"); break;
     case 1: crashT = 8; manipulate(-5, 15, "FLASH CRASH!"); break;
-    case 2: spawnNear(E_BOT, 2 + rnd() % 2); manipulate(-1.5f - frand(), 20, "BOTS AKTIV"); break;
+    case 2: spawnNear(E_BOT, 2 + rnd() % 2); manipulate(-1.5f - frand(), 20, L("BOTS ACTIVE", "BOTS AKTIV")); break;
     case 3: spawnNear(E_BUBBLE, 3); manipulate(4, 24, "PUMP & DUMP!"); dumpAt = 12; break;
-    case 4: glitchT = 4; invertT = 3; manipulate((frand() < 0.5f ? -1 : 1) * 4, 15, "MANIPULIERT!"); break;
+    case 4: glitchT = 4; invertT = 3; manipulate((frand() < 0.5f ? -1 : 1) * 4, 15, L("MANIPULATED!", "MANIPULIERT!")); break;
     default:
       for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && (enemies[i].type == E_BULL || enemies[i].type == E_BEAR)) { enemies[i].str *= 1.2f; enemies[i].awake = true; }
       spawnNear(E_BULL, 1); spawnNear(E_BEAR, 1);
-      manipulate(realChg < 0 ? -3 : 3, 20, "AUFGEHETZT!");
+      manipulate(realChg < 0 ? -3 : 3, 20, L("ENRAGED!", "AUFGEHETZT!"));
       break;
   }
   buildTicker();
@@ -926,7 +936,7 @@ static void tryMove(float mx, float my) {
   if ((cx >= 0 && cx < MAP_W && world[(int)py][cx] == 'X') || (cy >= 0 && cy < MAP_H && world[cy][(int)px] == 'X')) {
     bool bossAlive = false;
     for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && isBoss(enemies[i])) bossAlive = true;
-    if (bossAlive) { if (msgT <= 0) { say("TRESOR GESPERRT - BOSS LEBT NOCH!", 1.5f); sfxPlay(SFX_ID_DECLINED); } }
+    if (bossAlive) { if (msgT <= 0) { say(L("VAULT LOCKED - BOSS STILL ALIVE!", "TRESOR GESPERRT - BOSS LEBT NOCH!"), 1.5f); sfxPlay(SFX_ID_DECLINED); } }
     else {
       state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += 500 + hp * 5;
       if (state == ST_WIN) {   // Bullenmarkt-Bonus: 10.000 + 25 % des P&L + 5.000 ohne Tod, Hardcore x1,5
@@ -943,7 +953,7 @@ static void tryMove(float mx, float my) {
 
 static void shoot() {
   if (fireCd > 0) return;
-  if (ammo <= 0) { say("KEINE LIQUIDITAET! CASH SAMMELN", 1.2f); fireCd = 0.4f; sfxPlay(SFX_ID_DECLINED); return; }
+  if (ammo <= 0) { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITAET! CASH SAMMELN"), 1.2f); fireCd = 0.4f; sfxPlay(SFX_ID_DECLINED); return; }
   ammo--; fireCd = 0.28f; flashT = 0.12f; sfxPlay(SFX_ID_SHOT);
   float invDet = 1.0f / (planeX * dirY - dirX * planeY);
   int best = -1; float bestZ = zbuf[SW / 2];
@@ -1012,7 +1022,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         break;
       case E_SHARK:
         if (d > 3.0f || !los) moveEntity(e.x, e.y, nx * 1.2f * dt, ny * 1.2f * dt, 0.35f);
-        if (d < 0.9f && e.cd <= 0) { e.cd = 1.0f; damagePlayer(20, "FEINDLICHE UEBERNAHME!"); }
+        if (d < 0.9f && e.cd <= 0) { e.cd = 1.0f; damagePlayer(20, L("HOSTILE TAKEOVER!", "FEINDLICHE UEBERNAHME!")); }
         if (los && e.cd <= 0) {
           e.cd = 1.3f; e.attackAnim = 0.4f;
           for (int k = -1; k <= 1; k++) spawnProj(fx, fy, fa + k * 0.18f, 4.0f, 10, F_NEUTRAL, S_PROJ);
@@ -1030,7 +1040,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         return;
       case E_SLICK:
         if (d > 0.7f) moveEntity(e.x, e.y, nx * 0.9f * dt * spdMul, ny * 0.9f * dt * spdMul, 0.25f);
-        else if (e.cd <= 0) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, "OELPEST! DU KLEBST FEST"); }
+        else if (e.cd <= 0) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
         return;
       case E_BOT: {
         float w = sinf(e.anim * 3) * 0.6f;
@@ -1071,7 +1081,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
     }
     return;
   }
-  const char* hitMsg = e.faction == F_BULL ? "BULLE RAMMT DICH! KURSSPRUNG" : "BAERENTATZE! KURSVERLUST";
+  const char* hitMsg = e.faction == F_BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : L("BEAR CLAW! PRICE DROP", "BAERENTATZE! KURSVERLUST");
   switch (e.type) {
     case E_BEAR:
       // Gebruell auf der Jagd (spawnCd dient beim Baer als Gebruell-Timer)
@@ -1112,7 +1122,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       moveEntity(e.x, e.y, (nx - ny * w) * 2.2f * dt * spdMul, (ny + nx * w) * 2.2f * dt * spdMul, 0.25f);
       if (d < 0.65f) {
         e.alive = false; e.gone = true; sfxNear(SFX_ID_POP, e.x, e.y, 10);
-        if (e.target == -1) damagePlayer(20, "KRYPTO-CRASH! -20%");
+        if (e.target == -1) damagePlayer(20, L("CRYPTO CRASH! -20%", "KRYPTO-CRASH! -20%"));
         else hurtEnemy(enemies[e.target], 4, false);
       }
       break;
@@ -1256,7 +1266,7 @@ static void startIsland() {
   }
   for (int k = 0; k < 3; k++) { float x, y; if (isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) enemies[i].awake = true; } }
   state = ST_PLAY; fireCd = 0.4f; musicStart();
-  say("STEUEROASE! 90 S - SAMMLE DAS GOLD", 3.0f);
+  say(L("TAX HAVEN! 90 S - GRAB THE GOLD", "STEUEROASE! 90 S - SAMMLE DAS GOLD"), 3.0f);
 }
 static void endIsland(const char* msg, bool all) {
   if (all) pnl += hardcore ? ISLE_ALL_BONUS * 3 / 2 : ISLE_ALL_BONUS;
@@ -1265,7 +1275,7 @@ static void endIsland(const char* msg, bool all) {
 }
 static void islandCoin() {
   isleCoins++; pnl += hardcore ? ISLE_COIN_PTS * 3 / 2 : ISLE_COIN_PTS;
-  char b[48]; snprintf(b, sizeof(b), "GOLD %d/%d - STEUERFREI!", isleCoins, ISLE_COINS); say(b, 1.2f);
+  char b[48]; snprintf(b, sizeof(b), "GOLD %d/%d - %s", isleCoins, ISLE_COINS, L("TAX-FREE!", "STEUERFREI!")); say(b, 1.2f);
   pickT = 0.25f; sfxPlay(SFX_ID_COINS);
 }
 static void updateIsland(float dt) {
@@ -1283,8 +1293,8 @@ static void updateIsland(float dt) {
     isleSpawnT = hardcore ? 6 : 9;
     float x, y; if (bearsAlive < (hardcore ? 7 : 5) && isleFreeCell(8, false, x, y)) spawnEnemy(E_BEAR, x, y);
   }
-  if (isleCoins >= ISLE_COINS) endIsland("ALLE MUENZEN - STEUERFREI!", true);
-  else if (isleT <= 0) endIsland("ZEIT UM - DIE STEUERFAHNDUNG KOMMT", false);
+  if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
+  else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);
 }
 
 // ---- Low-Poly-Renderer
@@ -1433,17 +1443,17 @@ static constexpr float CREDITS_LEN = 15;
 static void renderCredits() {
   drawChartBackground(c565(20, 90, 45), c565(40, 40, 40));
   canvas.fillRect(0, 0, SW, SH, c565(0, 0, 0));
-  static const struct { const char* s; uint8_t size; uint16_t col; } L[] = {
-    {"MARGIN CALL", 2, c565(255, 210, 50)}, {"", 1, 0}, {"EIN BOERSEN-SHOOTER VON", 1, c565(160, 160, 180)}, {"WOLFGANG RABENSTEIN", 1, c565(255, 255, 255)}, {"", 1, 0},
-    {"CODE-ASSISTENZ: CLAUDE (ANTHROPIC)", 1, c565(200, 200, 215)}, {"LIVE-KURSE: YAHOO FINANCE", 1, c565(200, 200, 215)}, {"HARDWARE: M5STACK CARDPUTER ADV", 1, c565(200, 200, 215)}, {"", 1, 0},
-    {"KEIN BAER WURDE ERNSTHAFT VERLETZT.", 1, c565(160, 160, 180)}, {"KEINE ANLAGEBERATUNG.", 1, c565(160, 160, 180)}, {"", 1, 0},
-    {"DER MARKT IST FREI.", 1, c565(80, 255, 130)}, {"DOCH WOHIN MIT DEM GELD...?", 1, c565(80, 255, 130)}, {"", 1, 0},
-    {"AB IN DIE STEUEROASE!", 2, c565(255, 210, 50)},
+  static const struct { const char* en; const char* de; uint8_t size; uint16_t col; } CL[] = {
+    {"MARGIN CALL", "MARGIN CALL", 2, c565(255, 210, 50)}, {"", "", 1, 0}, {"A STOCK MARKET SHOOTER BY", "EIN BOERSEN-SHOOTER VON", 1, c565(160, 160, 180)}, {"WOLFGANG RABENSTEIN", "WOLFGANG RABENSTEIN", 1, c565(255, 255, 255)}, {"", "", 1, 0},
+    {"CODING ASSISTANT: CLAUDE (ANTHROPIC)", "CODE-ASSISTENZ: CLAUDE (ANTHROPIC)", 1, c565(200, 200, 215)}, {"LIVE QUOTES: YAHOO FINANCE", "LIVE-KURSE: YAHOO FINANCE", 1, c565(200, 200, 215)}, {"HARDWARE: M5STACK CARDPUTER ADV", "HARDWARE: M5STACK CARDPUTER ADV", 1, c565(200, 200, 215)}, {"", "", 1, 0},
+    {"NO BEARS WERE SERIOUSLY HARMED.", "KEIN BAER WURDE ERNSTHAFT VERLETZT.", 1, c565(160, 160, 180)}, {"NOT INVESTMENT ADVICE.", "KEINE ANLAGEBERATUNG.", 1, c565(160, 160, 180)}, {"", "", 1, 0},
+    {"THE MARKET IS FREE.", "DER MARKT IST FREI.", 1, c565(80, 255, 130)}, {"BUT WHERE TO PUT THE MONEY...?", "DOCH WOHIN MIT DEM GELD...?", 1, c565(80, 255, 130)}, {"", "", 1, 0},
+    {"OFF TO THE TAX HAVEN!", "AB IN DIE STEUEROASE!", 2, c565(255, 210, 50)},
   };
-  int total = 0; for (auto& l : L) total += l.size * 8 + 4;
+  int total = 0; for (auto& l : CL) total += l.size * 8 + 4;
   float t = min(1.0f, creditsT / (CREDITS_LEN - 2));
   int y = SH - (int)(t * (SH / 2 + total - 16));   // laeuft von unten nach oben, die letzte Zeile bleibt in der Mitte stehen
-  for (auto& l : L) { if (l.s[0] && y > -20 && y < SH) centerText(l.s, y, l.size, l.col); y += l.size * 8 + 4; }
+  for (auto& l : CL) { const char* s = L(l.en, l.de); if (s[0] && y > -20 && y < SH) centerText(s, y, l.size, l.col); y += l.size * 8 + 4; }
 }
 
 static void updateGame(float dt) {
@@ -1456,7 +1466,7 @@ static void updateGame(float dt) {
     manipT -= dt;
     if (dumpAt > 0 && manipT <= dumpAt) {
       dumpAt = 0; manipChg = -manipChg;
-      char b[48]; snprintf(b, sizeof(b), "ALGO: DUMP! KURS %+.2f%%", manipChg); say(b, 2.5f); sfxPlay(SFX_ID_GLITCH);
+      char b[48]; snprintf(b, sizeof(b), "ALGO: DUMP! %s %+.2f%%", L("PRICE", "KURS"), manipChg); say(b, 2.5f); sfxPlay(SFX_ID_GLITCH);
       aiFaceT = 2.2f; glitchT = max(glitchT, 0.6f);
     }
     marketEffect();
@@ -1523,7 +1533,7 @@ static void updateGame(float dt) {
     if (dist2Player(it.x, it.y) > 0.3f) continue;
     if (it.type == 2) { it.active = false; islandCoin(); continue; }   // Goldmuenze in der Steueroase
     if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + (hardcore ? 7 : 10)); say(hardcore ? "CASHFLOW +7" : "CASHFLOW +10", 1.2f); }
-    else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? "DIVIDENDE AUSGESCHUETTET +15%" : "DIVIDENDE AUSGESCHUETTET +20%", 1.2f); }
+    else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? L("DIVIDEND PAID +15%", "DIVIDENDE AUSGESCHUETTET +15%") : L("DIVIDEND PAID +20%", "DIVIDENDE AUSGESCHUETTET +20%"), 1.2f); }
     it.active = false; pickT = 0.25f; pnl += 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
   }
 
@@ -1582,7 +1592,7 @@ static void updateGame(float dt) {
     if (solidCell((int)p.x, (int)p.y)) { p.active = false; continue; }
     if (dist2Player(p.x, p.y) < 0.12f) {
       p.active = false;
-      damagePlayer(p.dmg, p.spr == S_LASER ? "ALGO-ORDER AUSGEFUEHRT!" : p.spr == S_PROJ_OIL ? "OELFASS! ENERGIEKRISE" : "MARGIN CALL!");
+      damagePlayer(p.dmg, p.spr == S_LASER ? L("ALGO ORDER EXECUTED!", "ALGO-ORDER AUSGEFUEHRT!") : p.spr == S_PROJ_OIL ? L("OIL BARREL! ENERGY CRISIS", "OELFASS! ENERGIEKRISE") : "MARGIN CALL!");
       if (p.spr == S_PROJ_OIL) slowT = 2;
       continue;
     }
@@ -1785,7 +1795,7 @@ static void renderHUD() {
   canvas.setTextSize(1);
   canvas.setTextDatum(top_left);
   canvas.setTextColor(c565(130, 140, 170));
-  canvas.drawString("DEPOT", 3, VH + 3);
+  canvas.drawString(L("PORTFOLIO", "DEPOT"), 3, VH + 3);
   canvas.drawString("CASH", 108, VH + 3);
   uint16_t hc = hp > 60 ? c565(60, 230, 100) : hp > 30 ? c565(255, 200, 40) : c565(255, 60, 60);
   canvas.setTextColor(hc); canvas.setTextSize(2);
@@ -1872,7 +1882,7 @@ static void renderTitle() {
   canvas.fillRect(0, 3, SW, 30, c565(0, 0, 0));
   centerText("MARGIN CALL", 6, 3, c565(255, 210, 50));
   canvas.fillRect(8, 36, SW - 16, 96, c565(0, 0, 0));
-  centerText("BULLEN VS BAEREN VS DU VS KI", 38, 1, c565(80, 255, 130));
+  centerText(L("BULLS VS BEARS VS YOU VS AI", "BULLEN VS BAEREN VS DU VS KI"), 38, 1, c565(80, 255, 130));
   canvas.setTextSize(1); canvas.setTextDatum(top_left);
   char b[64];
   for (int i = 0; i < M_COUNT; i++) {
@@ -1886,16 +1896,18 @@ static void renderTitle() {
   }
   canvas.setTextColor(c565(150, 160, 190));
   if (netConnected()) {
-    snprintf(b, sizeof(b), "WLAN %s  STREAM:", netSSID()); canvas.drawString(b, 14, 89);
+    snprintf(b, sizeof(b), "%s %s  STREAM:", L("WIFI", "WLAN"), netSSID()); canvas.drawString(b, 14, 89);
     canvas.setTextColor(c565(120, 220, 255));
     snprintf(b, sizeof(b), "http://%s  margincall.local", netIP()); canvas.drawString(b, 14, 98);
   } else {
-    canvas.drawString(netHasCreds() ? "WLAN: VERBINDE..." : "WLAN: AUS (KURSE SIMULIERT)", 14, 89);
-    canvas.drawString("[W] WLAN EINRICHTEN", 14, 98);
+    canvas.drawString(netHasCreds() ? L("WIFI: CONNECTING...", "WLAN: VERBINDE...") : L("WIFI: OFF (SIMULATED QUOTES)", "WLAN: AUS (KURSE SIMULIERT)"), 14, 89);
+    canvas.drawString(L("[W] SET UP WIFI", "[W] WLAN EINRICHTEN"), 14, 98);
   }
   canvas.setTextColor(c565(160, 160, 180));
-  canvas.drawString("E/S A/D W/R SPACE  P PAUSE  M MUSIK", 14, 109);
-  if (((int)(gameTime * 2)) % 2) centerText("[ENTER] HANDEL  [X] HARDCORE", 121, 1, c565(255, 255, 255));
+  canvas.drawString(L("E/S A/D W/R SPACE  P PAUSE  M MUSIC", "E/S A/D W/R SPACE  P PAUSE  M MUSIK"), 14, 109);
+  int phase = ((int)(gameTime * 2)) % 4;
+  if (phase == 1 || phase == 3) centerText(L("[ENTER] TRADE  [X] HARDCORE", "[ENTER] HANDEL  [X] HARDCORE"), 121, 1, c565(255, 255, 255));
+  else if (phase == 2) centerText(L("[L] DEUTSCH", "[L] ENGLISH"), 121, 1, c565(120, 200, 255));
   else centerText("MADE BY WOLFGANG RABENSTEIN", 121, 1, c565(110, 120, 150));
 }
 
@@ -1906,10 +1918,10 @@ static void renderEndScreen(const char* title, const char* sub, uint16_t col, bo
   centerText(sub, 46, 1, c565(220, 220, 230));
   char b[48];
   snprintf(b, sizeof(b), "P&L: +$%ld", pnl); centerText(b, 60, 1, c565(80, 255, 130));
-  snprintf(b, sizeof(b), "VON DIR LIQUIDIERT: %d", kills); centerText(b, 71, 1, c565(200, 200, 210));
-  snprintf(b, sizeof(b), "MARKTBEREINIGUNG: %d", marketKills); centerText(b, 81, 1, c565(200, 200, 210));
+  snprintf(b, sizeof(b), "%s: %d", L("LIQUIDATED BY YOU", "VON DIR LIQUIDIERT"), kills); centerText(b, 71, 1, c565(200, 200, 210));
+  snprintf(b, sizeof(b), "%s: %d", L("MARKET CLEANUP", "MARKTBEREINIGUNG"), marketKills); centerText(b, 81, 1, c565(200, 200, 210));
   centerText("MADE BY WOLFGANG RABENSTEIN", 112, 1, c565(110, 120, 150));
-  if (((int)(gameTime * 2)) % 2) centerText("[ENTER] WEITER", 96, 1, c565(255, 255, 255));
+  if (((int)(gameTime * 2)) % 2) centerText(L("[ENTER] CONTINUE", "[ENTER] WEITER"), 96, 1, c565(255, 255, 255));
 }
 
 // ---------------------------------------------------------------- Marktdaten laden
@@ -1925,7 +1937,7 @@ static void fetchProgress(int idx, bool ok) {
   d.setTextSize(1); d.setTextDatum(top_left);
   d.setTextColor(ok ? c565(80, 255, 130) : c565(255, 120, 80), c565(0, 0, 0));
   char b[40];
-  snprintf(b, sizeof(b), "%-4s %s", markets[idx].label, ok ? "OK" : "FEHLER - SIMULIERT");
+  snprintf(b, sizeof(b), "%-4s %s", markets[idx].label, ok ? "OK" : L("ERROR - SIMULATED", "FEHLER - SIMULIERT"));
   d.drawString(b, 40, 52 + idx * 12);
 }
 
@@ -1936,7 +1948,7 @@ static void fetchMarketsNow() {
   auto& d = M5Cardputer.Display;
   d.fillScreen(c565(0, 0, 0));
   d.setTextDatum(top_center); d.setTextSize(1); d.setTextColor(c565(255, 210, 50));
-  d.drawString("MARKTDATEN WERDEN GELADEN...", SW / 2, 30);
+  d.drawString(L("LOADING MARKET DATA...", "MARKTDATEN WERDEN GELADEN..."), SW / 2, 30);
   marketsFetch(fetchProgress);
   delay(300);
   allocCanvas();
@@ -1949,9 +1961,9 @@ static char passBuf[65]; static int passLen; static bool passShow;
 
 static void renderWifiList() {
   canvas.fillScreen(c565(6, 10, 20));
-  centerText("WLAN WAEHLEN", 4, 1, c565(255, 210, 50));
+  centerText(L("CHOOSE WIFI", "WLAN WAEHLEN"), 4, 1, c565(255, 210, 50));
   canvas.setTextSize(1); canvas.setTextDatum(top_left);
-  if (!wifiCount) { centerText("KEINE NETZE GEFUNDEN", 50, 1, c565(255, 120, 80)); }
+  if (!wifiCount) { centerText(L("NO NETWORKS FOUND", "KEINE NETZE GEFUNDEN"), 50, 1, c565(255, 120, 80)); }
   int first = max(0, min(wifiSel - 4, wifiCount - 9));
   for (int i = first; i < min(wifiCount, first + 9); i++) {
     int y = 18 + (i - first) * 11;
@@ -1961,12 +1973,12 @@ static void renderWifiList() {
     canvas.drawString(b, 8, y);
   }
   canvas.setTextColor(c565(140, 150, 180));
-  canvas.drawString(";/. WAEHLEN  ENTER OK  ` ZURUECK  F VERGESSEN", 4, 125);
+  canvas.drawString(L(";/. SELECT  ENTER OK  ` BACK  F FORGET", ";/. WAEHLEN  ENTER OK  ` ZURUECK  F VERGESSEN"), 4, 125);
 }
 
 static void renderWifiPass() {
   canvas.fillScreen(c565(6, 10, 20));
-  centerText("PASSWORT FUER", 10, 1, c565(255, 210, 50));
+  centerText(L("PASSWORD FOR", "PASSWORT FUER"), 10, 1, c565(255, 210, 50));
   centerText(wifiNames[wifiSel], 22, 1, c565(120, 220, 255));
   canvas.drawRect(10, 44, SW - 20, 16, c565(80, 90, 120));
   char shown[66];
@@ -1977,14 +1989,14 @@ static void renderWifiPass() {
   canvas.drawString(vis, 14, 48);
   if (((int)(gameTime * 3)) % 2) canvas.fillRect(14 + strlen(vis) * 6, 47, 5, 9, c565(80, 255, 130));
   canvas.setTextColor(c565(140, 150, 180));
-  canvas.drawString("ENTER VERBINDEN   DEL LOESCHEN", 14, 76);
-  canvas.drawString("TAB ANZEIGEN/VERBERGEN   ` ZURUECK", 14, 88);
-  canvas.drawString("(DAS PASSWORT WIRD NICHT GESTREAMT)", 14, 106);
+  canvas.drawString(L("ENTER CONNECT   DEL DELETE", "ENTER VERBINDEN   DEL LOESCHEN"), 14, 76);
+  canvas.drawString(L("TAB SHOW/HIDE   ` BACK", "TAB ANZEIGEN/VERBERGEN   ` ZURUECK"), 14, 88);
+  canvas.drawString(L("(THE PASSWORD IS NOT STREAMED)", "(DAS PASSWORT WIRD NICHT GESTREAMT)"), 14, 106);
 }
 
 static void startWifiScan() {
   canvas.fillScreen(c565(0, 0, 0));
-  centerText("SUCHE WLAN-NETZE...", 60, 1, c565(255, 210, 50));
+  centerText(L("SEARCHING WIFI NETWORKS...", "SUCHE WLAN-NETZE..."), 60, 1, c565(255, 210, 50));
   canvas.pushSprite(0, 0);
   wifiCount = netScan(wifiNames, wifiRssi, wifiSec, 12);
   wifiSel = 0;
@@ -1993,7 +2005,7 @@ static void startWifiScan() {
 
 static void tryWifiConnect() {
   canvas.fillScreen(c565(0, 0, 0));
-  centerText("VERBINDE MIT", 50, 1, c565(255, 210, 50));
+  centerText(L("CONNECTING TO", "VERBINDE MIT"), 50, 1, c565(255, 210, 50));
   centerText(wifiNames[wifiSel], 62, 1, c565(120, 220, 255));
   canvas.pushSprite(0, 0);
   passBuf[passLen] = 0;
@@ -2002,7 +2014,7 @@ static void tryWifiConnect() {
   if (ok) { fetchMarketsNow(); buildTicker(); state = ST_TITLE; sfxPlay(SFX_ID_KACHING); }
   else {
     canvas.fillScreen(c565(0, 0, 0));
-    centerText("VERBINDUNG FEHLGESCHLAGEN", 55, 1, c565(255, 80, 80));
+    centerText(L("CONNECTION FAILED", "VERBINDUNG FEHLGESCHLAGEN"), 55, 1, c565(255, 80, 80));
     canvas.pushSprite(0, 0);
     sfxPlay(SFX_ID_DECLINED);
     delay(1500);
@@ -2021,6 +2033,8 @@ void setup() {
   M5Cardputer.Display.setBrightness(160);
   audioInit();
   rngState ^= esp_random() | 1;
+  { Preferences lp; if (lp.begin("mcgame", true)) { langDe = lp.getBool("de", false); lp.end(); } }
+  applyLang();
   marketsSimulate();
   netInit();
   allocCanvas();
@@ -2047,7 +2061,7 @@ void loop() {
   auto hit = [&](char c) { if (!fresh) return false; for (char w : ks.word) if (w == c || w == toupper(c)) return true; return false; };
   bool enterHit = fresh && ks.enter;
 
-  if (state != ST_WIFI_PASS && state != ST_WIFI_LIST && hit('m')) { musicToggle(); say(musicEnabled() ? "MUSIK AN" : "MUSIK AUS", 1.0f); }
+  if (state != ST_WIFI_PASS && state != ST_WIFI_LIST && hit('m')) { musicToggle(); say(musicEnabled() ? L("MUSIC ON", "MUSIK AN") : L("MUSIC OFF", "MUSIK AUS"), 1.0f); }
 
   switch (state) {
     case ST_TITLE:
@@ -2056,9 +2070,13 @@ void loop() {
       renderTitle();
       if (enterHit || hit('x')) {   // X = Hardcore
         hardcore = !enterHit; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
-        if (hardcore) say("HARDCORE: EIN TOD UND ES IST VORBEI", 3.0f);
+        if (hardcore) say(L("HARDCORE: ONE DEATH AND IT'S OVER", "HARDCORE: EIN TOD UND ES IST VORBEI"), 3.0f);
       }
       else if (hit('w')) startWifiScan();
+      else if (hit('l')) {   // Sprache umschalten und merken
+        langDe = !langDe; applyLang(); buildTicker(); sfxPlay(SFX_ID_HIT);
+        Preferences lp; if (lp.begin("mcgame", false)) { lp.putBool("de", langDe); lp.end(); }
+      }
       break;
     case ST_PLAY:
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
@@ -2076,14 +2094,14 @@ void loop() {
       break;
     case ST_PAUSE:
       canvas.fillRect(30, 36, 180, 40, c565(0, 0, 0));
-      centerText("HANDEL AUSGESETZT", 42, 1, c565(255, 210, 50));
-      centerText("[P] WEITER", 54, 1, c565(220, 220, 230));
+      centerText(L("TRADING HALTED", "HANDEL AUSGESETZT"), 42, 1, c565(255, 210, 50));
+      centerText(L("[P] RESUME", "[P] WEITER"), 54, 1, c565(220, 220, 230));
       if (netConnected()) { char b[40]; snprintf(b, sizeof(b), "STREAM: http://%s", netIP()); centerText(b, 65, 1, c565(120, 220, 255)); }
       if (hit('p')) { state = ST_PLAY; musicSetPaused(false); }
       break;
     case ST_LEVELDONE:
       gameTime += dt;
-      renderEndScreen("CLOSING BELL!", "LEVEL GESCHAFFT - KURS STEIGT", c565(80, 255, 130), true);
+      renderEndScreen("CLOSING BELL!", L("LEVEL CLEARED - PRICE RISING", "LEVEL GESCHAFFT - KURS STEIGT"), c565(80, 255, 130), true);
       if (enterHit) {
         level++;
         if (marketsAgeMs() > 120000) fetchMarketsNow();
@@ -2093,23 +2111,23 @@ void loop() {
     case ST_DEAD:
       gameTime += dt;
       if (hardcore) {   // Hardcore: Insolvenz ist endgueltig
-        renderEndScreen("GAME OVER", "HARDCORE: DER LAUF IST VORBEI", c565(255, 60, 60), false);
+        renderEndScreen("GAME OVER", L("HARDCORE: THE RUN IS OVER", "HARDCORE: DER LAUF IST VORBEI"), c565(255, 60, 60), false);
         if (enterHit) { state = ST_TITLE; musicStart(); }
       } else {
-        renderEndScreen("INSOLVENZ", "DEIN DEPOT IST AUF NULL", c565(255, 60, 60), false);
+        renderEndScreen(L("BANKRUPT", "INSOLVENZ"), L("YOUR PORTFOLIO HIT ZERO", "DEIN DEPOT IST AUF NULL"), c565(255, 60, 60), false);
         if (enterHit) { hp = 100; ammo = max(ammo, 30); pnl = pnl / 2; loadLevel(level); state = ST_PLAY; fireCd = 0.4f; }
       }
       break;
     case ST_WIN:
       gameTime += dt;
       if (islandDone) {   // Auswertung der Steueroase
-        char sub[48]; snprintf(sub, sizeof(sub), "%s %d/%d", isleAll ? "ALLES GOLD!" : "GOLD", isleCoins, ISLE_COINS);
-        renderEndScreen("STEUEROASE", isleResult, c565(255, 210, 50), true);
+        char sub[48]; snprintf(sub, sizeof(sub), "%s %d/%d", isleAll ? L("ALL THE GOLD!", "ALLES GOLD!") : "GOLD", isleCoins, ISLE_COINS);
+        renderEndScreen(L("TAX HAVEN", "STEUEROASE"), isleResult, c565(255, 210, 50), true);
         centerText(sub, 88, 1, c565(255, 210, 50));
         if (enterHit) { state = ST_TITLE; musicStart(); }
       } else {
-        char sub[48]; snprintf(sub, sizeof(sub), "BULLENMARKT-BONUS +$%ld%s", winBonus, deaths ? "" : " (OHNE TOD)");
-        renderEndScreen("BULLENMARKT!", sub, c565(255, 210, 50), true);
+        char sub[48]; snprintf(sub, sizeof(sub), "%s +$%ld%s", L("BULL MARKET BONUS", "BULLENMARKT-BONUS"), winBonus, deaths ? "" : L(" (NO DEATHS)", " (OHNE TOD)"));
+        renderEndScreen(L("BULL MARKET!", "BULLENMARKT!"), sub, c565(255, 210, 50), true);
         if (enterHit) { creditsT = 0; state = ST_CREDITS; }   // weiter: Abspann, dann Steueroase
       }
       break;

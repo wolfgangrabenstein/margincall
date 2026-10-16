@@ -1,5 +1,14 @@
 # MARGIN CALL – Changelog
 
+## Version 3.15.0 – English by default, German optional (16.10.2026)
+
+- **Das Spiel ist jetzt standardmäßig englisch.** Das gilt für Menüs, HUD, Meldungen, Gegner- und Levelnamen, Abspann, Ranglisten und Multiplayer. Zahlen erscheinen im englischen Format (z. B. 52,178 und +1.08 %).
+- **Deutsch bleibt wählbar:**
+  - PC/Desktop: unter *Options → Language*
+  - Cardputer: mit **L** im Titelbild
+  - Die Wahl wird gespeichert.
+- Kleinere Verbesserungen.
+
 ## Version 3.14.0 (16.10.2026)
 
 - Kleinere Verbesserungen.

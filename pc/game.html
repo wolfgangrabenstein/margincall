@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -54,7 +54,10 @@
 // Live-Kurse kommen vom lokalen Spiel-Server (MarginCall.exe) unter /api/market.
 // =====================================================================================
 
-const APP_VERSION = "3.14.0";
+// Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
+const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
+const LOC = () => L("en-US", "de-DE");
+const APP_VERSION = "3.15.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -83,7 +86,7 @@ const markets = [
   { label: "DOW", name: "Dow Jones", p: 0, prev: 0, chg: 0, s: [], live: false },
   { label: "S&P", name: "S&P 500", p: 0, prev: 0, chg: 0, s: [], live: false },
   { label: "NDX", name: "Nasdaq-100", p: 0, prev: 0, chg: 0, s: [], live: false },
-  { label: "OEL", name: "Rohöl WTI", p: 0, prev: 0, chg: 0, s: [], live: false },
+  { get label() { return L("OIL", "OEL"); }, get name() { return L("Crude Oil WTI", "Rohöl WTI"); }, p: 0, prev: 0, chg: 0, s: [], live: false },
 ];
 const M_DOW = 0, M_SPX = 1, M_NDX = 2, M_OIL = 3;
 // Einzelwerte je Index – nur fuer den Ticker, auf das Spiel wirken allein die Leitindizes
@@ -91,7 +94,8 @@ const STOCKS = [["GS", 0], ["CAT", 0], ["HD", 0], ["JPM", 0], ["BA", 0], ["KO", 
   ["AAPL", 1], ["AMZN", 1], ["GOOGL", 1], ["META", 1], ["LLY", 1], ["BRK-B", 1],
   ["NVDA", 2], ["MSFT", 2], ["AVGO", 2], ["TSLA", 2], ["NFLX", 2], ["AMD", 2], ["XOM", 3], ["CVX", 3]]
   .map(([sym, m]) => ({ sym, label: sym.replace("-", "."), m, p: 0, chg: 0, live: false }));
-let marketStatus = "SIMULIERT", marketTime = 0;
+let marketStatus = "sim", marketTime = 0;
+const mStat = () => marketStatus === "LIVE" ? "LIVE" : marketStatus === "nosrv" ? L("SIMULATED (no server)", "SIMULIERT (kein Server)") : L("SIMULATED", "SIMULIERT");
 
 function marketsSimulate() {
   const base = [51000, 7700, 30000, 90];
@@ -109,7 +113,7 @@ function marketsSimulate() {
 async function marketsFetch() {
   if (settings.liveData !== true) {   // Datenschutz: ohne Zustimmung keine Anfrage an Yahoo Finance
     markets.forEach(m => m.live = false); STOCKS.forEach(s => s.live = false);
-    marketStatus = "SIMULIERT"; marketsSimulate(); buildTicker(); return;
+    marketStatus = "sim"; marketsSimulate(); buildTicker(); return;
   }
   try {
     const r = await fetch("/api/market", { cache: "no-store" });
@@ -126,7 +130,7 @@ async function marketsFetch() {
       if (x && x.prev) Object.assign(s, { p: x.p, chg: (x.p - x.prev) / x.prev * 100, live: true });
     }
     if (live) { marketStatus = "LIVE"; marketTime = d.time * 1000; }
-  } catch (e) { if (marketStatus !== "LIVE") marketStatus = "SIMULIERT (kein Server)"; }
+  } catch (e) { if (marketStatus !== "LIVE") marketStatus = "nosrv"; }
   marketsSimulate();
   if (state === ST.PLAY) applyMarket(false);
   buildTicker();
@@ -499,7 +503,8 @@ const LEVELS = [
    "R..t...II..II..II..R","R..................R","RRRR.RRRR..RRRR.RRRR","R....R........R....R","R.A..R..t..A..R..u.R",
    "R....R........R....R","R..+.....$.........R","R.....RR....RR..t..R","R..c..RR....RR.....R","RRRRRRRRRXRRRRRRRRRR"],
 ];
-const LEVEL_NAMES = ["DOW JONES: SCHALTERHALLE", "S&P 500: HANDELSPARKETT", "NASDAQ-100: HEDGEFONDS-TRESOR", "ÖL: RAFFINERIE", "ALGO-9000: RECHENZENTRUM"];
+const LEVEL_NAMES_I18N = [["DOW JONES: BANKING HALL", "DOW JONES: SCHALTERHALLE"], ["S&P 500: TRADING FLOOR", "S&P 500: HANDELSPARKETT"], ["NASDAQ-100: HEDGE FUND VAULT", "NASDAQ-100: HEDGEFONDS-TRESOR"], ["OIL: REFINERY", "ÖL: RAFFINERIE"], ["ALGO-9000: DATA CENTER", "ALGO-9000: RECHENZENTRUM"]];
+const levelName = i => L(...LEVEL_NAMES_I18N[i]);
 const LEVEL_MARKET = [M_DOW, M_SPX, M_NDX, M_OIL, M_NDX];
 const TEXOF = { "T": T.TICKER, "R": T.SERVER, "G": T.GOLD, "X": T.VAULT, "C": T.CHART, "O": T.PIPES, "B": T.BARRELS, "I": T.AICORE };
 let world = [];
@@ -509,13 +514,13 @@ const solidCell = (x, y) => x < 0 || y < 0 || x >= MAP || y >= MAP || world[y][x
 const E = { BEAR: 0, SELLER: 1, BUBBLE: 2, SHARK: 3, BULL: 4, BARON: 5, SLICK: 6, BOT: 7, ALGO: 8 };
 const F = { BULL: 0, BEAR: 1, NEUTRAL: 2, AI: 3 };
 const TYPES = [
-  { f: F.BEAR, hp: 6, scale: 1.0, spr: S.BEAR0, pts: 120, boss: false, name: "BÄR" },
+  { f: F.BEAR, hp: 6, scale: 1.0, spr: S.BEAR0, pts: 120, boss: false, get name() { return L("BEAR", "BÄR"); } },
   { f: F.BEAR, hp: 3, scale: 1.0, spr: S.SELL0, pts: 150, boss: false, name: "SHORT SELLER" },
-  { f: F.BULL, hp: 1, scale: .75, spr: S.BUB0, pts: 60, boss: false, name: "KRYPTO-BLASE" },
-  { f: F.NEUTRAL, hp: 40, scale: 1.3, spr: S.SHARK0, pts: 1500, boss: true, name: "HEDGEFONDS-HAI" },
-  { f: F.BULL, hp: 6, scale: 1.05, spr: S.BULL0, pts: 120, boss: false, name: "BULLE" },
-  { f: F.NEUTRAL, hp: 6, scale: 1.0, spr: S.BARON0, pts: 200, boss: false, name: "ÖLBARON" },
-  { f: F.NEUTRAL, hp: 4, scale: .85, spr: S.SLICK0, pts: 80, boss: false, name: "ÖLSCHLICK" },
+  { f: F.BULL, hp: 1, scale: .75, spr: S.BUB0, pts: 60, boss: false, get name() { return L("CRYPTO BUBBLE", "KRYPTO-BLASE"); } },
+  { f: F.NEUTRAL, hp: 40, scale: 1.3, spr: S.SHARK0, pts: 1500, boss: true, get name() { return L("HEDGE FUND SHARK", "HEDGEFONDS-HAI"); } },
+  { f: F.BULL, hp: 6, scale: 1.05, spr: S.BULL0, pts: 120, boss: false, get name() { return L("BULL", "BULLE"); } },
+  { f: F.NEUTRAL, hp: 6, scale: 1.0, spr: S.BARON0, pts: 200, boss: false, get name() { return L("OIL BARON", "ÖLBARON"); } },
+  { f: F.NEUTRAL, hp: 4, scale: .85, spr: S.SLICK0, pts: 80, boss: false, get name() { return L("OIL SLICK", "ÖLSCHLICK"); } },
   { f: F.AI, hp: 3, scale: .7, spr: S.BOT0, pts: 100, boss: false, name: "TRADING-BOT" },
   { f: F.AI, hp: 80, scale: 1.5, spr: S.ALGO0, pts: 5000, boss: true, name: "ALGO-9000" },
 ];
@@ -538,8 +543,10 @@ const zbuf = new Float32Array(RW);
 
 // ---------------------------------------------------------------- Spieler & Multiplayer
 // mode: "solo" | "coop" | "team" | "dm".  Im Multiplayer rechnet nur der Host das Spiel.
-const MODES = [["coop", "KOOP"], ["team", "TEAM BULLE VS. TEAM BÄR"], ["dm", "DEATHMATCH"]];
-const PNAMES = ["GRÜN", "BLAU", "ORANGE", "PINK"];
+const MODES = [["coop", "CO-OP", "KOOP"], ["team", "TEAM BULL VS. TEAM BEAR", "TEAM BULLE VS. TEAM BÄR"], ["dm", "DEATHMATCH", "DEATHMATCH"]];
+const modeName = i => L(MODES[i][1], MODES[i][2]);
+const PNAMES_I18N = [["GREEN", "GRÜN"], ["BLUE", "BLAU"], ["ORANGE", "ORANGE"], ["PINK", "PINK"]];
+const pName = i => L(...PNAMES_I18N[i]);
 const ROUND_TIME = 240, ROUND_TARGET = 3000, ROUND_BREAK = 5;   // Rundenpause in Sekunden
 function nextRound() { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; }
 let mode = "solo";
@@ -552,22 +559,22 @@ let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [],
 let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePrev = 0, lastSent = 0, clientSeq = -1;
 
 function makePlayer(id, local) {
-  const def = id ? `TRADER ${PNAMES[(id - 1) % 4]}` : "DU";
+  const def = id ? `TRADER ${pName((id - 1) % 4)}` : L("YOU", "DU");
   return { id, name: local && id && settings.nickname ? settings.nickname : def, local, team: (id + 1) % 2, avatar: local ? settings.avatar : "m", isPlayer: true,
     x: 0, y: 0, dirX: 1, dirY: 0, hp: 100, ammo: 30, score: 0, kills: 0, deaths: 0, dead: false, respawnT: 0, slowT: 0, flash: 0 };
 }
-const TEAM_COLOR_NAME = ["GRÜN", "ROT"];
+const teamColorName = t => t === 0 ? L("GREEN", "GRÜN") : L("RED", "ROT");
 // list: Eintraege [id, team] aller Spieler, damit Teamkollegen eine Nummer bekommen
 function shownName(name, id, team, teamMode, list) {
-  if (!teamMode || !/^TRADER (GRÜN|BLAU|ORANGE|PINK)$/.test(name)) return name;
+  if (!teamMode || !/^TRADER (GRÜN|BLAU|ORANGE|PINK|GREEN|BLUE)$/.test(name)) return name;
   const mates = list.filter(([, t]) => t === team).map(([i]) => i).sort((a, b) => a - b);
-  return `TRADER ${TEAM_COLOR_NAME[team]}${mates.length > 1 ? " " + (mates.indexOf(id) + 1) : ""}`;
+  return `TRADER ${teamColorName(team)}${mates.length > 1 ? " " + (mates.indexOf(id) + 1) : ""}`;
 }
 const nameOf = pl => shownName(pl.name, pl.id, pl.team, mode === "team", players.map(p => [p.id, p.team]));
 const playerColor = pl => mode === "team" ? (pl.team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(Math.max(1, pl.id) - 1) % 4];
 const teamFaction = pl => pl.team === 0 ? F.BULL : F.BEAR;
 const playerSprite = pl => (pl.avatar === "f" ? S.AVF0 : S.AVM0) + (mode === "team" ? 4 + pl.team : (Math.max(1, pl.id) - 1) % 4);
-const AVATAR_NAME = { m: "MÄNNLICH", f: "WEIBLICH" };
+const avatarName = a => a === "f" ? L("FEMALE", "WEIBLICH") : a === "m" ? L("MALE", "MÄNNLICH") : "";
 const sprCanvasCache = {};
 function spriteCanvas(idx) {   // Sprite als kleines Canvas (fuer Vorschau in der Lobby)
   if (!sprCanvasCache[idx]) {
@@ -602,13 +609,15 @@ function applyEvent(ev) {   // beim Mitspieler
     case "msg": if (ev[1] === 0 || ev[1] === net.id) say(ev[2], ev[3]); break;
     case "hurt": if (ev[1] === net.id) hurtT = .35; break;
     case "pick": if (ev[1] === net.id) pickT = .25; break;
+    case "clip": if (ev[1] === net.id) me.noclip = !!ev[2]; break;
+    case "psy": if (ev[1] === net.id) me.psy = !!ev[2]; break;
     case "tp": if (ev[1] === net.id) { px = ev[2]; py = ev[3]; dirX = ev[4]; dirY = ev[5]; planeX = -dirY * PLANE; planeY = dirX * PLANE; } break;
     case "music": if (ev[1]) musicStart(); else musicStop(); break;
   }
 }
 
-function fmtPrice(p) { return p < 1000 ? p.toFixed(2).replace(".", ",") : Math.round(p).toLocaleString("de-DE"); }
-function fmtChg(c) { return (c >= 0 ? "+" : "") + c.toFixed(2).replace(".", ",") + " %"; }
+function fmtPrice(p) { return p < 1000 ? p.toFixed(2).replace(".", L(".", ",")) : Math.round(p).toLocaleString(LOC()); }
+function fmtChg(c) { return (c >= 0 ? "+" : "") + c.toFixed(2).replace(".", L(".", ",")) + " %"; }
 function buildTicker() {
   // Segmente [Text, Farbe]: Index gelb (bzw. magenta bei Manipulation), danach seine Einzelwerte gruen/rot
   tickerSegs = [];
@@ -642,7 +651,7 @@ function marketEffect() {   // Spielkurs = echter Kurs + Manipulation
 }
 function manipulate(chg, t, msg) {
   manipChg = chg; manipT = t; dumpAt = 0; marketEffect();
-  sayAll(`${msg}  KURS ${fmtChg(chg)}`, 2.5);
+  sayAll(`${msg}  ${L("PRICE", "KURS")} ${fmtChg(chg)}`, 2.5);
 }
 // Wand-Charts und Ticker nachzeichnen, wenn sich die Manipulation spuerbar aendert
 function marketVisuals() {
@@ -752,12 +761,12 @@ function loadLevel(lv) {
   hist = []; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
-  sayAll(`LEVEL ${lv + 1}: ${LEVEL_NAMES[lv]}`, 3);
+  sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
   sfxAll("BELL"); musicStart(); emit(["music", 1]);
 }
 function newGame() {
   island = islandDone = false; cheated = false;
-  players.forEach(p => p.god = false);
+  players.forEach(p => { p.god = false; p.noclip = false; p.psy = false; });
   players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.deaths = 0; });
   loadLevel(0);
 }
@@ -786,7 +795,7 @@ function damagePlayer(pl, d, why, attacker = null) {
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
   pl.hp = 0;
-  if (island) { endIsland("VON DEN BÄREN ERWISCHT – DEIN GOLD BLEIBT DIR", false); return; }
+  if (island) { endIsland(L("CAUGHT BY THE BEARS – YOU KEEP YOUR GOLD", "VON DEN BÄREN ERWISCHT – DEIN GOLD BLEIBT DIR"), false); return; }
   if (HC()) {   // Hardcore: Insolvenz ist endgueltig, der Lauf endet
     pl.deaths++; deathPenalty = 0;
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
@@ -799,8 +808,8 @@ function damagePlayer(pl, d, why, attacker = null) {
   sfxTo(pl, "CRASH");
   if (attacker && attacker.isPlayer) {
     attacker.frags = (attacker.frags || 0) + 1; addScore(attacker, 500);
-    sayAll(`${attacker.name} LIQUIDIERT ${pl.name}`, 2);
-  } else sayTo(pl, "INSOLVENZ! NEUSTART GLEICH …", 3);
+    sayAll(`${attacker.name} ${L("LIQUIDATED", "LIQUIDIERT")} ${pl.name}`, 2);
+  } else sayTo(pl, L("BANKRUPT! RESTARTING SOON …", "INSOLVENZ! NEUSTART GLEICH …"), 3);
   if (mode === "coop") pl.score = Math.floor(pl.score * .9);
 }
 function respawnPlayer(pl) {
@@ -808,7 +817,7 @@ function respawnPlayer(pl) {
   const s = mode === "coop" ? startSpots()[0] : (findHiddenCell(4) || startSpots()[0]);
   const a = frand() * 6.283;
   placePlayer(pl, s[0], s[1], mode === "coop" ? startDir[0] : Math.cos(a), mode === "coop" ? startDir[1] : Math.sin(a));
-  sfxTo(pl, "KACHING"); sayTo(pl, "NEUER KREDIT – WEITER GEHT'S", 1.5);
+  sfxTo(pl, "KACHING"); sayTo(pl, L("NEW LOAN – BACK IN THE GAME", "NEUER KREDIT – WEITER GEHT'S"), 1.5);
 }
 function spawnProj(x, y, ang, spd, dmg, f, spr) {
   if (projs.length > 60) return;
@@ -823,12 +832,12 @@ function killEnemy(e, byPlayer) {
   if (e.type === E.BUBBLE || e.type === E.BOT) e.gone = true;
   if (byPlayer) {
     byPlayer.kills++; addScore(byPlayer, ti.pts);
-    const m = { [E.BEAR]: "BÄR ERLEGT!", [E.BULL]: "BULLE ERLEGT!", [E.SELLER]: "SHORT SELLER LIQUIDIERT", [E.BUBBLE]: "BLASE GEPLATZT",
-      [E.SHARK]: "HEDGEFONDS ZERSCHLAGEN! ZUM TRESOR!", [E.ALGO]: "ALGO-9000 ABGESCHALTET! ZUM TRESOR!" }[e.type];
-    if (ti.boss) sayAll(m, 3); else sayTo(byPlayer, m || `${ti.name} ERLEDIGT`);
+    const m = { [E.BEAR]: L("BEAR DOWN!", "BÄR ERLEGT!"), [E.BULL]: L("BULL DOWN!", "BULLE ERLEGT!"), [E.SELLER]: L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT"), [E.BUBBLE]: L("BUBBLE BURST", "BLASE GEPLATZT"),
+      [E.SHARK]: L("HEDGE FUND SMASHED! TO THE VAULT!", "HEDGEFONDS ZERSCHLAGEN! ZUM TRESOR!"), [E.ALGO]: L("ALGO-9000 SHUT DOWN! TO THE VAULT!", "ALGO-9000 ABGESCHALTET! ZUM TRESOR!") }[e.type];
+    if (ti.boss) sayAll(m, 3); else sayTo(byPlayer, m || `${ti.name} ${L("DOWN", "ERLEDIGT")}`);
   } else {
     marketKills++;
-    if (dist2P(e.x, e.y) < 64) say(e.f === F.BEAR ? "BULLEN TRAMPELN BÄREN NIEDER" : "BÄREN ZERFLEISCHEN BULLEN", 1.5);
+    if (dist2P(e.x, e.y) < 64) say(e.f === F.BEAR ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BÄREN NIEDER") : L("BEARS MAUL THE BULLS", "BÄREN ZERFLEISCHEN BULLEN"), 1.5);
   }
   sfxNear(e.type === E.BUBBLE ? "POP" : e.type === E.SLICK ? "OIL" : "STAMP", e.x, e.y, 10);
   const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : .38) : .22;
@@ -845,20 +854,21 @@ function aiEvent(forced = -1) {
   const ev = forced >= 0 ? forced : rnd() % 6;
   aiFaceT = 2.2; glitchT = Math.max(glitchT, .6); sfxAll("GLITCH");
   switch (ev) {
-    case 0: fakeT = 10; spawnNear(frand() < .5 ? E.BULL : E.BEAR, 2); manipulate((frand() < .5 ? -1 : 1) * (2 + frand() * 2), 20, "ALGO-9000: FAKE NEWS GESTREUT!"); break;
+    case 0: fakeT = 10; spawnNear(frand() < .5 ? E.BULL : E.BEAR, 2); manipulate((frand() < .5 ? -1 : 1) * (2 + frand() * 2), 20, L("ALGO-9000: FAKE NEWS SPREAD!", "ALGO-9000: FAKE NEWS GESTREUT!")); break;
     case 1: crashT = 8; manipulate(-5, 15, "ALGO-9000: FLASH CRASH!"); break;
-    case 2: spawnNear(E.BOT, 2 + rnd() % 2); manipulate(-1.5 - frand(), 20, "ALGO-9000: TRADING-BOTS AKTIV"); break;
+    case 2: spawnNear(E.BOT, 2 + rnd() % 2); manipulate(-1.5 - frand(), 20, L("ALGO-9000: TRADING BOTS ACTIVE", "ALGO-9000: TRADING-BOTS AKTIV")); break;
     case 3: spawnNear(E.BUBBLE, 3); manipulate(4, 24, "ALGO-9000: PUMP & DUMP!"); dumpAt = 12; break;
-    case 4: glitchT = 4; invertT = 3; manipulate((frand() < .5 ? -1 : 1) * 4, 15, "ALGO-9000: SYSTEM MANIPULIERT!"); break;
+    case 4: glitchT = 4; invertT = 3; manipulate((frand() < .5 ? -1 : 1) * 4, 15, L("ALGO-9000: SYSTEM MANIPULATED!", "ALGO-9000: SYSTEM MANIPULIERT!")); break;
     default:
       enemies.forEach(e => { if (e.alive && (e.type === E.BULL || e.type === E.BEAR)) { e.str *= 1.2; e.awake = true; } });
-      spawnNear(E.BULL, 1); spawnNear(E.BEAR, 1); manipulate(realChg < 0 ? -3 : 3, 20, "ALGO-9000: BULLEN & BÄREN AUFGEHETZT");
+      spawnNear(E.BULL, 1); spawnNear(E.BEAR, 1); manipulate(realChg < 0 ? -3 : 3, 20, L("ALGO-9000: BULLS & BEARS ENRAGED", "ALGO-9000: BULLEN & BÄREN AUFGEHETZT"));
   }
   buildTicker();
 }
 
 // lokale Bewegung (Kollision; der Tresor wird zentral in checkExit geprueft)
 function tryMove(mx, my) {
+  if (me.noclip) { px = clamp(px + mx, .3, MAP - .3); py = clamp(py + my, .3, MAP - .3); return; }
   const o = { x: px, y: py }; moveEntity(o, mx, my, .22); px = o.x; py = o.y;
 }
 const touchesVault = pl => [[.32, 0], [-.32, 0], [0, .32], [0, -.32]].some(([dx, dy]) => (world[Math.floor(pl.y + dy)] || [])[Math.floor(pl.x + dx)] === "X");
@@ -866,7 +876,7 @@ function checkExit() {
   if (mode === "team" || mode === "dm") return;
   const pl = players.find(p => !p.dead && touchesVault(p));
   if (!pl) return;
-  if (enemies.some(e => e.alive && TYPES[e.type].boss)) { if (msgT <= 0) { sayTo(pl, "TRESOR GESPERRT – BOSS LEBT NOCH!", 1.5); sfxTo(pl, "DECLINED"); } return; }
+  if (enemies.some(e => e.alive && TYPES[e.type].boss)) { if (msgT <= 0) { sayTo(pl, L("VAULT LOCKED – THE BOSS IS STILL ALIVE!", "TRESOR GESPERRT – BOSS LEBT NOCH!"), 1.5); sfxTo(pl, "DECLINED"); } return; }
   state = level >= NUM_LEVELS - 1 ? ST.WIN : ST.LEVELDONE;
   players.forEach(p => addScore(p, 500 + p.hp * 5));
   if (state === ST.WIN) players.forEach(p => {   // Bullenmarkt-Bonus fuers Durchspielen
@@ -895,7 +905,7 @@ function castRay(ox, oy, dx, dy) {
 const canHitPlayer = (shooter, pl) => pl !== shooter && !pl.dead && (mode === "dm" || (mode === "team" && pl.team !== shooter.team));
 function doShot(pl, ox, oy, dx, dy) {   // nur auf dem Host
   if (pl.dead) return;
-  if (pl.ammo <= 0) { sayTo(pl, "KEINE LIQUIDITÄT! CASH SAMMELN", 1.2); sfxTo(pl, "DECLINED"); return; }
+  if (pl.ammo <= 0) { sayTo(pl, L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! CASH SAMMELN"), 1.2); sfxTo(pl, "DECLINED"); return; }
   pl.ammo--;
   if (!pl.local) sfxAt("SHOT", ox, oy, 9, pl.id);
   const wall = castRay(ox, oy, dx, dy);
@@ -912,12 +922,12 @@ function doShot(pl, ox, oy, dx, dy) {   // nur auf dem Host
   }
   for (const o of players) if (canHitPlayer(pl, o)) test(o, .3);
   if (!best) return;
-  if (best.isPlayer) { damagePlayer(best, 12 * teamDmgMul(pl), "TREFFER!", pl); sfxTo(pl, "HIT"); }
+  if (best.isPlayer) { damagePlayer(best, 12 * teamDmgMul(pl), L("HIT!", "TREFFER!"), pl); sfxTo(pl, "HIT"); }
   else hurtEnemy(best, Math.round(2 * teamDmgMul(pl)), pl);
 }
 function shoot() {
   if (fireCd > 0 || me.dead) return;
-  if (me.ammo <= 0) { fireCd = .4; if (!isClient()) doShot(me, px, py, dirX, dirY); else { say("KEINE LIQUIDITÄT! CASH SAMMELN", 1.2); sfx("DECLINED"); } return; }
+  if (me.ammo <= 0) { fireCd = .4; if (!isClient()) doShot(me, px, py, dirX, dirY); else { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! CASH SAMMELN"), 1.2); sfx("DECLINED"); } return; }
   fireCd = .28; flashT = .12; sfx("SHOT");
   if (isClient()) { me.ammo--; netSend({ t: "shot", x: +px.toFixed(3), y: +py.toFixed(3), dx: +dirX.toFixed(4), dy: +dirY.toFixed(4) }); }
   else doShot(me, px, py, dirX, dirY);
@@ -971,7 +981,7 @@ function updateEnemy(e, dt) {
     switch (e.type) {
       case E.SHARK:
         if (d > 3 || !los) moveEntity(e, nx * 1.2 * dt, ny * 1.2 * dt, .35);
-        if (d < .9 && e.cd <= 0) { e.cd = 1; damagePlayer(t, 20, "FEINDLICHE ÜBERNAHME!"); }
+        if (d < .9 && e.cd <= 0) { e.cd = 1; damagePlayer(t, 20, L("HOSTILE TAKEOVER!", "FEINDLICHE ÜBERNAHME!")); }
         if (los && e.cd <= 0) { e.cd = 1.3; e.attackAnim = .4; for (let k = -1; k <= 1; k++) spawnProj(fo[0], fo[1], fo[2] + k * .18, 4, 10, F.NEUTRAL, S.PROJ); sfxNear("ZAP", e.x, e.y, 12); }
         return;
       case E.BARON:
@@ -980,7 +990,7 @@ function updateEnemy(e, dt) {
         return;
       case E.SLICK:
         if (d > .7) moveEntity(e, nx * .9 * dt * spd, ny * .9 * dt * spd, .25);
-        else if (e.cd <= 0) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, "ÖLPEST! DU KLEBST FEST"); }
+        else if (e.cd <= 0) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
         return;
       case E.BOT: {
         const w = Math.sin(e.anim * 3) * .6;
@@ -998,7 +1008,7 @@ function updateEnemy(e, dt) {
     }
     return;
   }
-  const hitMsg = e.f === F.BULL ? "BULLE RAMMT DICH! KURSSPRUNG" : "BÄRENTATZE! KURSVERLUST";
+  const hitMsg = e.f === F.BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : L("BEAR CLAW! PRICE DROP", "BÄRENTATZE! KURSVERLUST");
   switch (e.type) {
     case E.BEAR:
       e.roarCd -= dt;
@@ -1034,7 +1044,7 @@ function updateEnemy(e, dt) {
       moveEntity(e, (nx - ny * w) * 2.2 * dt * spd, (ny + nx * w) * 2.2 * dt * spd, .25);
       if (d < .65) {
         e.alive = false; e.gone = true; sfxNear("POP", e.x, e.y, 10);
-        if (t.isPlayer) damagePlayer(t, 20, "KRYPTO-CRASH! −20 %"); else hurtEnemy(t, 4, null);
+        if (t.isPlayer) damagePlayer(t, 20, L("CRYPTO CRASH! −20 %", "KRYPTO-CRASH! −20 %")); else hurtEnemy(t, 4, null);
       }
       break;
     }
@@ -1045,7 +1055,7 @@ function updateEnemy(e, dt) {
 function netSend(obj) { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(obj)); }
 function netNotice(text) { netMsg = text; netMsgT = 4; }
 function netConnect() {
-  if (location.protocol === "file:") { netNotice("MULTIPLAYER NUR IN DER MARGIN CALL APP"); return; }
+  if (location.protocol === "file:") { netNotice(L("MULTIPLAYER ONLY IN THE MARGIN CALL APP", "MULTIPLAYER NUR IN DER MARGIN CALL APP")); return; }
   netDisconnect();
   const ws = new WebSocket(`ws://${location.host}/ws`);
   net.ws = ws;
@@ -1053,9 +1063,9 @@ function netConnect() {
   ws.onclose = () => {
     if (net.ws !== ws) return;
     net.ws = null; net.connected = false;
-    if (isMP() || state === ST.LOBBY) { leaveMP(); netNotice("VERBINDUNG ZUM SPIEL BEENDET"); }
+    if (isMP() || state === ST.LOBBY) { leaveMP(); netNotice(L("CONNECTION TO THE GAME LOST", "VERBINDUNG ZUM SPIEL BEENDET")); }
   };
-  ws.onerror = () => netNotice("KEINE VERBINDUNG ZUM SPIEL-SERVER");
+  ws.onerror = () => netNotice(L("NO CONNECTION TO THE GAME SERVER", "KEINE VERBINDUNG ZUM SPIEL-SERVER"));
 }
 function netDisconnect() { if (net.ws) { const ws = net.ws; net.ws = null; ws.close(); } net.connected = false; }
 function leaveMP() {
@@ -1073,7 +1083,7 @@ function syncPlayersWithPeers(ids) {
 }
 function netReceive(m) {
   switch (m.t) {
-    case "full": netNotice("SPIEL IST VOLL (MAX. 4 SPIELER)"); netDisconnect(); state = ST.TITLE; return;
+    case "full": netNotice(L("GAME IS FULL (MAX. 4 PLAYERS)", "SPIEL IST VOLL (MAX. 4 SPIELER)")); netDisconnect(); state = ST.TITLE; return;
     case "welcome":
       net.id = m.id; net.hostId = m.host; net.connected = true;
       players = [me = makePlayer(m.id, true)];
@@ -1082,7 +1092,7 @@ function netReceive(m) {
     case "peers": {
       const hostLeft = net.hostId && m.host !== net.hostId;
       net.hostId = m.host;
-      if (hostLeft && (state !== ST.LOBBY)) { leaveMP(); netNotice("DER HOST HAT DAS SPIEL VERLASSEN"); return; }
+      if (hostLeft && (state !== ST.LOBBY)) { leaveMP(); netNotice(L("THE HOST LEFT THE GAME", "DER HOST HAT DAS SPIEL VERLASSEN")); return; }
       if (isHost() || state === ST.LOBBY) syncPlayersWithPeers(m.ids);
       return;
     }
@@ -1166,15 +1176,15 @@ function clientSnapshot(m) {
 // ---------------------------------------------------------------- Eingabe & Tastenbelegung
 // Jede Aktion hat zwei Belegungen; eine Belegung ist eine Taste oder eine Maustaste ("Mouse0/1/2").
 const ACTIONS = [
-  ["fwd", "Vorwärts"], ["back", "Rückwärts"], ["turnL", "Links drehen"], ["turnR", "Rechts drehen"],
-  ["strafeL", "Seitwärts links"], ["strafeR", "Seitwärts rechts"], ["fire", "Feuern"], ["pause", "Pause"], ["music", "Musik an/aus"],
-  ["chat", "Chat (Multiplayer)"], ["scores", "Statistik (halten)"],
+  ["fwd", "Forward", "Vorwärts"], ["back", "Backward", "Rückwärts"], ["turnL", "Turn left", "Links drehen"], ["turnR", "Turn right", "Rechts drehen"],
+  ["strafeL", "Strafe left", "Seitwärts links"], ["strafeR", "Strafe right", "Seitwärts rechts"], ["fire", "Fire", "Feuern"], ["pause", "Pause", "Pause"], ["music", "Music on/off", "Musik an/aus"],
+  ["chat", "Chat (multiplayer)", "Chat (Multiplayer)"], ["scores", "Stats (hold)", "Statistik (halten)"],
 ];
 const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
     strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], scores: ["Tab", null] },
-  mouseLook: true, sens: 5, invert: false, avatar: "m",
+  mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en",
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
 let settings = structuredClone(DEFAULTS);
@@ -1203,23 +1213,26 @@ function backToTitle() {   // Esc im Spiel: immer erst ins Hauptmenue, ganz been
 function quitGame() {
   if (IN_APP) { location.href = "http://margincall.quit/"; return; }
   if (typeof netDisconnect === "function") netDisconnect();
-  netNotice("DU KANNST DIESEN TAB JETZT SCHLIESSEN"); state = ST.TITLE; musicStop();
+  netNotice(L("YOU CAN CLOSE THIS TAB NOW", "DU KANNST DIESEN TAB JETZT SCHLIESSEN")); state = ST.TITLE; musicStop();
 }
 // Hardcore (nur Solo): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – und ein Tod beendet den Lauf
 let hardcore = false;
 const HC = () => hardcore && !isMP();
 let cheated = false, cheatChg = 0, hsNote = "";
 const hx = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
-const CX = { 1819600217: ["g"], 512686240: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
-  2877856819: ["l", 1], 3746044036: ["l", 1], 2894634438: ["l", 2], 3796376893: ["l", 2], 2911412057: ["l", 3], 3779599274: ["l", 3],
-  2928189676: ["l", 4], 3695711179: ["l", 4], 2944967295: ["l", 5], 3678933560: ["l", 5], 2961744914: ["l", 6], 3729266417: ["l", 6] };
+const CX = { 2420334519: ["p"], 4213436061: ["g"], 2774362824: ["f"], 2824693482: ["c"], 1222718734: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
+  934299367: ["l", 1], 951076986: ["l", 2], 967854605: ["l", 3], 850411272: ["l", 4], 867188891: ["l", 5], 883966510: ["l", 6] };
 function cx(pl, txt) {
-  const c = CX[hx(String(txt).slice(1).trim().toLowerCase())];
+  const c = CX[hx(String(txt).slice(1).replace(/\s+/g, "").toLowerCase())];
   if (!c || state !== ST.PLAY || (mode !== "solo" && mode !== "coop")) return;
   cheated = true;
   switch (c[0]) {
-    case "g": pl.god = !pl.god; sayTo(pl, pl.god ? "UNVERWUNDBAR" : "WIEDER VERWUNDBAR", 1.5); break;
-    case "k": cheatChg = c[1] - realChg; marketEffect(); sayAll(`KURS ${fmtChg(levelChg)}`, 2); break;
+    case "g": pl.god = !pl.god; sayTo(pl, pl.god ? L("INVULNERABLE", "UNVERWUNDBAR") : L("VULNERABLE AGAIN", "WIEDER VERWUNDBAR"), 1.5); break;
+    case "f": pl.ammo = 99; pl.hp = 100; sayTo(pl, L("FULL CASH & PORTFOLIO", "VOLLES CASH & DEPOT"), 1.5); break;
+    case "c": pl.noclip = !pl.noclip; if (pl.local) me.noclip = pl.noclip; else emit(["clip", pl.id, pl.noclip ? 1 : 0]);
+      sayTo(pl, pl.noclip ? L("WALKING THROUGH WALLS", "DURCH WÄNDE GEHEN") : L("WALLS ARE SOLID AGAIN", "WÄNDE WIEDER FEST"), 1.5); break;
+    case "p": pl.psy = !pl.psy; if (pl.local) me.psy = pl.psy; else emit(["psy", pl.id, pl.psy ? 1 : 0]); break;
+    case "k": cheatChg = c[1] - realChg; marketEffect(); sayAll(`${L("PRICE", "KURS")} ${fmtChg(levelChg)}`, 2); break;
     case "a": if (!island) aiEvent(); break;
     case "l":
       if (c[1] === 6) { if (!isMP()) startIsland(); break; }
@@ -1255,7 +1268,7 @@ function chatKey(k) {
 function setFullscreen(on) {
   fsOn = on; settings.fullscreen = on; saveSettings();
   if (IN_APP) { location.href = `http://margincall.fullscreen-${on ? "on" : "off"}/`; return; }
-  if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { fsOn = false; netNotice("VOLLBILD NICHT MÖGLICH"); });
+  if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { fsOn = false; netNotice(L("FULLSCREEN NOT AVAILABLE", "VOLLBILD NICHT MÖGLICH")); });
   if (!on && document.fullscreenElement) document.exitFullscreen?.();
 }
 document.addEventListener("fullscreenchange", () => { if (!IN_APP) fsOn = !!document.fullscreenElement; });
@@ -1280,27 +1293,30 @@ const isBound = (a, k) => settings.binds[a].includes(k);
 const keyName = e => e.code === "Space" ? " " : e.code === "Enter" || e.code === "NumpadEnter" ? "enter" : e.key.length === 1 ? e.key.toLowerCase() : e.key;
 function bindLabel(k) {
   if (!k) return "–";
-  const special = { " ": "LEERTASTE", enter: "ENTER", Escape: "ESC", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
-    Mouse0: "MAUS LINKS", Mouse1: "MAUS MITTE", Mouse2: "MAUS RECHTS", Mouse3: "MAUS 4", Mouse4: "MAUS 5", Shift: "SHIFT",
-    Control: "STRG", Alt: "ALT", Tab: "TAB", Backspace: "RÜCKTASTE", Delete: "ENTF", CapsLock: "FESTSTELL" };
+  const special = { " ": L("SPACE", "LEERTASTE"), enter: "ENTER", Escape: "ESC", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+    Mouse0: L("MOUSE LEFT", "MAUS LINKS"), Mouse1: L("MOUSE MIDDLE", "MAUS MITTE"), Mouse2: L("MOUSE RIGHT", "MAUS RECHTS"), Mouse3: L("MOUSE 4", "MAUS 4"), Mouse4: L("MOUSE 5", "MAUS 5"), Shift: "SHIFT",
+    Control: L("CTRL", "STRG"), Alt: "ALT", Tab: "TAB", Backspace: L("BACKSPACE", "RÜCKTASTE"), Delete: L("DEL", "ENTF"), CapsLock: L("CAPS LOCK", "FESTSTELL") };
   return special[k] || k.toUpperCase();
 }
 const bindText = a => settings.binds[a].filter(Boolean).map(bindLabel).join("/") || "–";
 function updateHint() {
   document.getElementById("hint").textContent =
-    `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ` +
-    `${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-    `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · Esc in der Pause = Hauptmenü`;
+    L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindText("pause")} pause · ` +
+      `${bindText("music")} music · double-tap a direction = dodge · H highscores · O options · T chat (multiplayer) · Tab stats · F4 fullscreen · Esc in pause = main menu`,
+    `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
+      `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · Esc in der Pause = Hauptmenü`);
 }
 
 // Optionsmenue
-const OPT_ROWS = [...ACTIONS.map(([id, name]) => ({ kind: "bind", id, name })),
-  { kind: "mouseLook", name: "Maussteuerung" }, { kind: "sens", name: "Mausempfindlichkeit" }, { kind: "invert", name: "Maus invertieren" },
-  { kind: "fullscreen", name: "Vollbild (F4)" }, { kind: "music", name: "Musik" }, { kind: "live", name: "Live-Kurse (Yahoo Finance)" },
-  ...(ONLINE_HS_URL ? [{ kind: "online", name: "Online-Rangliste (Name + Punkte)" }] : []),
-  { kind: "reset", name: "Standard wiederherstellen" }, { kind: "back", name: "Zurück" }];
+const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { return L(en, de); } });
+const OPT_ROWS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id })),
+  optRow("mouseLook", "Mouse look", "Maussteuerung"), optRow("sens", "Mouse sensitivity", "Mausempfindlichkeit"), optRow("invert", "Invert mouse", "Maus invertieren"),
+  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("music", "Music", "Musik"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
+  ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
+  optRow("lang", "Language", "Sprache"),
+  optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "Back", "Zurück")];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 90, OPT_DY = 20;
+const OPT_Y0 = 88, OPT_DY = 19;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1319,9 +1335,10 @@ function optActivate() {
     case "fullscreen": setFullscreen(!fsOn); break;
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "online": settings.onlineScores = settings.onlineScores !== true; saveSettings(); break;
+    case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
-    case "reset": settings = structuredClone(DEFAULTS); saveSettings(); optMsg = "Standardbelegung wiederhergestellt"; optMsgT = 2; sfx("KACHING"); break;
+    case "reset": settings = { ...structuredClone(DEFAULTS), lang: settings.lang }; saveSettings(); optMsg = L("Defaults restored", "Standardbelegung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
     case "back": closeOptions(); break;
   }
 }
@@ -1358,8 +1375,8 @@ function optClick(x, y) {
 }
 function renderOptions() {
   g.fillStyle = "#060a14"; g.fillRect(0, 0, DW, DH);
-  text("OPTIONEN", DW / 2, 18, "#ffd232", 40, "center");
-  text("AKTION", 60, 74, "#6b7896", 14); text("BELEGUNG 1", 530, 74, "#6b7896", 14); text("BELEGUNG 2", 750, 74, "#6b7896", 14);
+  text(L("OPTIONS", "OPTIONEN"), DW / 2, 18, "#ffd232", 40, "center");
+  text(L("ACTION", "AKTION"), 60, 74, "#6b7896", 14); text(L("KEY 1", "BELEGUNG 1"), 530, 74, "#6b7896", 14); text(L("KEY 2", "BELEGUNG 2"), 750, 74, "#6b7896", 14);
   OPT_ROWS.forEach((row, i) => {
     const y = OPT_Y0 + i * OPT_DY, sel = i === optSel;
     if (sel) { g.fillStyle = "#123a24"; g.fillRect(40, y - 4, DW - 80, OPT_DY - 2); }
@@ -1368,17 +1385,19 @@ function renderOptions() {
       for (let c = 0; c < 2; c++) {
         const x = 530 + c * 220, active = sel && optCol === c;
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
-        text(active && optWaiting ? "TASTE DRÜCKEN…" : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
+        text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
     } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "music" || row.kind === "fullscreen") {
       const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? settings.onlineScores === true : row.kind === "music" ? musicOn : row.kind === "fullscreen" ? fsOn : settings.invert;
-      text(on ? "AN" : "AUS", 530, y, on ? "#50ff82" : "#ff7050", 17);
+      text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
+    } else if (row.kind === "lang") {
+      text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
     } else if (row.kind === "sens") {
       for (let k = 1; k <= 10; k++) { g.fillStyle = k <= settings.sens ? "#28c86e" : "#1e2846"; g.fillRect(520 + (k - 1) * 40, y + 1, 32, 14); }
     }
   });
-  const help = optWaiting ? "Neue Taste oder Maustaste drücken · ESC bricht ab"
-    : "↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · ESC zurück";
+  const help = optWaiting ? L("Press a new key or mouse button · ESC cancels", "Neue Taste oder Maustaste drücken · ESC bricht ab")
+    : L("↑↓ select · ←→ column/value · ENTER/click change · DEL clear · ESC back", "↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · ESC zurück");
   text(help, DW / 2, DH - 32, "#8290b0", 15, "center");
   if (optMsgT > 0) text(optMsg, DW / 2, DH - 56, "#50ff82", 16, "center");
 }
@@ -1449,7 +1468,7 @@ function onKeyPress(k) {
     else if (isBound("pause", k)) { mpMenu = false; lockMouse(); }
     return;
   }
-  if (isBound("music", k)) { musicToggle(); say(musicOn ? "MUSIK AN" : "MUSIK AUS", 1); return; }
+  if (isBound("music", k)) { musicToggle(); say(musicOn ? L("MUSIC ON", "MUSIK AN") : L("MUSIC OFF", "MUSIK AUS"), 1); return; }
   switch (state) {
     case ST.PRIVACY:
       if (k === "enter" || k === "j") { settings.liveData = true; saveSettings(); state = ST.TITLE; marketsFetch(); }
@@ -1462,7 +1481,7 @@ function onKeyPress(k) {
       else if (k === "n") { if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter" || k === "x") {   // X = Hardcore
         hardcore = k === "x"; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
-        state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say("HARDCORE: EINE INSOLVENZ UND ES IST VORBEI", 3);
+        state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
       }
       break;
     case ST.LOBBY:
@@ -1482,7 +1501,7 @@ function onKeyPress(k) {
       }
       if (isHost() && net.connected) {
         if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? 2 : 1)) % 3; sfx("HIT"); hostSendLobby(); }
-        if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = "NOCH NICHT ALLE MITSPIELER SIND BEREIT"; lobbyNoteT = 2.5; sfx("DECLINED"); } }
+        if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = L("NOT ALL PLAYERS ARE READY YET", "NOCH NICHT ALLE MITSPIELER SIND BEREIT"); lobbyNoteT = 2.5; sfx("DECLINED"); } }
       }
       break;
     case ST.PLAY:
@@ -1557,7 +1576,7 @@ function updateGame(dt) {
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || (Math.floor(gameTime * 4) % 2)) buildTicker(); }
   if (manipT > 0) {
     manipT -= dt;
-    if (dumpAt && manipT <= dumpAt && !isClient()) { dumpAt = 0; manipChg = -manipChg; sayAll(`ALGO-9000: DUMP!  KURS ${fmtChg(manipChg)}`, 2.5); sfxAll("GLITCH"); aiFaceT = 2.2; glitchT = Math.max(glitchT, .6); }
+    if (dumpAt && manipT <= dumpAt && !isClient()) { dumpAt = 0; manipChg = -manipChg; sayAll(`ALGO-9000: DUMP!  ${L("PRICE", "KURS")} ${fmtChg(manipChg)}`, 2.5); sfxAll("GLITCH"); aiFaceT = 2.2; glitchT = Math.max(glitchT, .6); }
     marketEffect();
   }
 
@@ -1616,7 +1635,7 @@ function updateGame(dt) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
       if (it.type === 0) { if (pl.ammo >= 99) continue; const n = HC() ? 7 : 10; pl.ammo = Math.min(99, pl.ammo + n); sayTo(pl, `CASHFLOW +${n}`, 1.2); }
-      else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `DIVIDENDE AUSGESCHÜTTET +${n} %`, 1.2); }
+      else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `${L("DIVIDEND PAID", "DIVIDENDE AUSGESCHÜTTET")} +${n} %`, 1.2); }
       it.active = false; addScore(pl, 25);
       if (pl.local) pickT = .25; else emit(["pick", pl.id]);
       sfxTo(pl, it.type === 0 ? "KACHING" : "COINS");
@@ -1672,7 +1691,7 @@ function updateGame(dt) {
       if (pl.dead || (pl.x - p.x) ** 2 + (pl.y - p.y) ** 2 >= .12) continue;
       if (mode === "team" && (p.f === F.BULL || p.f === F.BEAR) && p.f === teamFaction(pl)) continue;
       p.active = false;
-      damagePlayer(pl, p.dmg, p.spr === S.LASER ? "ALGO-ORDER AUSGEFÜHRT!" : p.spr === S.PROJ_OIL ? "ÖLFASS! ENERGIEKRISE" : "MARGIN CALL!");
+      damagePlayer(pl, p.dmg, p.spr === S.LASER ? L("ALGO ORDER EXECUTED!", "ALGO-ORDER AUSGEFÜHRT!") : p.spr === S.PROJ_OIL ? L("OIL BARREL! ENERGY CRISIS", "ÖLFASS! ENERGIEKRISE") : "MARGIN CALL!");
       if (p.spr === S.PROJ_OIL) pl.slowT = 2;
       break;
     }
@@ -1812,6 +1831,21 @@ function renderFlicker() {   // ALGO-9000 schlaegt zu: Licht flackert in den ers
   if (aiFaceT < 1.5 || Math.floor(aiFaceT * 14) % 3) return;
   for (let i = 0; i < fb.length; i++) fb[i] = ((fb[i] >> 1) & 0x7F7F7F7F) | 0xFF000000;
 }
+const psyPal = new Uint32Array(256), psyRow = new Uint32Array(RW);
+for (let i = 0; i < 256; i++) { const a = i / 256 * 6.283; psyPal[i] = RGB(128 + 127 * Math.sin(a), 128 + 127 * Math.sin(a + 2.094), 128 + 127 * Math.sin(a + 4.189)); }
+function renderPsy() {
+  if (!me.psy) return;
+  const t = gameTime;
+  for (let y = 0; y < VH; y++) {
+    const off = Math.round(Math.sin(y * .09 + t * 3) * 6 + Math.sin(y * .23 - t * 5) * 2), o = y * RW;
+    for (let x = 0; x < RW; x++) psyRow[x] = fb[o + clamp(x + off, 0, RW - 1)];
+    for (let x = 0; x < RW; x++) {
+      const c = psyRow[x], r = c & 255, gr = (c >> 8) & 255, b = (c >> 16) & 255, l = (r + gr + b) / 3;
+      const q = psyPal[(l * 1.5 + x * .8 + y * 1.3 + t * 140) & 255], k = (.35 + l / 255 * .9) * .65;
+      fb[o + x] = RGB(r * .35 + (q & 255) * k, gr * .35 + ((q >> 8) & 255) * k, b * .35 + ((q >> 16) & 255) * k);
+    }
+  }
+}
 function renderWeapon() {
   const k = 1.35, cx = RW / 2, bob = Math.abs(Math.sin(bobT)) * 5, B = VH + bob, by = VH - 46 + bob + (flashT > 0 ? 4 : 0);
   const tri = (pts, col) => { lg.fillStyle = col; lg.beginPath(); lg.moveTo(pts[0], pts[1]); lg.lineTo(pts[2], pts[3]); lg.lineTo(pts[4], pts[5]); lg.fill(); };
@@ -1933,7 +1967,7 @@ function startIsland() {
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
   for (let k = 0; k < 3; k++) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]).awake = true; }
   state = ST.PLAY; fireCd = .4; musicStart(); lockMouse();
-  say(`STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`, 3);
+  say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
 }
 function updateIsland(dt) {
   isleT -= dt;
@@ -1949,12 +1983,12 @@ function updateIsland(dt) {
     isleSpawnT = HC() ? 6 : 9;
     if (bearsAlive < (HC() ? 7 : 5)) { const c = isleFreeCell(8); if (c) spawnEnemy(E.BEAR, c[0], c[1]); }
   }
-  if (isleCoins >= ISLE_COINS) endIsland("ALLE MÜNZEN – STEUERFREIES VERMÖGEN!", true);
-  else if (isleT <= 0) endIsland("ZEIT UM – DIE STEUERFAHNDUNG IST DA", false);
+  if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
+  else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);
 }
 function islandCoin(pl) {
   isleCoins++; addScore(pl, ISLE_COIN_PTS);
-  sayTo(pl, `GOLD ${isleCoins}/${ISLE_COINS}  ·  STEUERFREI +$${ISLE_COIN_PTS}`, 1.2);
+  sayTo(pl, `GOLD ${isleCoins}/${ISLE_COINS}  ·  ${L("TAX-FREE", "STEUERFREI")} +$${ISLE_COIN_PTS}`, 1.2);
   if (pl.local) pickT = .25;
   sfxTo(pl, "COINS");
 }
@@ -2083,23 +2117,23 @@ function renderIsland() {
 
 // ---- Abspann nach dem Endboss (kurz, mit ENTER ueberspringbar)
 const CREDITS_LEN = 18;
-const CREDIT_LINES = [
-  ["MARGIN CALL", 46, "#ffd232"], ["", 10], ["Ein Börsen-Shooter von", 18, "#a0a0b4"], ["WOLFGANG RABENSTEIN", 30, "#ffffff"], ["", 18],
-  ["Idee, Design & Entwicklung", 16, "#8290b0"], ["Wolfgang Rabenstein", 20, "#e6e6f0"], ["", 8],
-  ["Code-Assistenz", 16, "#8290b0"], ["Claude (Anthropic)", 20, "#e6e6f0"], ["", 8],
-  ["Live-Kurse", 16, "#8290b0"], ["Yahoo Finance", 20, "#e6e6f0"], ["", 8],
-  ["Technik", 16, "#8290b0"], ["Tauri · Rust · Cloudflare · M5Stack Cardputer", 20, "#e6e6f0"], ["", 18],
-  ["Kein Bulle und kein Bär wurde ernsthaft verletzt.", 16, "#a0a0b4"], ["Keine Anlageberatung.", 16, "#a0a0b4"], ["", 26],
-  ["Der Markt ist frei.", 22, "#50ff82"], ["Doch wohin mit dem ganzen Geld …?", 22, "#50ff82"], ["", 14],
-  ["AB IN DIE STEUEROASE!", 34, "#ffd232"],
+const creditLines = () => [
+  ["MARGIN CALL", 46, "#ffd232"], ["", 10], [L("A stock market shooter by", "Ein Börsen-Shooter von"), 18, "#a0a0b4"], ["WOLFGANG RABENSTEIN", 30, "#ffffff"], ["", 18],
+  [L("Idea, design & development", "Idee, Design & Entwicklung"), 16, "#8290b0"], ["Wolfgang Rabenstein", 20, "#e6e6f0"], ["", 8],
+  [L("Coding assistant", "Code-Assistenz"), 16, "#8290b0"], ["Claude (Anthropic)", 20, "#e6e6f0"], ["", 8],
+  [L("Live quotes", "Live-Kurse"), 16, "#8290b0"], ["Yahoo Finance", 20, "#e6e6f0"], ["", 8],
+  [L("Tech", "Technik"), 16, "#8290b0"], ["Tauri · Rust · Cloudflare · M5Stack Cardputer", 20, "#e6e6f0"], ["", 18],
+  [L("No bulls or bears were seriously harmed.", "Kein Bulle und kein Bär wurde ernsthaft verletzt."), 16, "#a0a0b4"], [L("Not investment advice.", "Keine Anlageberatung."), 16, "#a0a0b4"], ["", 26],
+  [L("The market is free.", "Der Markt ist frei."), 22, "#50ff82"], [L("But where to put all that money …?", "Doch wohin mit dem ganzen Geld …?"), 22, "#50ff82"], ["", 14],
+  [L("OFF TO THE TAX HAVEN!", "AB IN DIE STEUEROASE!"), 34, "#ffd232"],
 ];
 function renderCredits() {
   chartBackground("#145a2d", "#282828");
   g.fillStyle = "rgba(0,0,0,.82)"; g.fillRect(0, 0, DW, DH);
-  const total = CREDIT_LINES.reduce((s, l) => s + l[1] + 12, 0), t = Math.min(1, creditsT / (CREDITS_LEN - 2));
+  const CREDIT_LINES = creditLines(), total = CREDIT_LINES.reduce((s, l) => s + l[1] + 12, 0), t = Math.min(1, creditsT / (CREDITS_LEN - 2));
   let y = DH - t * (DH / 2 + total - 40);   // laeuft von unten nach oben, die letzte Zeile bleibt in der Mitte stehen
   for (const [s, size, col] of CREDIT_LINES) { if (s && y > -60 && y < DH) text(s, DW / 2, y, col, size, "center"); y += size + 12; }
-  zoneButton(DW - 250, DH - 50, 230, 34, "[ENTER] ÜBERSPRINGEN", "#8290b0", "enter", 14);
+  zoneButton(DW - 250, DH - 50, 230, 34, L("[ENTER] SKIP", "[ENTER] ÜBERSPRINGEN"), "#8290b0", "enter", 14);
 }
 
 // ---------------------------------------------------------------- HUD & Screens (hochaufgeloest)
@@ -2133,9 +2167,9 @@ function renderHUD() {
   renderNameTags();
   g.fillStyle = "#080c1a"; g.fillRect(0, HUD_Y, DW, DH - HUD_Y);
   g.fillStyle = isMP() ? rgbCss(playerColor(me)) : "#28c86e"; g.fillRect(0, HUD_Y, DW, 2);
-  text("DEPOT", 14, HUD_Y + 10, "#8290b0", 15);
+  text(L("PORTFOLIO", "DEPOT"), 14, HUD_Y + 10, "#8290b0", 15);
   // 0 % gibt es nicht: wer bei 0 ist, ist pleite (bis zum Neustart im Multiplayer)
-  if (me.dead || me.hp <= 0) text("PLEITE", 14, HUD_Y + 36, "#ff3c3c", 30);
+  if (me.dead || me.hp <= 0) text(L("BROKE", "PLEITE"), 14, HUD_Y + 36, "#ff3c3c", 30);
   else text(`${Math.max(1, Math.ceil(me.hp))} %`, 14, HUD_Y + 32, me.hp > 60 ? "#3ce664" : me.hp > 30 ? "#ffc828" : "#ff3c3c", 38);
   const gx = 170, gy = HUD_Y + 12, gw = 210, gh = 64;
   g.strokeStyle = "#1e2846"; g.lineWidth = 2; g.strokeRect(gx, gy, gw, gh);
@@ -2145,37 +2179,37 @@ function renderHUD() {
   }
   text("CASH", 410, HUD_Y + 10, "#8290b0", 15);
   text(String(me.ammo), 410, HUD_Y + 32, me.ammo > 5 ? "#78e68c" : "#ff5050", 38);
-  text(`P&L +$${me.score.toLocaleString("de-DE")}${!isMP() && me.deaths ? `  ·  ☠ ${me.deaths}` : ""}`, 560, HUD_Y + 10, "#50ff82", 17);
+  text(`P&L +$${me.score.toLocaleString(LOC())}${!isMP() && me.deaths ? `  ·  ☠ ${me.deaths}` : ""}`, 560, HUD_Y + 10, "#50ff82", 17);
   if (settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && !me.dead)
-    text("KLICK INS BILD FÜR MAUSSTEUERUNG", DW / 2, HUD_Y - 30, "rgba(255,255,255,.75)", 15, "center");
+    text(L("CLICK THE VIEW FOR MOUSE LOOK", "KLICK INS BILD FÜR MAUSSTEUERUNG"), DW / 2, HUD_Y - 30, "rgba(255,255,255,.75)", 15, "center");
   if (mode === "team" || mode === "dm") {
     text(`⏱ ${fmtTime(roundT)}`, DW - 14, HUD_Y + 10, roundT < 30 ? "#ff5050" : "#dcdce6", 17, "right");
     if (mode === "team") {
       const bx = 560, bw = 380, tot = teamScore[0] + teamScore[1], gw2 = tot ? bw * teamScore[0] / tot : bw / 2;
       g.fillStyle = "#1ec850"; g.fillRect(bx, HUD_Y + 36, gw2, 14);
       g.fillStyle = "#dc2828"; g.fillRect(bx + gw2, HUD_Y + 36, bw - gw2, 14);
-      text(`BULLEN ${teamScore[0]}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`BÄREN ${teamScore[1]}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
-      text(`DU: TEAM ${me.team === 0 ? "BULLE" : "BÄR"} · ZIEL ${ROUND_TARGET} · ${(me.team === 0) === (levelChg >= 0) ? "MARKT-BONUS +25 % SCHADEN" : "KEIN MARKT-BONUS"}`, 560, HUD_Y + 60, "#a0a0b4", 14);
+      text(`${L("BULLS", "BULLEN")} ${teamScore[0]}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`${L("BEARS", "BÄREN")} ${teamScore[1]}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
+      text(L(`YOU: TEAM ${me.team === 0 ? "BULL" : "BEAR"} · GOAL ${ROUND_TARGET} · ${(me.team === 0) === (levelChg >= 0) ? "MARKET BONUS +25 % DAMAGE" : "NO MARKET BONUS"}`, `DU: TEAM ${me.team === 0 ? "BULLE" : "BÄR"} · ZIEL ${ROUND_TARGET} · ${(me.team === 0) === (levelChg >= 0) ? "MARKT-BONUS +25 % SCHADEN" : "KEIN MARKT-BONUS"}`), 560, HUD_Y + 60, "#a0a0b4", 14);
     } else {
       const rank = [...players].sort((a, b) => b.score - a.score);
-      text(`FRAGS ${me.frags || 0}   ·   TODE ${me.deaths || 0}   ·   KILLS ${me.kills}`, 560, HUD_Y + 36, "#ffd232", 16);
+      text(`FRAGS ${me.frags || 0}   ·   ${L("DEATHS", "TODE")} ${me.deaths || 0}   ·   KILLS ${me.kills}`, 560, HUD_Y + 36, "#ffd232", 16);
       rank.slice(0, 4).forEach((p, i) => text(`${i + 1}.${p.name.replace("TRADER ", "").slice(0, 6)} ${p.frags || 0}/${p.deaths || 0}`, 560 + i * 96, HUD_Y + 62, rgbCss(playerColor(p)), 12));
     }
   } else if (island) {
     const bx = 560, bw = 380;
     g.fillStyle = "#3a3010"; g.fillRect(bx, HUD_Y + 36, bw, 14);
     g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / ISLE_COINS, 14);
-    text(`GOLD ${isleCoins}/${ISLE_COINS}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`BÄREN ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
-    text(`☀ STEUEROASE  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ALLE MÜNZEN = +$${ISLE_ALL_BONUS.toLocaleString("de-DE")}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
+    text(`GOLD ${isleCoins}/${ISLE_COINS}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`${L("BEARS", "BÄREN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
+    text(`☀ ${L("TAX HAVEN", "STEUEROASE")}  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ${L("ALL COINS", "ALLE MÜNZEN")} = +$${ISLE_ALL_BONUS.toLocaleString(LOC())}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
   } else {
     const bx = 560, bw = 380, tot = bullsAlive + bearsAlive, gw2 = tot ? bw * bullsAlive / tot : bw / 2;
     g.fillStyle = "#1ec850"; g.fillRect(bx, HUD_Y + 36, gw2, 14);
     g.fillStyle = "#dc2828"; g.fillRect(bx + gw2, HUD_Y + 36, bw - gw2, 14);
-    text(`BULLEN ${bullsAlive}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`BÄREN ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
+    text(`${L("BULLS", "BULLEN")} ${bullsAlive}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`${L("BEARS", "BÄREN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
     const m = levelMarket();
     const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
-    if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
-    else text(`${ml} ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}  ·  ${marketStatus}${mode === "coop" ? `  ·  KOOP ${players.length} SPIELER` : ""}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
+    if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
+    else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   if (pickT > 0) { g.strokeStyle = "rgba(60,255,120,.9)"; g.lineWidth = 6; g.strokeRect(3, 3, DW - 6, HUD_Y - 6); }
@@ -2201,12 +2235,12 @@ function renderHUD() {
     const shown = chatText.length > 58 ? "…" + chatText.slice(-57) : chatText;
     text("CHAT:", 134, 79, "#50c8ff", 15);
     text(shown + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), 190, 78, "#ffffff", 17);
-    text("ENTER senden · ESC abbrechen", DW - 134, 112, "#8290b0", 12, "right");
+    text(L("ENTER send · ESC cancel", "ENTER senden · ESC abbrechen"), DW - 134, 112, "#8290b0", 12, "right");
   }
   if (me.dead) {
     g.fillStyle = "rgba(60,0,0,.55)"; g.fillRect(0, 26, DW, HUD_Y - 26);
-    text("INSOLVENZ", DW / 2, 170, "#ff3c3c", 54, "center");
-    text(`NEUER KREDIT IN ${Math.max(0, Math.ceil(me.respawnT))} s`, DW / 2, 240, "#dcdce6", 22, "center");
+    text(L("BANKRUPT", "INSOLVENZ"), DW / 2, 170, "#ff3c3c", 54, "center");
+    text(`${L("NEW LOAN IN", "NEUER KREDIT IN")} ${Math.max(0, Math.ceil(me.respawnT))} s`, DW / 2, 240, "#dcdce6", 22, "center");
   }
 }
 function chartBackground(up, down) {
@@ -2245,7 +2279,7 @@ function renderTitle() {
   chartBackground("#145a2d", "#641919");
   g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 22, DW, 100);
   text("MARGIN CALL", DW / 2, 30, "#ffd232", 72, "center");
-  text("BULLEN VS. BÄREN VS. DU VS. KI", DW / 2, 104, "#50ff82", 15, "center");
+  text(L("BULLS VS. BEARS VS. YOU VS. AI", "BULLEN VS. BÄREN VS. DU VS. KI"), DW / 2, 104, "#50ff82", 15, "center");
   g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(120, 140, DW - 240, 300);
   markets.forEach((m, i) => {
     const y = 158 + i * 36;
@@ -2254,22 +2288,22 @@ function renderTitle() {
     text(fmtChg(m.chg), 680, y, m.chg >= 0 ? "#50ff82" : "#ff5050", 22, "right");
     text(m.live ? "LIVE" : "SIM", 800, y + 3, m.live ? "#ff3c3c" : "#7878a0", 16, "right");
   });
-  const when = marketTime ? new Date(marketTime).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–";
-  text(`Kursstand: ${when}  ·  ${marketStatus}`, DW / 2, 312, "#8290b0", 15, "center");
-  text(`${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · 2× Richtung = Ausweichen`, DW / 2, 345, "#a0a0b4", 15, "center");
+  const when = marketTime ? new Date(marketTime).toLocaleString(LOC(), { dateStyle: "short", timeStyle: "short" }) : "–";
+  text(`${L("Quotes as of", "Kursstand")}: ${when}  ·  ${mStat()}`, DW / 2, 312, "#8290b0", 15, "center");
+  text(L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · double-tap = dodge`, `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · 2× Richtung = Ausweichen`), DW / 2, 345, "#a0a0b4", 15, "center");
   // Hauptknopf: Einzelspieler starten (pulsiert leicht)
   const pulse = .5 + .5 * Math.sin(gameTime * 4);
   g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(170, 378, 360, 56);
-  zoneButton(170, 378, 360, 56, "▶  [ENTER] SOLO SPIELEN", "#ffd232", "enter", 24);
+  zoneButton(170, 378, 360, 56, L("▶  [ENTER] PLAY SOLO", "▶  [ENTER] SOLO SPIELEN"), "#ffd232", "enter", 24);
   zoneButton(550, 378, 240, 56, "☠  [X] HARDCORE", "#ff5050", "x", 22);
   button(TITLE_BTNS[0], "[N] MULTIPLAYER", "#50c8ff");
   button(TITLE_BTNS[1], "[H] HIGHSCORES", "#ffd232");
-  button(TITLE_BTNS[2], "[O] OPTIONEN", "#50ff82");
-  button(TITLE_BTNS[3], "[ESC] BEENDEN", "#ff7050");
+  button(TITLE_BTNS[2], L("[O] OPTIONS", "[O] OPTIONEN"), "#50ff82");
+  button(TITLE_BTNS[3], L("[ESC] QUIT", "[ESC] BEENDEN"), "#ff7050");
   if (netMsgT > 0) text(netMsg, DW / 2, 428, "#ff7050", 16, "center");
   text(CREDITS, DW - 14, 518, "#6b7896", 13, "right");
   // Vollbild-Hinweis unten links (anklickbar)
-  const fsLabel = `[F4] VOLLBILD ${fsOn ? "AUS" : "AN"}`;
+  const fsLabel = L(`[F4] FULLSCREEN ${fsOn ? "OFF" : "ON"}`, `[F4] VOLLBILD ${fsOn ? "AUS" : "AN"}`);
   g.font = FONT(13); const fsW = g.measureText(fsLabel).width;
   text(fsLabel, 14, 518, hovered(10, 512, fsW + 8, 22) ? "#ffffff" : "#8290b0", 13);
   zone(10, 512, fsW + 8, 22, "F4");
@@ -2277,37 +2311,37 @@ function renderTitle() {
 function renderLobby() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(60, 20, DW - 120, DH - 40);
-  text("MULTIPLAYER-LOBBY", DW / 2, 30, "#ffd232", 36, "center");
+  text(L("MULTIPLAYER LOBBY", "MULTIPLAYER-LOBBY"), DW / 2, 30, "#ffd232", 36, "center");
   if (net.connected) {
     const gname = isHost() ? myGameName() : lobbyGame;
-    text(`„${gname}“${isHost() ? "  ✎ [G]" : ""}`, DW / 2, 70, "#c8c8d7", 15, "center");
+    text(`${L("“", "„")}${gname}${L("”", "“")}${isHost() ? "  ✎ [G]" : ""}`, DW / 2, 70, "#c8c8d7", 15, "center");
     if (isHost()) { g.font = FONT(15); const w = g.measureText(`„${gname}“  ✎ [G]`).width; zone(DW / 2 - w / 2, 66, w, 22, "g"); }
   }
-  if (!net.connected) { text("VERBINDE MIT SPIEL-SERVER …", DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, "[ESC] ZURÜCK", "#8290b0", "Escape", 16); return; }
+  if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDE MIT SPIEL-SERVER …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16); return; }
   const host = isHost();
   const list = host ? lobbyPlayers() : lobbyInfo;
   const modeIdx = lobbyMode;
-  text("MODUS", 110, 96, "#6b7896", 14);
+  text(L("MODE", "MODUS"), 110, 96, "#6b7896", 14);
   if (host) {
     zoneButton(104, 112, 34, 34, "◀", "#50c8ff", "ArrowLeft", 20);
-    text(MODES[modeIdx][1], 150, 116, "#50c8ff", 26);
-    g.font = FONT(26); zoneButton(162 + g.measureText(MODES[modeIdx][1]).width, 112, 34, 34, "▶", "#50c8ff", "ArrowRight", 20);
-  } else text(MODES[modeIdx][1], 110, 116, "#50c8ff", 26);
-  const desc = { coop: "Gemeinsam durch alle 5 Level. Gegner werden mit jedem Mitspieler stärker.",
-    team: "Team Bulle gegen Team Bär – eure Tiere kämpfen mit. Steigt der Markt, trifft Team Bulle härter.",
-    dm: "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L." }[MODES[modeIdx][0]];
+    text(modeName(modeIdx), 150, 116, "#50c8ff", 26);
+    g.font = FONT(26); zoneButton(162 + g.measureText(modeName(modeIdx)).width, 112, 34, 34, "▶", "#50c8ff", "ArrowRight", 20);
+  } else text(modeName(modeIdx), 110, 116, "#50c8ff", 26);
+  const desc = { coop: L("Together through all 5 levels. Enemies get tougher with every extra player.", "Gemeinsam durch alle 5 Level. Gegner werden mit jedem Mitspieler stärker."),
+    team: L("Team Bull vs. Team Bear – your animals fight along. If the market rises, Team Bull hits harder.", "Team Bulle gegen Team Bär – eure Tiere kämpfen mit. Steigt der Markt, trifft Team Bulle härter."),
+    dm: L("Free for all, with market creatures adding chaos. Kill = 500 P&L.", "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L.") }[MODES[modeIdx][0]];
   text(desc, 110, 152, "#a0a0b4", 15);
   // ---- Spielerliste (links)
-  text(`SPIELER (${list.length}/4)`, 110, 186, "#6b7896", 14);
+  text(`${L("PLAYERS", "SPIELER")} (${list.length}/4)`, 110, 186, "#6b7896", 14);
   const isTeam = MODES[modeIdx][0] === "team";
   list.forEach(([id, name, team, avatar, ready], i) => {
     const y = 208 + i * 44, col = isTeam ? (team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(id - 1) % 4];
     const spr = (avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + team : (id - 1) % 4);
     g.drawImage(spriteCanvas(spr), 104, y - 4, 38, 38);
-    text(`${shownName(name, id, team, isTeam, list.map(e => [e[0], e[2]]))}${id === net.id ? " (DU)" : ""}`, 150, y, isTeam ? rgbCss(col) : "#e6e6f0", 16);
+    text(`${shownName(name, id, team, isTeam, list.map(e => [e[0], e[2]]))}${id === net.id ? L(" (YOU)", " (DU)") : ""}`, 150, y, isTeam ? rgbCss(col) : "#e6e6f0", 16);
     const isHostRow = id === net.hostId;
-    text(isHostRow ? "★ HOST" : ready ? "✔ BEREIT" : "✖ WARTET", 150, y + 20, isHostRow ? "#ffd232" : ready ? "#50ff82" : "#ff7050", 13);
-    if (isTeam) text(team === 0 ? "TEAM BULLE · GRÜN" : "TEAM BÄR · ROT", 470, y + 20, rgbCss(col), 13, "right");
+    text(isHostRow ? "★ HOST" : ready ? L("✔ READY", "✔ BEREIT") : L("✖ WAITING", "✖ WARTET"), 150, y + 20, isHostRow ? "#ffd232" : ready ? "#50ff82" : "#ff7050", 13);
+    if (isTeam) text(team === 0 ? L("TEAM BULL · GREEN", "TEAM BULLE · GRÜN") : L("TEAM BEAR · RED", "TEAM BÄR · ROT"), 470, y + 20, rgbCss(col), 13, "right");
   });
   // ---- Chat (Mitte)
   const cx = 490, cy = 186, cw = 270, ch = 200;
@@ -2331,42 +2365,42 @@ function renderLobby() {
   if (chatTyping) {
     const shown = chatText.length > 32 ? "…" + chatText.slice(-31) : chatText;
     text(shown + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), cx + 10, iy + 4, "#ffffff", 13);
-  } else text(`[${bindText("chat")}] Nachricht schreiben …`, cx + 10, iy + 4, "#6b7896", 13);
+  } else text(`[${bindText("chat")}] ${L("Write a message …", "Nachricht schreiben …")}`, cx + 10, iy + 4, "#6b7896", 13);
   zone(cx + 4, iy, cw - 8, 22, "t");
   // ---- eigene Figur (rechts, anklicken = wechseln)
   const mySpr = (me.avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + me.team : (Math.max(1, me.id) - 1) % 4);
   g.drawImage(spriteCanvas(mySpr), 790, 205, 96, 96);
-  text("DEINE FIGUR", 838, 186, "#6b7896", 13, "center");
-  text(AVATAR_NAME[me.avatar] || "", 838, 306, "#ffd232", 15, "center");
+  text(L("YOUR CHARACTER", "DEINE FIGUR"), 838, 186, "#6b7896", 13, "center");
+  text(avatarName(me.avatar), 838, 306, "#ffd232", 15, "center");
   if (hovered(780, 180, 116, 170)) { g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(780, 180, 116, 170); }
   zone(780, 180, 116, 170, "c");
-  zoneButton(784, 318, 108, 26, "[C] WECHSELN", "#50c8ff", "c", 13);
+  zoneButton(784, 318, 108, 26, L("[C] CHANGE", "[C] WECHSELN"), "#50c8ff", "c", 13);
   zoneButton(784, 350, 108, 26, "[K] NICKNAME", "#ffd232", "k", 13);
   // ---- Knoepfe unten
   if (isTeam) {
-    zoneButton(250, 400, 220, 34, "[1] TEAM BULLE", me.team === 0 ? "#50ff82" : "#2a7a46", "1", 16);
-    zoneButton(490, 400, 220, 34, "[2] TEAM BÄR", me.team === 1 ? "#ff5050" : "#7a2a2a", "2", 16);
+    zoneButton(250, 400, 220, 34, L("[1] TEAM BULL", "[1] TEAM BULLE"), me.team === 0 ? "#50ff82" : "#2a7a46", "1", 16);
+    zoneButton(490, 400, 220, 34, L("[2] TEAM BEAR", "[2] TEAM BÄR"), me.team === 1 ? "#ff5050" : "#7a2a2a", "2", 16);
   }
   if (host) {
     const ready = allReady();
-    zoneButton(250, 442, 220, 36, ready ? "▶ SPIEL STARTEN" : "WARTE AUF BEREIT …", ready ? "#ffffff" : "#6b7896", "enter", 16);
+    zoneButton(250, 442, 220, 36, ready ? L("▶ START GAME", "▶ SPIEL STARTEN") : L("WAITING FOR READY …", "WARTE AUF BEREIT …"), ready ? "#ffffff" : "#6b7896", "enter", 16);
   } else {
     const r = me.ready;
-    zoneButton(250, 442, 220, 36, r ? "✔ BEREIT ([E] ZURÜCK)" : "[E] BEREIT", r ? "#50ff82" : "#ffd232", "e", 16);
+    zoneButton(250, 442, 220, 36, r ? L("✔ READY ([E] UNDO)", "✔ BEREIT ([E] ZURÜCK)") : L("[E] READY", "[E] BEREIT"), r ? "#50ff82" : "#ffd232", "e", 16);
   }
-  zoneButton(490, 442, 220, 36, "[ESC] VERLASSEN", "#ff7050", "Escape", 16);
+  zoneButton(490, 442, 220, 36, L("[ESC] LEAVE", "[ESC] VERLASSEN"), "#ff7050", "Escape", 16);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
-  text(isLocalOrigin() ? `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`
-    : `Verbunden mit ${location.host}`, DW / 2, 492, "#6b7896", 13, "center");
+  text(isLocalOrigin() ? L(`Others find you under [N] MULTIPLAYER → [J] JOIN (or address ${myAddr || "…"})`, `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`)
+    : `${L("Connected to", "Verbunden mit")} ${location.host}`, DW / 2, 492, "#6b7896", 13, "center");
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
   rank.forEach((p, i) => {
     const y = y0 + i * 30;
     g.fillStyle = rgbCss(playerColor(p)); g.fillRect(70, y, 18, 18);
-    text(`${i + 1}. ${nameOf(p)}${p.local ? " (DU)" : ""}`, 98, y, mode === "team" ? rgbCss(playerColor(p)) : "#e6e6f0", 18);
-    text(mode === "dm" || mode === "team" ? `${p.score.toLocaleString("de-DE")} P&L · ${p.frags || 0} FRAGS · ${p.deaths || 0} TODE · ${p.kills} KILLS`
-      : `${p.score.toLocaleString("de-DE")} P&L · ${p.kills} KILLS · ${p.deaths || 0} TODE`, DW - 60, y, "#50ff82", 16, "right");
+    text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}`, 98, y, mode === "team" ? rgbCss(playerColor(p)) : "#e6e6f0", 18);
+    text(mode === "dm" || mode === "team" ? `${p.score.toLocaleString(LOC())} P&L · ${p.frags || 0} FRAGS · ${p.deaths || 0} ${L("DEATHS", "TODE")} · ${p.kills} KILLS`
+      : `${p.score.toLocaleString(LOC())} P&L · ${p.kills} KILLS · ${p.deaths || 0} ${L("DEATHS", "TODE")}`, DW - 60, y, "#50ff82", 16, "right");
   });
 }
 const CREDITS = "Made by Wolfgang Rabenstein";
@@ -2375,36 +2409,36 @@ function renderEnd(title, sub, col, bull) {
   g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 70, DW, 380);
   text(title, DW / 2, 86, col, 56, "center");
   text(sub, DW / 2, 160, "#dcdce6", 20, "center");
-  if (isMP()) { scoreboard(205); text(`Marktbereinigung: ${marketKills}`, DW / 2, 340, "#c8c8d2", 16, "center"); }
+  if (isMP()) { scoreboard(205); text(`${L("Market cleanup", "Marktbereinigung")}: ${marketKills}`, DW / 2, 340, "#c8c8d2", 16, "center"); }
   else {
-    text(`P&L: +$${me.score.toLocaleString("de-DE")}`, DW / 2, 210, "#50ff82", 24, "center");
-    text(`Von dir liquidiert: ${me.kills}   ·   Tode: ${me.deaths}   ·   Marktbereinigung: ${marketKills}`, DW / 2, 255, "#c8c8d2", 18, "center");
+    text(`P&L: +$${me.score.toLocaleString(LOC())}`, DW / 2, 210, "#50ff82", 24, "center");
+    text(L(`Liquidated by you: ${me.kills}   ·   Deaths: ${me.deaths}   ·   Market cleanup: ${marketKills}`, `Von dir liquidiert: ${me.kills}   ·   Tode: ${me.deaths}   ·   Marktbereinigung: ${marketKills}`), DW / 2, 255, "#c8c8d2", 18, "center");
   }
   if (!isMP() && state === ST.DEAD) {
-    if (HC()) zoneButton(320, 378, 320, 40, "[ENTER] HIGHSCORE EINTRAGEN", "#ffd232", "enter", 18);
+    if (HC()) zoneButton(320, 378, 320, 40, L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN"), "#ffd232", "enter", 18);
     else {
-      zoneButton(180, 378, 290, 40, "[ENTER] NEUER KREDIT", "#50ff82", "enter", 16);
-      zoneButton(490, 378, 290, 40, "[H] AUFGEBEN & HIGHSCORE", "#ffd232", "h", 16);
+      zoneButton(180, 378, 290, 40, L("[ENTER] NEW LOAN", "[ENTER] NEUER KREDIT"), "#50ff82", "enter", 16);
+      zoneButton(490, 378, 290, 40, L("[H] GIVE UP & HIGHSCORE", "[H] AUFGEBEN & HIGHSCORE"), "#ffd232", "h", 16);
     }
-  } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, islandDone ? "[ENTER] HIGHSCORE EINTRAGEN" : "[ENTER] WEITER", "#ffd232", "enter", 18);
+  } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, islandDone ? L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#ffd232", "enter", 18);
   else if (state === ST.ROUNDEND) {   // Countdown bis zum naechsten Level
     const t = Math.max(0, Math.ceil(roundT));
-    text(`NÄCHSTES LEVEL IN ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
+    text(`${L("NEXT LEVEL IN", "NÄCHSTES LEVEL IN")} ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
     g.fillStyle = "#1e2846"; g.fillRect(330, 414, 300, 6);
     g.fillStyle = "#ffd232"; g.fillRect(330, 414, 300 * Math.max(0, roundT) / ROUND_BREAK, 6);
-    if (isHost()) zoneButton(380, 422, 200, 24, "[ENTER] SOFORT WEITER", "#8290b0", "enter", 13);
+    if (isHost()) zoneButton(380, 422, 200, 24, L("[ENTER] CONTINUE NOW", "[ENTER] SOFORT WEITER"), "#8290b0", "enter", 13);
   }
-  else if (Math.floor(gameTime * 2) % 2) text(isHost() ? "[ENTER] WEITER" : "WARTE AUF DEN HOST …", DW / 2, 390, "#ffffff", 22, "center");
+  else if (Math.floor(gameTime * 2) % 2) text(isHost() ? L("[ENTER] CONTINUE", "[ENTER] WEITER") : L("WAITING FOR THE HOST …", "WARTE AUF DEN HOST …"), DW / 2, 390, "#ffffff", 22, "center");
   if (state !== ST.ROUNDEND) text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
 }
 function renderRoundEnd() {
   if (mode === "team") {
     const win = teamScore[0] === teamScore[1] ? -1 : teamScore[0] > teamScore[1] ? 0 : 1;
-    renderEnd(win < 0 ? "UNENTSCHIEDEN" : win === 0 ? "TEAM BULLE GEWINNT!" : "TEAM BÄR GEWINNT!",
-      `Bullen ${teamScore[0]} : ${teamScore[1]} Bären`, win === 1 ? "#ff5050" : "#50ff82", win !== 1);
+    renderEnd(win < 0 ? L("DRAW", "UNENTSCHIEDEN") : win === 0 ? L("TEAM BULL WINS!", "TEAM BULLE GEWINNT!") : L("TEAM BEAR WINS!", "TEAM BÄR GEWINNT!"),
+      `${L("Bulls", "Bullen")} ${teamScore[0]} : ${teamScore[1]} ${L("Bears", "Bären")}`, win === 1 ? "#ff5050" : "#50ff82", win !== 1);
   } else {
     const top = [...players].sort((a, b) => b.score - a.score)[0];
-    renderEnd(`${top.name.replace("TRADER ", "")} GEWINNT!`, "Deathmatch beendet – nächste Runde im nächsten Level", rgbCss(playerColor(top)), true);
+    renderEnd(`${top.name.replace("TRADER ", "")} ${L("WINS!", "GEWINNT!")}`, L("Deathmatch over – next round in the next level", "Deathmatch beendet – nächste Runde im nächsten Level"), rgbCss(playerColor(top)), true);
   }
 }
 
@@ -2664,20 +2698,20 @@ setInterval(async () => {
 function renderPrivacy() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(90, 50, DW - 180, 440);
-  text("LIVE-KURSE & DATENSCHUTZ", DW / 2, 70, "#ffd232", 32, "center");
+  text(L("LIVE QUOTES & PRIVACY", "LIVE-KURSE & DATENSCHUTZ"), DW / 2, 70, "#ffd232", 32, "center");
   [
-    "MARGIN CALL kann die aktuellen Kurse von Dow Jones, S&P 500, Nasdaq-100, Rohöl",
-    "und einigen Einzelaktien bei Yahoo Finance (query1.finance.yahoo.com) abrufen.",
-    "Dabei sieht Yahoo deine IP-Adresse – wie bei jedem Webseitenaufruf.",
-    "Es werden keine Spielstände, Namen oder sonstigen Daten übertragen.",
+    L("MARGIN CALL can fetch current quotes for the Dow Jones, S&P 500, Nasdaq-100, crude oil", "MARGIN CALL kann die aktuellen Kurse von Dow Jones, S&P 500, Nasdaq-100, Rohöl"),
+    L("and some individual stocks from Yahoo Finance (query1.finance.yahoo.com).", "und einigen Einzelaktien bei Yahoo Finance (query1.finance.yahoo.com) abrufen."),
+    L("Yahoo sees your IP address – like with any website you visit.", "Dabei sieht Yahoo deine IP-Adresse – wie bei jedem Webseitenaufruf."),
+    L("No game data, names or other data are sent.", "Es werden keine Spielstände, Namen oder sonstigen Daten übertragen."),
     "",
-    "Ohne Live-Kurse spielst du mit simulierten Kursen – alles andere funktioniert gleich.",
-    "Du kannst das jederzeit unter [O] OPTIONEN → „Live-Kurse“ ändern.",
-    "Multiplayer verbindet sich nur mit dem Host, dessen Adresse du selbst eingibst.",
+    L("Without live quotes you play with simulated prices – everything else works the same.", "Ohne Live-Kurse spielst du mit simulierten Kursen – alles andere funktioniert gleich."),
+    L("You can change this anytime under [O] OPTIONS → “Live quotes”.", "Du kannst das jederzeit unter [O] OPTIONEN → „Live-Kurse“ ändern."),
+    L("Multiplayer only connects to a host whose address you enter yourself.", "Multiplayer verbindet sich nur mit dem Host, dessen Adresse du selbst eingibst."),
   ].forEach((l, i) => text(l, DW / 2, 130 + i * 28, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
-  zoneButton(160, 372, 310, 44, "[ENTER] LIVE-KURSE LADEN", "#50ff82", "enter");
-  zoneButton(490, 372, 310, 44, "[N] OHNE LIVE-KURSE", "#a0a0b4", "n");
-  text("Datenschutzhinweise von Yahoo: legal.yahoo.com/de/de/yahoo/privacy", DW / 2, 450, "#6b7896", 13, "center");
+  zoneButton(160, 372, 310, 44, L("[ENTER] LOAD LIVE QUOTES", "[ENTER] LIVE-KURSE LADEN"), "#50ff82", "enter");
+  zoneButton(490, 372, 310, 44, L("[N] NO LIVE QUOTES", "[N] OHNE LIVE-KURSE"), "#a0a0b4", "n");
+  text(L("Yahoo privacy policy: legal.yahoo.com/us/en/yahoo/privacy", "Datenschutzhinweise von Yahoo: legal.yahoo.com/de/de/yahoo/privacy"), DW / 2, 450, "#6b7896", 13, "center");
 }
 
 // ---------------------------------------------------------------- Highscores (Einzelspieler)
@@ -2706,18 +2740,19 @@ async function hsSave(entry) {
 const hsQualifies = score => score > 0 && (hsList.length < 10 || score > hsList[hsList.length - 1].score);
 
 // Online-Rangliste: eingetragen wird nur mit Zustimmung (settings.onlineScores), gelesen nur, wenn man den Reiter oeffnet.
-const HS_TABS = ONLINE_HS_URL ? ["LOKAL", "ONLINE GESAMT", "ONLINE HEUTE"] : ["LOKAL"];
+const hsTabs = () => ONLINE_HS_URL ? [L("LOCAL", "LOKAL"), L("ONLINE ALL-TIME", "ONLINE GESAMT"), L("ONLINE TODAY", "ONLINE HEUTE")] : [L("LOCAL", "LOKAL")];
+const HS_TABS = hsTabs();
 let hsTab = 0, hsScroll = 0, hsMine = null;   // hsMine: {id, rank, total, dayRank, dayTotal} des letzten eigenen Eintrags
 const hsOnline = { all: { list: [], status: "" }, day: { list: [], status: "" } };
 const hsScope = () => hsTab === 2 ? "day" : "all";
 async function hsOnlineLoad(scope) {
   if (!ONLINE_HS_URL) return;
-  const o = hsOnline[scope]; o.status = "LÄDT…";
+  const o = hsOnline[scope]; o.status = L("LOADING…", "LÄDT…");
   try {
     const r = await fetch(`${ONLINE_HS_URL}/scores?scope=${scope}&hc=${hsHC ? 1 : 0}&limit=100`, { cache: "no-store" });
     if (!r.ok) throw 0;
     o.list = await r.json(); o.status = "";
-  } catch (e) { o.status = "KEINE VERBINDUNG ZUR ONLINE-RANGLISTE"; }
+  } catch (e) { o.status = L("NO CONNECTION TO THE ONLINE LEADERBOARD", "KEINE VERBINDUNG ZUR ONLINE-RANGLISTE"); }
 }
 async function hsOnlineSubmit(entry) {
   try {
@@ -2754,7 +2789,7 @@ async function finishRun(won) {
   await hsLoad();
   hsEntry = { score: me.score, level: level + 1, won, deaths: me.deaths };
   hsNote = "";
-  if (cheated) { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; hsNote = "Lauf mit Cheats – kein Eintrag in die Ranglisten"; return; }
+  if (cheated) { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; hsNote = L("Run with cheats – no leaderboard entry", "Lauf mit Cheats – kein Eintrag in die Ranglisten"); return; }
   if (hsQualifies(me.score) || (ONLINE_HS_URL && me.score > 0)) { hsName = settings.playerName || ""; state = ST.NAMEENTRY; }
   else { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; }
 }
@@ -2783,69 +2818,69 @@ function renderNameEntry() {
   chartBackground("#145a2d", "#282828");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 70, DW - 280, 400);
   const local = hsQualifies(hsEntry.score), place = hsList.filter(h => h.score >= hsEntry.score).length + 1;
-  text(local ? (hsHC ? "NEUER HARDCORE-HIGHSCORE!" : "NEUER HIGHSCORE!") : "LAUF BEENDET", DW / 2, 90, hsHC ? "#ff5050" : "#ffd232", hsHC && local ? 36 : 44, "center");
-  text(`${local ? `PLATZ ${place}  ·  ` : ""}P&L +$${hsEntry.score.toLocaleString("de-DE")}  ·  ${hsEntry.won ? "SIEG" : "LEVEL " + hsEntry.level}  ·  ☠ ${hsEntry.deaths}`, DW / 2, 152, "#50ff82", 20, "center");
-  text("DEIN NAME", DW / 2, 196, "#8290b0", 15, "center");
+  text(local ? (hsHC ? L("NEW HARDCORE HIGHSCORE!", "NEUER HARDCORE-HIGHSCORE!") : L("NEW HIGHSCORE!", "NEUER HIGHSCORE!")) : L("RUN OVER", "LAUF BEENDET"), DW / 2, 90, hsHC ? "#ff5050" : "#ffd232", hsHC && local ? 36 : 44, "center");
+  text(`${local ? `${L("RANK", "PLATZ")} ${place}  ·  ` : ""}P&L +$${hsEntry.score.toLocaleString(LOC())}  ·  ${hsEntry.won ? L("WON", "SIEG") : "LEVEL " + hsEntry.level}  ·  ☠ ${hsEntry.deaths}`, DW / 2, 152, "#50ff82", 20, "center");
+  text(L("YOUR NAME", "DEIN NAME"), DW / 2, 196, "#8290b0", 15, "center");
   g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 220, 400, 54);
   text(hsName + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 232, "#ffffff", 30, "center");
-  text("bis 12 Zeichen", DW / 2, 280, "#6b7896", 13, "center");
+  text(L("up to 12 characters", "bis 12 Zeichen"), DW / 2, 280, "#6b7896", 13, "center");
   if (ONLINE_HS_URL) {   // Zustimmung zur Online-Rangliste, standardmaessig aus
     const on = settings.onlineScores === true;
-    zoneButton(250, 302, 460, 32, `[TAB] AUCH ONLINE EINTRAGEN: ${on ? "JA" : "NEIN"}`, on ? "#50ff82" : "#a0a0b4", "Tab", 16);
-    text(on ? "Name und Punkte gehen an die öffentliche Online-Rangliste (Cloudflare)." : "Nur lokal speichern – an die Online-Rangliste geht nichts.", DW / 2, 340, "#6b7896", 13, "center");
+    zoneButton(250, 302, 460, 32, L(`[TAB] ALSO SUBMIT ONLINE: ${on ? "YES" : "NO"}`, `[TAB] AUCH ONLINE EINTRAGEN: ${on ? "JA" : "NEIN"}`), on ? "#50ff82" : "#a0a0b4", "Tab", 16);
+    text(on ? L("Name and score go to the public online leaderboard (Cloudflare).", "Name und Punkte gehen an die öffentliche Online-Rangliste (Cloudflare).") : L("Save locally only – nothing goes to the online leaderboard.", "Nur lokal speichern – an die Online-Rangliste geht nichts."), DW / 2, 340, "#6b7896", 13, "center");
   }
-  zoneButton(250, 366, 220, 40, local || settings.onlineScores === true && ONLINE_HS_URL ? "[ENTER] SPEICHERN" : "[ENTER] WEITER", "#50ff82", "enter");
-  zoneButton(490, 366, 220, 40, "[ESC] OHNE NAMEN", "#8290b0", "Escape");
+  zoneButton(250, 366, 220, 40, local || settings.onlineScores === true && ONLINE_HS_URL ? L("[ENTER] SAVE", "[ENTER] SPEICHERN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#50ff82", "enter");
+  zoneButton(490, 366, 220, 40, L("[ESC] SKIP", "[ESC] OHNE NAMEN"), "#8290b0", "Escape");
   text(CREDITS, DW / 2, 440, "#6b7896", 13, "center");
 }
 function renderHighscores() {
   chartBackground("#145a2d", "#641919");
   g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(100, 26, DW - 200, 480);
-  text(hsHC ? "☠ HARDCORE-HIGHSCORES" : "HIGHSCORES", DW / 2, 34, hsHC ? "#ff5050" : "#ffd232", 36, "center");
-  if (HS_TABS.length > 1) HS_TABS.forEach((t, i) => {   // Reiter
+  text(hsHC ? L("☠ HARDCORE HIGHSCORES", "☠ HARDCORE-HIGHSCORES") : "HIGHSCORES", DW / 2, 34, hsHC ? "#ff5050" : "#ffd232", 36, "center");
+  if (HS_TABS.length > 1) hsTabs().forEach((t, i) => {   // Reiter
     const x = 160 + i * 220, sel = i === hsTab;
     g.fillStyle = sel ? "#1e5a32" : "rgba(0,0,0,.6)"; g.fillRect(x, 76, 200, 26);
     g.strokeStyle = sel ? "#50ff82" : "#3a4660"; g.lineWidth = 2; g.strokeRect(x, 76, 200, 26);
     text(`[${i + 1}] ${t}`, x + 100, 81, sel ? "#ffffff" : "#8290b0", 14, "center"); zone(x, 76, 200, 26, String(i + 1));
   });
-  text("PLATZ", 140, 112, "#6b7896", 13); text("NAME", 220, 112, "#6b7896", 13);
-  text("P&L", 540, 112, "#6b7896", 13, "right"); text("ERREICHT", 625, 112, "#6b7896", 13, "center"); text("TODE", 715, 112, "#6b7896", 13, "center");
-  text(hsTab === 2 ? "UHRZEIT" : "DATUM", 830, 112, "#6b7896", 13, "right");
+  text(L("RANK", "PLATZ"), 140, 112, "#6b7896", 13); text("NAME", 220, 112, "#6b7896", 13);
+  text("P&L", 540, 112, "#6b7896", 13, "right"); text(L("REACHED", "ERREICHT"), 625, 112, "#6b7896", 13, "center"); text(L("DEATHS", "TODE"), 715, 112, "#6b7896", 13, "center");
+  text(hsTab === 2 ? L("TIME", "UHRZEIT") : L("DATE", "DATUM"), 830, 112, "#6b7896", 13, "right");
   const row = (y, rank, h, mark) => {
     if (mark) { g.fillStyle = Math.floor(gameTime * 3) % 2 ? "#3a3210" : "#2a240c"; g.fillRect(120, y - 4, DW - 240, 26); }
     const col = mark ? "#ffd232" : rank === 1 ? "#ffe680" : "#e6e6f0";
     text(`${rank}.`, 140, y, col, 17); text(String(h.name), 220, y, col, 17);
-    text(`+$${Number(h.score).toLocaleString("de-DE")}`, 540, y, "#50ff82", 17, "right");
-    text(h.won ? "SIEG" : `LEVEL ${h.level}`, 625, y, h.won ? "#ffd232" : "#a0a0b4", 15, "center");
+    text(`+$${Number(h.score).toLocaleString(LOC())}`, 540, y, "#50ff82", 17, "right");
+    text(h.won ? L("WON", "SIEG") : `LEVEL ${h.level}`, 625, y, h.won ? "#ffd232" : "#a0a0b4", 15, "center");
     text(String(h.deaths ?? 0), 715, y, h.deaths ? "#ff7050" : "#a0a0b4", 15, "center");
     const t = h.date || h.ts;
-    text(t ? (hsTab === 2 ? new Date(t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : new Date(t * 1000).toLocaleDateString("de-DE")) : "", 830, y, "#8290b0", 14, "right");
+    text(t ? (hsTab === 2 ? new Date(t * 1000).toLocaleTimeString(LOC(), { hour: "2-digit", minute: "2-digit" }) : new Date(t * 1000).toLocaleDateString(LOC())) : "", 830, y, "#8290b0", 14, "right");
   };
   if (hsTab === 0) {
-    if (!hsList.length) text(hsHC ? "Noch keine Einträge – trau dich an Hardcore!" : "Noch keine Einträge – spiel eine Runde Solo!", DW / 2, 230, "#a0a0b4", 18, "center");
+    if (!hsList.length) text(hsHC ? L("No entries yet – dare to try hardcore!", "Noch keine Einträge – trau dich an Hardcore!") : L("No entries yet – play a solo round!", "Noch keine Einträge – spiel eine Runde Solo!"), DW / 2, 230, "#a0a0b4", 18, "center");
     hsList.forEach((h, i) => row(132 + i * 29, i + 1, h, i === hsNew));
   } else if (!ONLINE_HS_URL) {
-    text("Die Online-Rangliste ist noch nicht eingerichtet.", DW / 2, 230, "#a0a0b4", 18, "center");
+    text(L("The online leaderboard is not set up yet.", "Die Online-Rangliste ist noch nicht eingerichtet."), DW / 2, 230, "#a0a0b4", 18, "center");
   } else {
     const o = hsOnline[hsScope()], rank = hsMyRank(), total = rank && (hsTab === 2 ? hsMine.dayTotal : hsMine.total);
     if (o.status) text(o.status, DW / 2, 230, "#a0a0b4", 18, "center");
-    else if (!o.list.length) text(hsTab === 2 ? "Heute noch keine Einträge – sei der Erste!" : "Noch keine Einträge.", DW / 2, 230, "#a0a0b4", 18, "center");
+    else if (!o.list.length) text(hsTab === 2 ? L("No entries today yet – be the first!", "Heute noch keine Einträge – sei der Erste!") : L("No entries yet.", "Noch keine Einträge."), DW / 2, 230, "#a0a0b4", 18, "center");
     else o.list.slice(hsScroll, hsScroll + 10).forEach((h, i) => row(132 + i * 29, hsScroll + i + 1, h, !!hsMyRank() && h.id === hsMine.id));
-    if (o.list.length > 10) text(`${hsScroll + 1}–${Math.min(o.list.length, hsScroll + 10)} von ${o.list.length}  ·  ↑↓ blättern`, 830, 424, "#6b7896", 12, "right");
-    if (rank) text(`DEIN PLATZ: ${rank} VON ${total}${rank > o.list.length ? "  (außerhalb der Top 100)" : ""}`, 140, 424, "#ffd232", 15);
-    else if (settings.onlineScores !== true) text("Eintragen: im Optionsmenü oder nach dem Lauf „Auch online eintragen“ wählen.", 140, 424, "#6b7896", 12);
+    if (o.list.length > 10) text(`${hsScroll + 1}–${Math.min(o.list.length, hsScroll + 10)} ${L("of", "von")} ${o.list.length}  ·  ↑↓ ${L("scroll", "blättern")}`, 830, 424, "#6b7896", 12, "right");
+    if (rank) text(L(`YOUR RANK: ${rank} OF ${total}${rank > o.list.length ? "  (outside the top 100)" : ""}`, `DEIN PLATZ: ${rank} VON ${total}${rank > o.list.length ? "  (außerhalb der Top 100)" : ""}`), 140, 424, "#ffd232", 15);
+    else if (settings.onlineScores !== true) text(L("To submit: enable it in the options or choose “Also submit online” after a run.", "Eintragen: im Optionsmenü oder nach dem Lauf „Auch online eintragen“ wählen."), 140, 424, "#6b7896", 12);
   }
   if (hsNote) text(hsNote, DW / 2, 430, "#ff7050", 14, "center");
-  zoneButton(250, 452, 220, 38, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
-  zoneButton(490, 452, 220, 38, hsHC ? "[X] ZU NORMAL" : "[X] ZU ☠ HARDCORE", hsHC ? "#ffd232" : "#ff5050", "x", 16);
+  zoneButton(250, 452, 220, 38, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(490, 452, 220, 38, hsHC ? L("[X] TO NORMAL", "[X] ZU NORMAL") : L("[X] TO ☠ HARDCORE", "[X] ZU ☠ HARDCORE"), hsHC ? "#ffd232" : "#ff5050", "x", 16);
 }
 
 // ---------------------------------------------------------------- Texteingabe (Nickname, Spielname)
 let edit = null;   // { title, value, max, done(value) }
 const cleanName = (v, max) => String(v || "").replace(/[^\p{L}\p{N} ._\-!?&]/gu, "").replace(/\s+/g, " ").trim().slice(0, max);
-const defaultNick = () => me && me.id ? `TRADER ${PNAMES[(me.id - 1) % 4]}` : "TRADER";
+const defaultNick = () => me && me.id ? `TRADER ${pName((me.id - 1) % 4)}` : "TRADER";
 const myNick = () => settings.nickname || defaultNick();
-const myGameName = () => settings.gameName || `Spiel von ${myNick()}`;
+const myGameName = () => settings.gameName || L(`${myNick()}'s game`, `Spiel von ${myNick()}`);
 function openEdit(title, value, max, done) { edit = { title, value, max, done }; }
 function editKey(k) {
   if (k === "enter") { const v = cleanName(edit.value, edit.max); const d = edit.done; edit = null; d(v); return; }
@@ -2860,12 +2895,12 @@ function renderEdit() {
   text(edit.title, DW / 2, 188, "#ffd232", 22, "center");
   g.strokeStyle = "#50c8ff"; g.strokeRect(260, 228, 440, 44);
   text(edit.value + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 238, "#ffffff", 24, "center");
-  text(`bis ${edit.max} Zeichen · leer lassen = Standard`, DW / 2, 280, "#6b7896", 13, "center");
-  zoneButton(260, 310, 210, 40, "[ENTER] SPEICHERN", "#50ff82", "enter", 16);
-  zoneButton(490, 310, 210, 40, "[ESC] ABBRECHEN", "#8290b0", "Escape", 16);
+  text(L(`up to ${edit.max} characters · leave empty = default`, `bis ${edit.max} Zeichen · leer lassen = Standard`), DW / 2, 280, "#6b7896", 13, "center");
+  zoneButton(260, 310, 210, 40, L("[ENTER] SAVE", "[ENTER] SPEICHERN"), "#50ff82", "enter", 16);
+  zoneButton(490, 310, 210, 40, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#8290b0", "Escape", 16);
 }
 function editNick() {
-  openEdit("DEIN NICKNAME", settings.nickname || "", 12, v => {
+  openEdit(L("YOUR NICKNAME", "DEIN NICKNAME"), settings.nickname || "", 12, v => {
     settings.nickname = v; saveSettings();
     if (me && net.connected) {
       me.name = myNick();
@@ -2873,32 +2908,32 @@ function editNick() {
     }
   });
 }
-function editGameName() { openEdit("SPIELNAME", settings.gameName || "", 24, v => { settings.gameName = v; saveSettings(); if (isHost() && net.connected) hostSendLobby(); }); }
+function editGameName() { openEdit(L("GAME NAME", "SPIELNAME"), settings.gameName || "", 24, v => { settings.gameName = v; saveSettings(); if (isHost() && net.connected) hostSendLobby(); }); }
 
 // ---------------------------------------------------------------- Hosten / Beitreten / MP-Menue
 function renderMpChoice() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 50, DW - 320, 440);
   text("MULTIPLAYER", DW / 2, 64, "#ffd232", 40, "center");
-  text("DEIN NICKNAME", 300, 120, "#6b7896", 13);
+  text(L("YOUR NICKNAME", "DEIN NICKNAME"), 300, 120, "#6b7896", 13);
   zoneButton(300, 136, 360, 32, `${myNick()}   ✎ [K]`, "#ffd232", "k", 18);
-  text("SPIELNAME (WENN DU HOSTEST)", 300, 178, "#6b7896", 13);
+  text(L("GAME NAME (WHEN YOU HOST)", "SPIELNAME (WENN DU HOSTEST)"), 300, 178, "#6b7896", 13);
   zoneButton(300, 194, 360, 32, `${myGameName()}   ✎ [G]`, "#c8c8d7", "g", 18);
-  zoneButton(300, 252, 360, 44, "[H] SPIEL HOSTEN", "#50c8ff", "h", 24);
-  text(`Mitspieler finden dein Spiel unter „Beitreten“ (Adresse: ${myAddr || "…"})`, DW / 2, 304, "#a0a0b4", 14, "center");
-  zoneButton(300, 336, 360, 44, "[J] SPIEL BEITRETEN", "#50ff82", "j", 24);
-  text("Offene Spiele im Netzwerk werden automatisch gesucht", DW / 2, 388, "#a0a0b4", 14, "center");
-  zoneButton(390, 432, 180, 34, "[ESC] ZURÜCK", "#8290b0", "Escape", 16);
+  zoneButton(300, 252, 360, 44, L("[H] HOST GAME", "[H] SPIEL HOSTEN"), "#50c8ff", "h", 24);
+  text(L(`Others find your game under “Join” (address: ${myAddr || "…"})`, `Mitspieler finden dein Spiel unter „Beitreten“ (Adresse: ${myAddr || "…"})`), DW / 2, 304, "#a0a0b4", 14, "center");
+  zoneButton(300, 336, 360, 44, L("[J] JOIN GAME", "[J] SPIEL BEITRETEN"), "#50ff82", "j", 24);
+  text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 388, "#a0a0b4", 14, "center");
+  zoneButton(390, 432, 180, 34, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
 }
 function renderJoin() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 40, DW - 280, 460);
-  text("SPIEL BEITRETEN", DW / 2, 56, "#ffd232", 36, "center");
-  text("GEFUNDENE SPIELE IM NETZWERK", 170, 108, "#6b7896", 13);
+  text(L("JOIN GAME", "SPIEL BEITRETEN"), DW / 2, 56, "#ffd232", 36, "center");
+  text(L("GAMES FOUND ON THE NETWORK", "GEFUNDENE SPIELE IM NETZWERK"), 170, 108, "#6b7896", 13);
   if (!foundGames.length) {
     const dots = ".".repeat(1 + Math.floor(gameTime * 2) % 3);
-    text(`Suche nach offenen Spielen${dots}`, DW / 2, 160, "#a0a0b4", 17, "center");
-    text("Der Host muss in seiner Lobby sein. Wird nichts gefunden, gib unten die Adresse ein.", DW / 2, 190, "#6b7896", 13, "center");
+    text(`${L("Searching for open games", "Suche nach offenen Spielen")}${dots}`, DW / 2, 160, "#a0a0b4", 17, "center");
+    text(L("The host must be in their lobby. If nothing shows up, enter the address below.", "Der Host muss in seiner Lobby sein. Wird nichts gefunden, gib unten die Adresse ein."), DW / 2, 190, "#6b7896", 13, "center");
   }
   foundGames.slice(0, 5).forEach((gm, i) => {
     const y = 128 + i * 44, sel = i === joinSel && !joinText;
@@ -2906,11 +2941,11 @@ function renderJoin() {
     zoneButton(170, y, DW - 340, 38, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "game:" + i, 16);
     text(gm.addr, DW - 180, y + 12, "#6b7896", 12, "right");
   });
-  text("ODER ADRESSE EINGEBEN", 170, 356, "#6b7896", 13);
+  text(L("OR ENTER AN ADDRESS", "ODER ADRESSE EINGEBEN"), 170, 356, "#6b7896", 13);
   g.strokeStyle = joinText ? "#50ff82" : "#2a3656"; g.lineWidth = 2; g.strokeRect(170, 374, DW - 340, 40);
   text((joinText || (Math.floor(gameTime * 3) % 2 ? "" : "z. B. 192.168.1.20:8080")) + (joinText && Math.floor(gameTime * 3) % 2 ? "▌" : ""), 182, 384, joinText ? "#ffffff" : "#4a5672", 20);
-  zoneButton(250, 434, 220, 40, "[ENTER] VERBINDEN", "#50ff82", "enter");
-  zoneButton(490, 434, 220, 40, "[ESC] ZURÜCK", "#8290b0", "Escape");
+  zoneButton(250, 434, 220, 40, L("[ENTER] CONNECT", "[ENTER] VERBINDEN"), "#50ff82", "enter");
+  zoneButton(490, 434, 220, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape");
 }
 function joinTo(addr) {
   const host = addr.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -2932,11 +2967,11 @@ function joinKey(k) {
 }
 function renderMpMenu() {
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(250, 150, 460, 160);
-  text("MULTIPLAYER-MENÜ", DW / 2, 166, "#ffd232", 26, "center");
-  text("Das Spiel läuft weiter!", DW / 2, 202, "#ff7050", 16, "center");
-  zoneButton(268, 226, 205, 34, "[L] VERLASSEN", "#ffffff", "l", 16);
-  zoneButton(487, 226, 205, 34, "[ESC] HAUPTMENÜ", "#ff7050", "Escape", 16);
-  zoneButton(368, 268, 224, 30, "[P] ZURÜCK INS SPIEL", "#8290b0", "p", 15);
+  text(L("MULTIPLAYER MENU", "MULTIPLAYER-MENÜ"), DW / 2, 166, "#ffd232", 26, "center");
+  text(L("The game keeps running!", "Das Spiel läuft weiter!"), DW / 2, 202, "#ff7050", 16, "center");
+  zoneButton(268, 226, 205, 34, L("[L] LEAVE", "[L] VERLASSEN"), "#ffffff", "l", 16);
+  zoneButton(487, 226, 205, 34, L("[ESC] MAIN MENU", "[ESC] HAUPTMENÜ"), "#ff7050", "Escape", 16);
+  zoneButton(368, 268, 224, 30, L("[P] BACK TO GAME", "[P] ZURÜCK INS SPIEL"), "#8290b0", "p", 15);
 }
 
 // ---------------------------------------------------------------- Statistik-Einblendung (Tab gedrueckt halten)
@@ -2946,24 +2981,24 @@ function renderScoreOverlay() {
   g.fillStyle = "rgba(4,8,18,.9)"; g.fillRect(150, y0, DW - 300, h);
   g.strokeStyle = "#28c86e"; g.lineWidth = 2; g.strokeRect(150, y0, DW - 300, h);
   if (!mp) {
-    text("DEIN LAUF", DW / 2, y0 + 14, "#ffd232", 26, "center");
-    [["P&L", `+$${me.score.toLocaleString("de-DE")}`, "#50ff82"], ["LEVEL", `${level + 1} / ${NUM_LEVELS}`, "#e6e6f0"],
-     ["KILLS", String(me.kills), "#e6e6f0"], ["TODE", String(me.deaths || 0), me.deaths ? "#ff7050" : "#e6e6f0"],
-     ["MARKTBEREINIGUNG", String(marketKills), "#a0a0b4"]].forEach(([k, v, c], i) => {
+    text(L("YOUR RUN", "DEIN LAUF"), DW / 2, y0 + 14, "#ffd232", 26, "center");
+    [["P&L", `+$${me.score.toLocaleString(LOC())}`, "#50ff82"], ["LEVEL", `${level + 1} / ${NUM_LEVELS}`, "#e6e6f0"],
+     ["KILLS", String(me.kills), "#e6e6f0"], [L("DEATHS", "TODE"), String(me.deaths || 0), me.deaths ? "#ff7050" : "#e6e6f0"],
+     [L("MARKET CLEANUP", "MARKTBEREINIGUNG"), String(marketKills), "#a0a0b4"]].forEach(([k, v, c], i) => {
       text(k, 260, y0 + 56 + i * 26, "#8290b0", 16); text(v, DW - 260, y0 + 56 + i * 26, c, 18, "right");
     });
     return;
   }
   const pvp = mode === "dm" || mode === "team";
-  text(mode === "team" ? `TEAM BULLE ${teamScore[0]}  :  ${teamScore[1]} TEAM BÄR` : mode === "dm" ? "DEATHMATCH" : "KOOP", DW / 2, y0 + 12, "#ffd232", 22, "center");
-  const cols = pvp ? [["P&L", 560], ["FRAGS", 650], ["TODE", 730], ["KILLS", 800]] : [["P&L", 600], ["KILLS", 700], ["TODE", 790]];
-  text("SPIELER", 180, y0 + 50, "#6b7896", 13);
+  text(mode === "team" ? L(`TEAM BULL ${teamScore[0]}  :  ${teamScore[1]} TEAM BEAR`, `TEAM BULLE ${teamScore[0]}  :  ${teamScore[1]} TEAM BÄR`) : mode === "dm" ? "DEATHMATCH" : L("CO-OP", "KOOP"), DW / 2, y0 + 12, "#ffd232", 22, "center");
+  const cols = pvp ? [["P&L", 560], ["FRAGS", 650], [L("DEATHS", "TODE"), 730], ["KILLS", 800]] : [["P&L", 600], ["KILLS", 700], [L("DEATHS", "TODE"), 790]];
+  text(L("PLAYER", "SPIELER"), 180, y0 + 50, "#6b7896", 13);
   cols.forEach(([c, x]) => text(c, x, y0 + 50, "#6b7896", 13, "right"));
   rows.forEach((p, i) => {
     const y = y0 + 72 + i * 34;
     if (p.local) { g.fillStyle = "rgba(255,210,50,.1)"; g.fillRect(160, y - 5, DW - 320, 30); }
     g.fillStyle = rgbCss(playerColor(p)); g.fillRect(180, y, 16, 16);
-    text(`${i + 1}. ${nameOf(p)}${p.local ? " (DU)" : ""}${p.dead ? " ☠" : ""}`, 206, y, "#e6e6f0", 17);
+    text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}${p.dead ? " ☠" : ""}`, 206, y, "#e6e6f0", 17);
     const vals = pvp ? [`+$${p.score}`, p.frags || 0, p.deaths || 0, p.kills] : [`+$${p.score}`, p.kills, p.deaths || 0];
     vals.forEach((v, j) => text(String(v), cols[j][1], y, j === 0 ? "#50ff82" : "#e6e6f0", 17, "right"));
   });
@@ -2973,6 +3008,7 @@ function renderScoreOverlay() {
 let last = performance.now(), lobbyT = 0;
 function renderPlay(dt) {
   if (island) renderIsland(); else { marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
+  renderPsy();
   lg.putImageData(img, 0, 0); if (!me.dead) renderWeapon();
   g.drawImage(low, 0, 0, RW, VH, 0, 0, DW, HUD_Y);
   renderHUD();
@@ -2986,11 +3022,11 @@ function frame(now) {
   musicSchedule();   // sofort reagieren, wenn Pause an/aus geht
   if (serverGone) {   // Spiel einfrieren, bis der Server wieder da ist
     g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 170, DW, 170);
-    text(IN_APP ? "DER HOST HAT DAS SPIEL BEENDET" : "SPIEL-SERVER BEENDET", DW / 2, 190, "#ff5050", 36, "center");
-    text("Die Verbindung ist weg. Musik und Spiel sind angehalten.", DW / 2, 248, "#dcdce6", 18, "center");
+    text(IN_APP ? L("THE HOST ENDED THE GAME", "DER HOST HAT DAS SPIEL BEENDET") : L("GAME SERVER STOPPED", "SPIEL-SERVER BEENDET"), DW / 2, 190, "#ff5050", 36, "center");
+    text(L("The connection is gone. Music and game are paused.", "Die Verbindung ist weg. Musik und Spiel sind angehalten."), DW / 2, 248, "#dcdce6", 18, "center");
     clickZones = [];
-    if (IN_APP) { zoneButton(230, 278, 280, 40, "[H] ZURÜCK ZU MEINEM SPIEL", "#50ff82", "h", 16); zoneButton(530, 278, 200, 40, "[ESC] BEENDEN", "#ff7050", "Escape", 16); }
-    else text("Starte MARGIN CALL neu oder schließe diesen Tab.", DW / 2, 282, "#ffffff", 18, "center");
+    if (IN_APP) { zoneButton(230, 278, 280, 40, L("[H] BACK TO MY GAME", "[H] ZURÜCK ZU MEINEM SPIEL"), "#50ff82", "h", 16); zoneButton(530, 278, 200, 40, L("[ESC] QUIT", "[ESC] BEENDEN"), "#ff7050", "Escape", 16); }
+    else text(L("Restart MARGIN CALL or close this tab.", "Starte MARGIN CALL neu oder schließe diesen Tab."), DW / 2, 282, "#ffffff", 18, "center");
     last = now; requestAnimationFrame(frame); return;
   }
   // Host: Lobby-Status regelmaessig verteilen, Snapshots auch auf Endbildschirmen
@@ -3002,7 +3038,7 @@ function frame(now) {
   const shouldAdvertise = isLocalOrigin() && net.connected && isHost() && state === ST.LOBBY;
   if (shouldAdvertise && (advertiseT -= dt) <= 0) {
     advertiseT = 1; advertising = true;
-    fetch("/api/host", { method: "POST", body: JSON.stringify({ active: true, name: myGameName(), host: me.name, mode: MODES[lobbyMode][1], players: players.length }) }).catch(() => { });
+    fetch("/api/host", { method: "POST", body: JSON.stringify({ active: true, name: myGameName(), host: me.name, mode: modeName(lobbyMode), players: players.length }) }).catch(() => { });
   } else if (!shouldAdvertise && advertising) {
     advertising = false; fetch("/api/host", { method: "POST", body: JSON.stringify({ active: false }) }).catch(() => { });
   }
@@ -3023,25 +3059,25 @@ function frame(now) {
     case ST.JOIN: gameTime += dt; renderJoin(); break;
     case ST.PAUSE:
       g.fillStyle = "#000"; g.fillRect(230, 160, 500, 130);
-      text("HANDEL AUSGESETZT", DW / 2, 178, "#ffd232", 28, "center");
-      zoneButton(250, 228, 145, 40, "[P] WEITER", "#50ff82", "p", 16);
-      zoneButton(408, 228, 145, 40, "[O] OPTIONEN", "#50c8ff", "o", 16);
-      zoneButton(566, 228, 145, 40, "[ESC] HAUPTMENÜ", "#ff7050", "Escape", 16);
+      text(L("TRADING HALTED", "HANDEL AUSGESETZT"), DW / 2, 178, "#ffd232", 28, "center");
+      zoneButton(250, 228, 145, 40, L("[P] RESUME", "[P] WEITER"), "#50ff82", "p", 16);
+      zoneButton(408, 228, 145, 40, L("[O] OPTIONS", "[O] OPTIONEN"), "#50c8ff", "o", 16);
+      zoneButton(566, 228, 145, 40, L("[ESC] MAIN MENU", "[ESC] HAUPTMENÜ"), "#ff7050", "Escape", 16);
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
-    case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", "Level geschafft – der Kurs steigt", "#50ff82", true); break;
+    case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", L("Level cleared – the price is rising", "Level geschafft – der Kurs steigt"), "#50ff82", true); break;
     case ST.ROUNDEND:
       gameTime += dt;
       if (isHost()) { roundT -= dt; if (roundT <= 0) { nextRound(); break; } }   // automatisch weiter nach der Pause
       renderRoundEnd(); break;
     case ST.DEAD: gameTime += dt;
-      if (HC()) renderEnd("GAME OVER", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei", "#ff3c3c", false);
-      else renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false);
+      if (HC()) renderEnd("GAME OVER", L("Hardcore: bankruptcy is final – your run is over", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei"), "#ff3c3c", false);
+      else renderEnd(L("BANKRUPT", "INSOLVENZ"), L(`Bankruptcy no. ${me.deaths} – penalty −$${deathPenalty.toLocaleString(LOC())} (25 % of P&L)`, `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString(LOC())} (25 % des P&L)`), "#ff3c3c", false);
       break;
     case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) startIsland(); break;
     case ST.WIN: gameTime += dt;
-      if (islandDone) { renderEnd("STEUEROASE", `${isleResult}  ·  Gold ${isleCoins}/${ISLE_COINS}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString("de-DE")}` : ""}`, "#ffd232", true); break; }
-      renderEnd("BULLENMARKT!", me.winBonus ? `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString("de-DE")}${me.deaths ? "" : " inkl. weißer Weste"}` : "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true);
+      if (islandDone) { renderEnd(L("TAX HAVEN", "STEUEROASE"), `${isleResult}  ·  Gold ${isleCoins}/${ISLE_COINS}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString(LOC())}` : ""}`, "#ffd232", true); break; }
+      renderEnd(L("BULL MARKET!", "BULLENMARKT!"), me.winBonus ? L(`ALGO-9000 defeated – bull market bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " incl. clean sheet"}`, `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " inkl. weißer Weste"}`) : L("ALGO-9000 defeated – the market is free", "ALGO-9000 besiegt – der Markt ist frei"), "#ffd232", true);
       break;
   }
   if (edit) { clickZones = []; renderEdit(); }
