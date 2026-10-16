@@ -617,7 +617,7 @@ static float levelChg, oilChg, pBullBase, momentum, replayT;
 static int replayIdx;
 static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
-static float realChg, manipChg, manipT, dumpAt, flickerT;
+static float realChg, manipChg, manipT, dumpAt;
 // Ticker als farbige Segmente: Index, danach seine Einzelwerte
 struct TickSeg { char t[28]; uint16_t col; };
 static TickSeg tickSegs[M_COUNT * 2 + STOCK_COUNT];
@@ -685,16 +685,12 @@ static void applyMarket() {
   replayIdx = 0; replayT = 0; momentum = 0;
 }
 
-// Wand-Charts und Ticker nachzeichnen, wenn sich die Manipulation spuerbar aendert;
-// Licht flackert bei echten Kursspruengen (Intraday-Momentum) und bei Manipulation
-static void marketVisuals(float dt) {
+// Wand-Charts und Ticker nachzeichnen, wenn sich die Manipulation spuerbar aendert
+static void marketVisuals() {
   float eff = manipEff();
   if (fabsf(eff - manipDrawn) > 0.2f || (eff == 0 && manipDrawn != 0)) {
     manipDrawn = eff; genTickerTex(levelMarket()); genChartTex(levelMarket()); buildTicker();
   }
-  float vol = fabsf(momentum) * 2 + fabsf(eff) * 0.4f;
-  flickerT -= dt;
-  if (flickerT <= 0 && vol > 0.5f && frand() < min(0.25f, vol * 0.03f)) flickerT = 0.05f + frand() * 0.1f;
 }
 
 static float animalStrength(bool bull) {
@@ -1102,10 +1098,11 @@ static void updateGame(float dt) {
     if (dumpAt > 0 && manipT <= dumpAt) {
       dumpAt = 0; manipChg = -manipChg;
       char b[48]; snprintf(b, sizeof(b), "ALGO: DUMP! KURS %+.2f%%", manipChg); say(b, 2.5f); sfxPlay(SFX_ID_GLITCH);
+      aiFaceT = 2.2f; glitchT = max(glitchT, 0.6f);
     }
     marketEffect();
   }
-  marketVisuals(dt);
+  marketVisuals();
 
   auto& kb = M5Cardputer.Keyboard;
   auto ks = kb.keysState();
@@ -1374,8 +1371,8 @@ static void renderGlitch() {
   }
 }
 
-static void renderFlicker() {   // Stromschwankung: 3D-Bild kurz halb so hell
-  if (flickerT <= 0) return;
+static void renderFlicker() {   // ALGO-9000 schlaegt zu: Licht flackert in den ersten ~0,7 s des Angriffs
+  if (aiFaceT < 1.5f || ((int)(aiFaceT * 14) % 3)) return;
   for (int i = 0; i < SW * VH; i++) fb[i] = swp((swp(fb[i]) >> 1) & 0x7BEF);
 }
 

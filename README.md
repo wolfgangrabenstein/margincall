@@ -8,14 +8,14 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 
 ## Downloads
 
-Aktuelle Version **3.9.0** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.10.0** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.9.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.9.0/MarginCall-3.9.0-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.9.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.9.0/MarginCall-3.9.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.9.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.9.0/MarginCall-3.9.0-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.9.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.9.0/MarginCall-3.9.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.10.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.10.0/MarginCall-3.10.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.10.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.10.0/MarginCall-3.10.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.10.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.10.0/MarginCall-3.10.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.10.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.10.0/MarginCall-3.10.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.md)
 
@@ -68,6 +68,7 @@ Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiter
 | `desktop/` | Desktop-App (Tauri 2): eingebauter Server in Rust plus Spielfenster |
 | `src/`, `platformio.ini` | Cardputer-Firmware (PlatformIO, Arduino) |
 | `tools/` | Generatoren für Soundeffekte und das App-Icon |
+| `worker/` | Online-Rangliste (Cloudflare Worker + D1), Einrichtung siehe [worker/README.md](worker/README.md) |
 
 ### Selbst bauen
 
@@ -77,7 +78,7 @@ Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiter
 
 ## Datenschutz
 
-Live-Kurse werden nur geladen, wenn du beim ersten Start zustimmst. Dann fragt das Spiel öffentliche Kursdaten bei Yahoo Finance ab, wobei Yahoo wie bei jedem Webseitenaufruf deine IP-Adresse sieht. Ändern kannst du das jederzeit unter *Optionen → Live-Kurse*. Sonst überträgt das Spiel nichts; im Multiplayer verbindet es sich nur mit dem Host, dessen Adresse du eingibst. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
+Live-Kurse werden nur geladen, wenn du beim ersten Start zustimmst. Dann fragt das Spiel öffentliche Kursdaten bei Yahoo Finance ab, wobei Yahoo wie bei jedem Webseitenaufruf deine IP-Adresse sieht. Ändern kannst du das jederzeit unter *Optionen → Live-Kurse*. Für die Online-Rangliste gehen Name und Punkte nur an den Ranglisten-Server, wenn du nach einem Lauf „Auch online eintragen“ einschaltest. Sonst überträgt das Spiel nichts; im Multiplayer verbindet es sich nur mit dem Host, dessen Adresse du eingibst. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
 
 ## Code signing policy
 
