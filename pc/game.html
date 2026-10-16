@@ -54,7 +54,7 @@
 // Live-Kurse kommen vom lokalen Spiel-Server (MarginCall.exe) unter /api/market.
 // =====================================================================================
 
-const APP_VERSION = "3.11.0";
+const APP_VERSION = "3.12.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -866,6 +866,11 @@ function checkExit() {
   if (enemies.some(e => e.alive && TYPES[e.type].boss)) { if (msgT <= 0) { sayTo(pl, "TRESOR GESPERRT – BOSS LEBT NOCH!", 1.5); sfxTo(pl, "DECLINED"); } return; }
   state = level >= NUM_LEVELS - 1 ? ST.WIN : ST.LEVELDONE;
   players.forEach(p => addScore(p, 500 + p.hp * 5));
+  if (state === ST.WIN) players.forEach(p => {   // Bullenmarkt-Bonus fuers Durchspielen
+    const before = p.score;
+    addScore(p, 10000 + Math.floor(p.score * .25) + (p.deaths ? 0 : 5000));
+    p.winBonus = p.score - before;
+  });
   musicStop(); emit(["music", 0]); sfxAll("BELL"); if (state === ST.WIN) sfxAll("KACHING");
   document.exitPointerLock?.();
 }
@@ -2722,7 +2727,9 @@ function frame(now) {
       if (HC()) renderEnd("GAME OVER", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei", "#ff3c3c", false);
       else renderEnd("INSOLVENZ", `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString("de-DE")} (25 % des P&L)`, "#ff3c3c", false);
       break;
-    case ST.WIN: gameTime += dt; renderEnd("BULLENMARKT!", "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true); break;
+    case ST.WIN: gameTime += dt;
+      renderEnd("BULLENMARKT!", me.winBonus ? `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString("de-DE")}${me.deaths ? "" : " inkl. weißer Weste"}` : "ALGO-9000 besiegt – der Markt ist frei", "#ffd232", true);
+      break;
   }
   if (edit) { clickZones = []; renderEdit(); }
   requestAnimationFrame(frame);
