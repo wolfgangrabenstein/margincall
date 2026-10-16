@@ -606,6 +606,8 @@ static Proj projs[MAX_P];
 static float px, py, dirX, dirY, planeX, planeY;
 static int hp, ammo, level, kills, marketKills;
 static long pnl;
+static long winBonus;   // Bullenmarkt-Bonus fuers Durchspielen
+static int deaths;      // Tode im aktuellen Lauf (weisse Weste)
 static float fireCd, flashT, hurtT, pickT, msgT, bobT, gameTime, slowT;
 static float dodgeT, dodgeCd, dodgeX, dodgeY;   // Ausweichen per Doppeltipp
 static char msg[48];
@@ -816,7 +818,7 @@ static void loadLevel(int lv) {
 }
 
 // Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
-static void newGame() { hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; level = 0; loadLevel(0); }
+static void newGame() { hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; loadLevel(0); }
 
 static bool freeAt(float x, float y, float r) {
   return !solidCell((int)(x - r), (int)(y - r)) && !solidCell((int)(x + r), (int)(y - r)) &&
@@ -834,7 +836,7 @@ static void damagePlayer(int d, const char* why) {
   if (hardcore) d = (int)roundf(d * 1.5f);
   hp -= d; hurtT = 0.35f; sfxPlay(SFX_ID_PHONE);
   if (why) say(why, 1.2f);
-  if (hp <= 0) { hp = 0; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH); }
+  if (hp <= 0) { hp = 0; deaths++; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH); }
 }
 
 static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8_t faction, uint8_t spr) {
@@ -919,6 +921,11 @@ static void tryMove(float mx, float my) {
     if (bossAlive) { if (msgT <= 0) { say("TRESOR GESPERRT - BOSS LEBT NOCH!", 1.5f); sfxPlay(SFX_ID_DECLINED); } }
     else {
       state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += 500 + hp * 5;
+      if (state == ST_WIN) {   // Bullenmarkt-Bonus: 10.000 + 25 % des P&L + 5.000 ohne Tod, Hardcore x1,5
+        winBonus = 10000 + pnl / 4 + (deaths ? 0 : 5000);
+        if (hardcore) winBonus = winBonus * 3 / 2;
+        pnl += winBonus;
+      }
       musicStop(); sfxPlay(SFX_ID_BELL); if (state == ST_WIN) sfxPlay(SFX_ID_KACHING);
       return;
     }
@@ -1749,7 +1756,8 @@ void loop() {
       break;
     case ST_WIN:
       gameTime += dt;
-      renderEndScreen("BULLENMARKT!", "ALGO-9000 BESIEGT - DER MARKT IST FREI", c565(255, 210, 50), true);
+      { char sub[48]; snprintf(sub, sizeof(sub), "BULLENMARKT-BONUS +$%ld%s", winBonus, deaths ? "" : " (OHNE TOD)");
+        renderEndScreen("BULLENMARKT!", sub, c565(255, 210, 50), true); }
       if (enterHit) { state = ST_TITLE; musicStart(); }
       break;
     case ST_WIFI_LIST:

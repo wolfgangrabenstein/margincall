@@ -1,5 +1,16 @@
 # MARGIN CALL – Changelog
 
+## Version 3.12.0 – Bullenmarkt-Bonus fürs Durchspielen (16.10.2026)
+
+- **Wer ALGO-9000 besiegt und das Spiel durchspielt, bekommt einen Bullenmarkt-Bonus auf den Highscore:**
+  - **+10.000 $** pauschal
+  - **+25 %** des bis dahin erspielten P&L
+  - **+5.000 $** für eine weiße Weste, also ohne einen einzigen Tod
+  - In Hardcore zählt der Bonus wie alle Punkte 1,5-fach.
+- Beispiel: Bei 20.900 $ P&L ohne Tod gibt es +20.225 $, in Hardcore +30.506 $.
+- Der Siegbildschirm zeigt den Bonus an, in der Rangliste steht der Lauf weiter mit „SIEG“. Bisher brachte der letzte Tresor nur denselben kleinen Bonus wie jedes andere Level.
+- Auch auf dem Cardputer, der dafür jetzt die Tode eines Laufs mitzählt.
+
 ## Version 3.11.0 – Hardcore-Modus, fairere Bosse (16.10.2026)
 
 - **Hardcore-Modus:** Im Hauptmenü mit **X** (oder dem roten Knopf) starten, nur im Solo-Spiel.
