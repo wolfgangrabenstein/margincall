@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.16.0";
+const APP_VERSION = "3.16.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1366,7 +1366,7 @@ function optActivate() {
     case "music": musicToggle(); break;
     case "fullscreen": setFullscreen(!fsOn); break;
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
-    case "online": settings.onlineScores = settings.onlineScores !== true; saveSettings(); break;
+    case "online": settings.onlineScores = !onlineOn(); saveSettings(); break;
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
@@ -1420,7 +1420,7 @@ function renderOptions() {
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
     } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "music" || row.kind === "fullscreen") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? settings.onlineScores === true : row.kind === "music" ? musicOn : row.kind === "fullscreen" ? fsOn : settings.invert;
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "music" ? musicOn : row.kind === "fullscreen" ? fsOn : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "lang") {
       text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
@@ -2845,7 +2845,8 @@ function renderPrivacy() {
     L("Without live quotes you play with simulated prices – everything else works the same.", "Ohne Live-Kurse spielst du mit simulierten Kursen – alles andere funktioniert gleich."),
     L("You can change this anytime under [O] OPTIONS → “Live quotes”.", "Du kannst das jederzeit unter [O] OPTIONEN → „Live-Kurse“ ändern."),
     L("Multiplayer only connects to a host whose address you enter yourself.", "Multiplayer verbindet sich nur mit dem Host, dessen Adresse du selbst eingibst."),
-  ].forEach((l, i) => text(l, DW / 2, 130 + i * 28, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
+    L("Highscores are only posted online when you confirm it after a run.", "Highscores gehen nur online, wenn du das nach einem Lauf bestätigst."),
+  ].forEach((l, i) => text(l, DW / 2, 128 + i * 26, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
   zoneButton(160, 372, 310, 44, L("[ENTER] LOAD LIVE QUOTES", "[ENTER] LIVE-KURSE LADEN"), "#50ff82", "enter");
   zoneButton(490, 372, 310, 44, L("[N] NO LIVE QUOTES", "[N] OHNE LIVE-KURSE"), "#a0a0b4", "n");
   text(L("Yahoo privacy policy: legal.yahoo.com/us/en/yahoo/privacy", "Datenschutzhinweise von Yahoo: legal.yahoo.com/de/de/yahoo/privacy"), DW / 2, 450, "#6b7896", 13, "center");
@@ -2876,7 +2877,8 @@ async function hsSave(entry) {
 }
 const hsQualifies = score => score > 0 && (hsList.length < 10 || score > hsList[hsList.length - 1].score);
 
-// Online-Rangliste: eingetragen wird nur mit Zustimmung (settings.onlineScores), gelesen nur, wenn man den Reiter oeffnet.
+// Online-Rangliste: standardmaessig an (Opt-out nach jedem Lauf und im Optionsmenue); gelesen wird nur, wenn man den Reiter oeffnet.
+const onlineOn = () => settings.onlineScores !== false;
 const hsTabs = () => ONLINE_HS_URL ? [L("LOCAL", "LOKAL"), L("ONLINE ALL-TIME", "ONLINE GESAMT"), L("ONLINE TODAY", "ONLINE HEUTE")] : [L("LOCAL", "LOKAL")];
 const HS_TABS = hsTabs();
 let hsTab = 0, hsScroll = 0, hsMine = null;   // hsMine: {id, rank, total, dayRank, dayTotal} des letzten eigenen Eintrags
@@ -2935,7 +2937,7 @@ async function hsSubmitName() {
   if (!name) return;
   settings.playerName = name; saveSettings();
   if (hsQualifies(hsEntry.score)) await hsSave({ ...hsEntry, name }); else hsNew = -1;
-  const online = ONLINE_HS_URL && settings.onlineScores === true;
+  const online = ONLINE_HS_URL && onlineOn();
   if (online) await hsOnlineSubmit({ ...hsEntry, name, ver: APP_VERSION, hc: hsHC });
   sfx("KACHING"); hsReturn = ST.TITLE; state = ST.HIGHSCORES;
   if (online) hsSetTab(1);
@@ -2944,7 +2946,7 @@ function nameKey(k) {
   if (k === "enter") { hsSubmitName(); return; }
   if (k === "Escape") { hsNew = -1; hsReturn = ST.TITLE; state = ST.HIGHSCORES; return; }
   if (k === "Tab" || k === "ArrowDown" || k === "ArrowUp") {   // Online-Zustimmung umschalten
-    if (ONLINE_HS_URL) { settings.onlineScores = settings.onlineScores !== true; saveSettings(); sfx("HIT"); }
+    if (ONLINE_HS_URL) { settings.onlineScores = !onlineOn(); saveSettings(); sfx("HIT"); }
     return;
   }
   if (k === "Backspace") { hsName = hsName.slice(0, -1); return; }
@@ -2961,13 +2963,15 @@ function renderNameEntry() {
   g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 220, 400, 54);
   text(hsName + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 232, "#ffffff", 30, "center");
   text(L("up to 15 characters", "bis 15 Zeichen"), DW / 2, 280, "#6b7896", 13, "center");
-  if (ONLINE_HS_URL) {   // Zustimmung zur Online-Rangliste, standardmaessig aus
-    const on = settings.onlineScores === true;
-    zoneButton(250, 302, 460, 32, L(`[TAB] ALSO SUBMIT ONLINE: ${on ? "YES" : "NO"}`, `[TAB] AUCH ONLINE EINTRAGEN: ${on ? "JA" : "NEIN"}`), on ? "#50ff82" : "#a0a0b4", "Tab", 16);
-    text(on ? L("Name and score go to the public online leaderboard (Cloudflare).", "Name und Punkte gehen an die öffentliche Online-Rangliste (Cloudflare).") : L("Save locally only – nothing goes to the online leaderboard.", "Nur lokal speichern – an die Online-Rangliste geht nichts."), DW / 2, 340, "#6b7896", 13, "center");
+  if (ONLINE_HS_URL) {   // Online-Rangliste: standardmaessig an, hier mit TAB abschaltbar
+    const on = onlineOn();
+    zoneButton(250, 302, 460, 32, L(`[TAB] ONLINE LEADERBOARD: ${on ? "YES" : "NO"}`, `[TAB] ONLINE-RANGLISTE: ${on ? "JA" : "NEIN"}`), on ? "#50ff82" : "#a0a0b4", "Tab", 16);
+    text(on ? L("ENTER posts name + score to the public leaderboard · [TAB] = local only", "ENTER stellt Name + Punkte öffentlich online · [TAB] = nur lokal") : L("Save locally only – nothing goes to the online leaderboard.", "Nur lokal speichern – an die Online-Rangliste geht nichts."), DW / 2, 340, "#6b7896", 13, "center");
   }
-  zoneButton(250, 366, 220, 40, local || settings.onlineScores === true && ONLINE_HS_URL ? L("[ENTER] SAVE", "[ENTER] SPEICHERN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#50ff82", "enter");
-  zoneButton(490, 366, 220, 40, L("[ESC] SKIP", "[ESC] OHNE NAMEN"), "#8290b0", "Escape");
+  // Jeder Upload braucht diesen ausdruecklich beschrifteten Knopf (SignPath: nur auf ausdruecklichen Wunsch uebertragen)
+  const up = onlineOn() && ONLINE_HS_URL;
+  zoneButton(170, 366, 380, 40, up ? L("[ENTER] SAVE & POST ONLINE", "[ENTER] SPEICHERN & ONLINE STELLEN") : local ? L("[ENTER] SAVE LOCALLY", "[ENTER] LOKAL SPEICHERN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#50ff82", "enter", 16);
+  zoneButton(570, 366, 220, 40, L("[ESC] SKIP", "[ESC] OHNE NAMEN"), "#8290b0", "Escape");
   text(CREDITS, DW / 2, 440, "#6b7896", 13, "center");
 }
 function renderHighscores() {
@@ -3005,7 +3009,7 @@ function renderHighscores() {
     else o.list.slice(hsScroll, hsScroll + 10).forEach((h, i) => row(132 + i * 29, hsScroll + i + 1, h, !!hsMyRank() && h.id === hsMine.id));
     if (o.list.length > 10) text(`${hsScroll + 1}–${Math.min(o.list.length, hsScroll + 10)} ${L("of", "von")} ${o.list.length}  ·  ↑↓ ${L("scroll", "blättern")}`, 830, 424, "#6b7896", 12, "right");
     if (rank) text(L(`YOUR RANK: ${rank} OF ${total}${rank > o.list.length ? "  (outside the top 100)" : ""}`, `DEIN PLATZ: ${rank} VON ${total}${rank > o.list.length ? "  (außerhalb der Top 100)" : ""}`), 140, 424, "#ffd232", 15);
-    else if (settings.onlineScores !== true) text(L("To submit: enable it in the options or choose “Also submit online” after a run.", "Eintragen: im Optionsmenü oder nach dem Lauf „Auch online eintragen“ wählen."), 140, 424, "#6b7896", 12);
+    else if (!onlineOn()) text(L("Online submission is off – turn it on in the options or after a run.", "Online-Eintrag ist aus – einschalten im Optionsmenü oder nach einem Lauf."), 140, 424, "#6b7896", 12);
   }
   if (hsNote) text(hsNote, DW / 2, 430, "#ff7050", 14, "center");
   zoneButton(250, 452, 220, 38, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
