@@ -2205,21 +2205,24 @@ function outroScene(t) {
   box(cx - .19, Y + .05, hz, cx + .19, Y + .32, hz + .14, [40, 90, 200]);
   quad([cx - .2, Y + .06, hz + .15], [cx + .2, Y + .06, hz + .15], [cx + .2, Y - .4, D + .78], [cx - .2, Y - .4, D + .78], [255, 120, 40]);
   for (const [fx, fy] of [[-.1, -.05], [.08, -.2], [-.05, -.3]]) tri([cx + fx, Y + fy, hz + .17 + (-fy) * .9], [cx + fx + .07, Y + fy, hz + .17 + (-fy) * .9], [cx + fx + .03, Y + fy - .06, hz + .22 + (-fy) * .9], [255, 230, 60]);
-  const hx = cx, hy = Y - .48, hzz = D + 1.0, r = .2;
-  const P = [[hx + r, hy, hzz], [hx - r, hy, hzz], [hx, hy + r, hzz], [hx, hy - r, hzz], [hx, hy, hzz + r], [hx, hy, hzz - r]];
-  for (const [a, b] of [[0, 2], [2, 1], [1, 3], [3, 0]]) { tri(P[a], P[b], P[4], [90, 60, 35]); tri(P[a], P[b], P[5], skin); }
+  // Kopf: kastiger Low-Poly-Kopf, genau so breit wie die Meme-Brille
+  const hx = cx, hy = Y - .48, hb = D + .8, HW = .25, HD = .2, ht = hb + .5, hair = [90, 60, 35];
+  box(hx - HW, hy - HD, hb, hx + HW, hy + HD, ht - .07, skin);
+  box(hx - HW - .012, hy - HD - .012, ht - .1, hx + HW + .012, hy + HD + .012, ht + .02, hair);   // Haarkappe mit Pony
+  quad([hx - HW, hy - HD - .013, hb + .12], [hx + HW, hy - HD - .013, hb + .12], [hx + HW, hy - HD - .013, ht], [hx - HW, hy - HD - .013, ht], hair);   // Hinterkopf
+  box(hx - HW - .045, hy - .05, hb + .2, hx - HW, hy + .05, hb + .31, skin); box(hx + HW, hy - .05, hb + .2, hx + HW + .045, hy + .05, hb + .31, skin);   // Ohren
   // Meme-Sonnenbrille („Deal with it“): Pixelbloecke mit weissen Glanzpixeln, schwebt gegen Ende auf das Gesicht herab
   if (t > 7.6) {
-    const drop = Math.min(1, (t - 7.6) / 1.2), gp = .019, gx = hx - 11 * gp, gy = hy + .205, gz = hzz + .06 + (1 - drop) * .9;
+    const drop = Math.min(1, (t - 7.6) / 1.2), gp = 2 * HW / 22, gx = hx - 11 * gp, gy = hy + HD + .008, gz = ht - .13 + (1 - drop) * .9;
     for (const [rw, c0, c1, wh] of [[0,0,21,0],[1,0,9,0],[1,12,21,0],[2,1,8,0],[2,13,20,0],[3,2,7,0],[3,14,19,0],[1,2,3,1],[1,14,15,1],[2,3,4,1],[2,15,16,1],[3,4,4,1],[3,16,16,1]]) {
       const y = gy + wh * .006, z0 = gz - (rw + 1) * gp, z1 = gz - rw * gp, col = wh ? [460, 460, 460] : [10, 10, 12];   // Glanzpixel ueberbelichtet, damit sie trotz Schattierung weiss bleiben
       quad([gx + c0 * gp, y, z0], [gx + (c1 + 1) * gp, y, z0], [gx + (c1 + 1) * gp, y, z1], [gx + c0 * gp, y, z1], col);
     }
   }
-  quad([hx - .06, hy + .18, hzz - .1], [hx + .06, hy + .18, hzz - .1], [hx + .05, hy + .18, hzz - .07], [hx - .05, hy + .18, hzz - .07], [190, 60, 60]);   // Grinsen
+  quad([hx - .1, hy + HD + .005, hb + .11], [hx + .1, hy + HD + .005, hb + .135], [hx + .1, hy + HD + .005, hb + .16], [hx - .1, hy + HD + .005, hb + .13], [150, 50, 50]);   // schraeges Grinsen
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   const ph = (t % 4) / 4, lift = ph < .3 ? Math.sin(ph / .3 * Math.PI) : 0;
-  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .1, hy + .2, hzz - .05];
+  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .1, hy + HD + .03, hb + .13];
   const hand = rest.map((v, i) => v + (mouth[i] - v) * lift);
   rib(sh, hand, .035, skin);
   const g0 = [hand[0], hand[1], hand[2] + .02], gr = .07, gh = .18, full = Math.max(.15, 1 - t / OUTRO_LEN * .85);
@@ -2238,7 +2241,7 @@ function renderOutro(dt) {
   const tx = OUTRO_X + .9, ty = OUTRO_Y - .1, ang = .45 + e * .85, dist = 10 - e * 6.6;
   px = tx + Math.cos(ang) * dist; py = ty + Math.sin(ang) * dist;
   const dl = Math.hypot(tx - px, ty - py); dirX = (tx - px) / dl; dirY = (ty - py) / dl; planeX = -dirY * PLANE; planeY = dirX * PLANE;
-  isleEyeZ = 1.8 - e * .55; isleExtra = outroScene(outroT);
+  isleEyeZ = 1.85 - e * .4; isleExtra = outroScene(outroT);
   renderIsland();
   isleEyeZ = null; isleExtra = [];
   lg.putImageData(img, 0, 0);
