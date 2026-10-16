@@ -94,15 +94,28 @@ static void storeSprite(int idx) {
   }
 }
 
+// ALGO-Manipulation, mit der die Wand-Charts zuletzt gezeichnet wurden (Prozentpunkte)
+static float manipDrawn = 0;
+// Von ALGO-9000 verbogener Verlauf: ab 60 % des Tages schrittweise auf den manipulierten Kurs
+static float manipSeries(const Market& m, int i) {
+  int a = m.n * 6 / 10;
+  return m.series[i] * (1.0f + (i > a ? manipDrawn / 100.0f * (i - a) / max(1, m.n - 1 - a) : 0.0f));
+}
+static void seriesRange(const Market& m, float& lo, float& hi) {
+  lo = 1e30f; hi = -1e30f;
+  for (int i = 0; i < m.n; i++) { lo = min(lo, m.series[i]); hi = max(hi, m.series[i]); }
+  if (manipDrawn != 0 && m.n > 0) { float v = manipSeries(m, m.n - 1); lo = min(lo, v); hi = max(hi, v); }
+  if (hi - lo < 1e-6f) hi = lo + 1;
+}
+static const uint32_t MANIP_COL = RGB(255, 60, 200);
+
 // Ticker-Wand: LED-Laufband + echter Intraday-Chart des Level-Markts
 static void genTickerTex(const Market& m) {
   tclear(RGB(8, 12, 22));
   bool up = m.chg >= 0;
   for (int x = 0; x < TEX; x++)
     for (int y = 2; y < 9; y++) if ((x % 8) < 6 && (rnd() % 3)) tpx(x, y, ((x / 8) % 3 == 2) != up ? RGB(40, 230, 90) : RGB(240, 50, 50));
-  float lo = 1e30f, hi = -1e30f;
-  for (int i = 0; i < m.n; i++) { lo = min(lo, m.series[i]); hi = max(hi, m.series[i]); }
-  if (hi - lo < 1e-6f) hi = lo + 1;
+  float lo, hi; seriesRange(m, lo, hi);
   for (int x = 0; x < TEX; x++) {
     int i = m.n > 1 ? x * (m.n - 1) / (TEX - 1) : 0;
     int y = 29 - (int)((m.series[i] - lo) / (hi - lo) * 15);
@@ -112,6 +125,11 @@ static void genTickerTex(const Market& m) {
   }
   int py = 29 - (int)((m.prev - lo) / (hi - lo) * 15);   // Vortages-Schluss gestrichelt
   if (py >= 13 && py <= 30) for (int x = 0; x < TEX; x += 3) tpx(x, py, RGB(200, 200, 90));
+  if (manipDrawn != 0)
+    for (int x = TEX * 6 / 10; x < TEX; x++) {
+      int i = m.n > 1 ? x * (m.n - 1) / (TEX - 1) : 0;
+      tpx(x, constrain(29 - (int)((manipSeries(m, i) - lo) / (hi - lo) * 15), 12, 30), MANIP_COL);
+    }
   for (int i = 0; i < TEX; i++) { tpx(i, 0, RGB(90, 90, 100)); tpx(i, 11, RGB(40, 40, 60)); tpx(i, 31, RGB(90, 90, 100)); }
   storeWall(T_TICKER);
 }
@@ -120,9 +138,7 @@ static void genTickerTex(const Market& m) {
 static void genChartTex(const Market& m) {
   tclear(RGB(225, 228, 235));
   for (int y = 4; y < 30; y += 6) trect(1, y, 30, 1, RGB(200, 205, 215));
-  float lo = 1e30f, hi = -1e30f;
-  for (int i = 0; i < m.n; i++) { lo = min(lo, m.series[i]); hi = max(hi, m.series[i]); }
-  if (hi - lo < 1e-6f) hi = lo + 1;
+  float lo, hi; seriesRange(m, lo, hi);
   auto Y = [&](float v) { return 27 - (int)((v - lo) / (hi - lo) * 22); };
   const int K = 7;
   for (int k = 0; k < K; k++) {
@@ -135,6 +151,11 @@ static void genChartTex(const Market& m) {
     int t = Y(max(o, c)), bt = Y(min(o, c)); if (bt - t < 1) bt = t + 1;
     trect(x, t, 3, bt - t, col);
   }
+  if (manipDrawn != 0)   // manipulierter Verlauf, doppelt so dick
+    for (int x = 17; x < 31; x++) {
+      int i = min(m.n - 1, (x - 1) * m.n / 30), y = constrain(Y(manipSeries(m, i)), 1, 29);
+      tpx(x, y, MANIP_COL); tpx(x, y + 1, MANIP_COL);
+    }
   for (int i = 0; i < TEX; i++) { tpx(i, 0, RGB(50, 50, 60)); tpx(i, 31, RGB(50, 50, 60)); tpx(0, i, RGB(50, 50, 60)); tpx(31, i, RGB(50, 50, 60)); }
   storeWall(T_CHART);
 }
@@ -574,7 +595,7 @@ struct Enemy {
   float cd, anim, hurt, attackAnim, think, deadT, str, chargeT, chargeCd, mdx, mdy, spawnCd;
   int16_t target;   // -1 = Spieler, -2 = keins, sonst Index
 };
-struct Item { float x, y; uint8_t type; bool active; };   // 0 = Cash, 1 = Dividende
+struct Item { float x, y; uint8_t type; bool active, stray; };   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
 
 static constexpr int MAX_E = 48, MAX_I = 48, MAX_P = 32;
@@ -594,8 +615,13 @@ static uint8_t hist[48]; static int histN; static float histT;
 // Markt- und KI-Zustand
 static float levelChg, oilChg, pBullBase, momentum, replayT;
 static int replayIdx;
-static float spawnT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
-static char tickerText[160];
+static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
+// ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
+static float realChg, manipChg, manipT, dumpAt, flickerT;
+// Ticker als farbige Segmente: Index, danach seine Einzelwerte
+struct TickSeg { char t[28]; uint16_t col; };
+static TickSeg tickSegs[M_COUNT * 2 + STOCK_COUNT];
+static int nTickSegs, tickChars;
 static int bullsAlive, bearsAlive;
 
 enum State { ST_TITLE, ST_PLAY, ST_PAUSE, ST_LEVELDONE, ST_DEAD, ST_WIN, ST_WIFI_LIST, ST_WIFI_PASS };
@@ -612,25 +638,63 @@ static bool hostileFactions(uint8_t a, uint8_t b) { return (a == F_BULL && b == 
 static const Market& levelMarket() { return markets[LEVEL_MARKET[level]]; }
 
 static void buildTicker() {
-  int p = 0;
-  for (int i = 0; i < M_COUNT && p < (int)sizeof(tickerText) - 40; i++) {
+  const uint16_t magenta = c565(255, 60, 200), yellow = c565(255, 200, 60);
+  nTickSegs = 0; tickChars = 0;
+  auto add = [](const char* t, uint16_t col) {
+    TickSeg& s = tickSegs[nTickSegs++];
+    strncpy(s.t, t, sizeof(s.t) - 1); s.t[sizeof(s.t) - 1] = 0; s.col = col;
+    tickChars += strlen(s.t);
+  };
+  char b[28];
+  for (int i = 0; i < M_COUNT; i++) {
     const Market& m = markets[i];
     float price = m.price, chg = m.chg;
-    if (fakeT > 0) { chg = ((int)(rnd() % 4001) - 2000) / 100.0f; price *= 1 + chg / 100; }   // ALGO-9000 Fake News
-    p += snprintf(tickerText + p, sizeof(tickerText) - p, "%s %.*f %s%.2f%%%s   ", m.label, price < 1000 ? 2 : 0, price,
-                  chg >= 0 ? "+" : "", chg, m.live ? "" : "*");
+    uint16_t col = yellow;
+    if (fakeT > 0) { chg = ((int)(rnd() % 4001) - 2000) / 100.0f; price *= 1 + chg / 100; col = magenta; }   // ALGO-9000 Fake News
+    else if (manipDrawn != 0 && &m == &levelMarket()) { chg += manipDrawn; price *= 1 + manipDrawn / 100; col = magenta; }
+    snprintf(b, sizeof(b), "%s %.*f %s%.2f%%%s  ", m.label, price < 1000 ? 2 : 0, price, chg >= 0 ? "+" : "", chg, m.live ? "" : "*");
+    add(b, col);
+    // Einzelwerte: nur Anzeige, gruen steigend / rot fallend (^ bzw. v)
+    for (const auto& s : stocks) {
+      if (s.market != i) continue;
+      float sc = fakeT > 0 ? ((int)(rnd() % 1601) - 800) / 100.0f : s.chg;
+      if (s.price > 0) snprintf(b, sizeof(b), "%s %.2f %c%.2f%%%s  ", s.label, s.price, sc >= 0 ? '^' : 'v', fabsf(sc), s.live ? "" : "*");
+      else snprintf(b, sizeof(b), "%s %c%.2f%%%s  ", s.label, sc >= 0 ? '^' : 'v', fabsf(sc), s.live ? "" : "*");
+      add(b, fakeT > 0 ? magenta : sc >= 0 ? c565(80, 255, 130) : c565(255, 80, 80));
+    }
+    add("    ", yellow);
   }
 }
 
-static void applyMarket() {
-  if (level == NUM_LEVELS - 1) levelChg = (markets[M_DOW].chg + markets[M_SPX].chg + markets[M_NDX].chg) / 3;
-  else levelChg = levelMarket().chg;
-  oilChg = markets[M_OIL].chg;
+// Manipulation blendet in den letzten 4 Sekunden aus
+static float manipEff() { return manipT > 0 ? manipChg * min(1.0f, manipT / 4) : 0.0f; }
+static void marketEffect() {   // Spielkurs = echter Kurs + Manipulation
+  levelChg = realChg + manipEff();
   pBullBase = constrain(0.5f + levelChg * 0.2f, 0.15f, 0.85f);
+}
+
+static void applyMarket() {
+  if (level == NUM_LEVELS - 1) realChg = (markets[M_DOW].chg + markets[M_SPX].chg + markets[M_NDX].chg) / 3;
+  else realChg = levelMarket().chg;
+  oilChg = markets[M_OIL].chg;
+  manipChg = manipT = dumpAt = 0; manipDrawn = 0;
+  marketEffect();
   genTickerTex(levelMarket());
   genChartTex(levelMarket());
   buildTicker();
   replayIdx = 0; replayT = 0; momentum = 0;
+}
+
+// Wand-Charts und Ticker nachzeichnen, wenn sich die Manipulation spuerbar aendert;
+// Licht flackert bei echten Kursspruengen (Intraday-Momentum) und bei Manipulation
+static void marketVisuals(float dt) {
+  float eff = manipEff();
+  if (fabsf(eff - manipDrawn) > 0.2f || (eff == 0 && manipDrawn != 0)) {
+    manipDrawn = eff; genTickerTex(levelMarket()); genChartTex(levelMarket()); buildTicker();
+  }
+  float vol = fabsf(momentum) * 2 + fabsf(eff) * 0.4f;
+  flickerT -= dt;
+  if (flickerT <= 0 && vol > 0.5f && frand() < min(0.25f, vol * 0.03f)) flickerT = 0.05f + frand() * 0.1f;
 }
 
 static float animalStrength(bool bull) {
@@ -719,7 +783,7 @@ static void loadLevel(int lv) {
         case 't': spawnEnemy(E_BOT, cx, cy); break;
         case 'K': spawnEnemy(E_ALGO, cx, cy); break;
         case '$': case '+':
-          if (nItems < MAX_I) items[nItems++] = {cx, cy, (uint8_t)(c == '+'), true};
+          if (nItems < MAX_I) items[nItems++] = {cx, cy, (uint8_t)(c == '+'), true, false};
           break;
         default: world[y][x] = c;
       }
@@ -734,7 +798,7 @@ static void loadLevel(int lv) {
   dirX = dirs[best][0]; dirY = dirs[best][1];
   planeX = -dirY * PLANE; planeY = dirX * PLANE;
   histN = 0; histT = 0;
-  spawnT = 6; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
+  spawnT = 6; cashT = 40 + frand() * 30; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
   char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, LEVEL_NAMES[lv]);
   say(b, 3.0f);
@@ -766,7 +830,12 @@ static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8
   for (auto& p : projs) if (!p.active) { p = {x, y, cosf(ang) * spd, sinf(ang) * spd, true, dmg, faction, spr}; return; }
 }
 
-static void dropItem(float x, float y, uint8_t type) { if (nItems < MAX_I) items[nItems++] = {x, y, type, true}; }
+static void dropItem(float x, float y, uint8_t type, bool stray = false) {
+  int i = 0;   // aufgesammelte Plaetze wiederverwenden
+  while (i < nItems && items[i].active) i++;
+  if (i == nItems) { if (nItems >= MAX_I) return; nItems++; }
+  items[i] = {x, y, type, true, stray};
+}
 
 static void killEnemy(Enemy& e, bool byPlayer) {
   e.alive = false; e.deadT = 0;
@@ -789,7 +858,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     if (dist2Player(e.x, e.y) < 64) say(e.type == E_BEAR || e.type == E_SELLER ? "BULLEN TRAMPELN BAEREN NIEDER" : "BAEREN ZERFLEISCHEN BULLEN", 1.5f);
   }
   sfxNear(e.type == E_BUBBLE ? SFX_ID_POP : e.type == E_SLICK ? SFX_ID_OIL : SFX_ID_STAMP, e.x, e.y, 10);
-  float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : 0.45f) : 0.3f;
+  float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : 0.38f) : 0.22f;
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < dropChance) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
 }
@@ -802,20 +871,26 @@ static void hurtEnemy(Enemy& t, int dmg, bool byPlayer) {
 }
 
 // ---------------------------------------------------------------- KI ALGO-9000
+// Meldung passt in msg[48]: "ALGO: FLASH CRASH! KURS -5.00%"
+static void manipulate(float chg, float t, const char* what) {
+  manipChg = chg; manipT = t; dumpAt = 0; marketEffect();
+  char b[48]; snprintf(b, sizeof(b), "ALGO: %s KURS %+.2f%%", what, chg);
+  say(b, 2.5f);
+}
 static void aiEvent(int forced = -1) {
   int ev = forced >= 0 ? forced : rnd() % 6;
   aiFaceT = 2.2f; glitchT = max(glitchT, 0.6f);
   sfxPlay(SFX_ID_GLITCH);
   switch (ev) {
-    case 0: fakeT = 10; spawnNear(frand() < 0.5f ? E_BULL : E_BEAR, 2); say("ALGO-9000: FAKE NEWS GESTREUT!", 2.5f); break;
-    case 1: crashT = 8; say("ALGO-9000: FLASH CRASH! ALLE GEGEN DICH", 2.5f); break;
-    case 2: spawnNear(E_BOT, 2 + rnd() % 2); say("ALGO-9000: TRADING-BOTS AKTIV", 2.5f); break;
-    case 3: spawnNear(E_BUBBLE, 3); say("ALGO-9000: PUMP & DUMP!", 2.5f); break;
-    case 4: glitchT = 4; invertT = 3; say("ALGO-9000: SYSTEM MANIPULIERT!", 2.5f); break;
+    case 0: fakeT = 10; spawnNear(frand() < 0.5f ? E_BULL : E_BEAR, 2); manipulate((frand() < 0.5f ? -1 : 1) * (2 + frand() * 2), 20, "FAKE NEWS!"); break;
+    case 1: crashT = 8; manipulate(-5, 15, "FLASH CRASH!"); break;
+    case 2: spawnNear(E_BOT, 2 + rnd() % 2); manipulate(-1.5f - frand(), 20, "BOTS AKTIV"); break;
+    case 3: spawnNear(E_BUBBLE, 3); manipulate(4, 24, "PUMP & DUMP!"); dumpAt = 12; break;
+    case 4: glitchT = 4; invertT = 3; manipulate((frand() < 0.5f ? -1 : 1) * 4, 15, "MANIPULIERT!"); break;
     default:
       for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && (enemies[i].type == E_BULL || enemies[i].type == E_BEAR)) { enemies[i].str *= 1.2f; enemies[i].awake = true; }
       spawnNear(E_BULL, 1); spawnNear(E_BEAR, 1);
-      say("ALGO-9000: BULLEN & BAEREN AUFGEHETZT", 2.5f);
+      manipulate(realChg < 0 ? -3 : 3, 20, "AUFGEHETZT!");
       break;
   }
   buildTicker();
@@ -1022,6 +1097,15 @@ static void updateGame(float dt) {
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; slowT -= dt;
   aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt;
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || ((int)(gameTime * 4) % 2)) buildTicker(); }
+  if (manipT > 0) {
+    manipT -= dt;
+    if (dumpAt > 0 && manipT <= dumpAt) {
+      dumpAt = 0; manipChg = -manipChg;
+      char b[48]; snprintf(b, sizeof(b), "ALGO: DUMP! KURS %+.2f%%", manipChg); say(b, 2.5f); sfxPlay(SFX_ID_GLITCH);
+    }
+    marketEffect();
+  }
+  marketVisuals(dt);
 
   auto& kb = M5Cardputer.Keyboard;
   auto ks = kb.keysState();
@@ -1082,7 +1166,7 @@ static void updateGame(float dt) {
     if (!it.active) continue;
     if (dist2Player(it.x, it.y) > 0.3f) continue;
     if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + 10); say("CASHFLOW +10", 1.2f); }
-    else { if (hp >= 100) continue; hp = min(100, hp + 25); say("DIVIDENDE AUSGESCHUETTET +25%", 1.2f); }
+    else { if (hp >= 100) continue; hp = min(100, hp + 20); say("DIVIDENDE AUSGESCHUETTET +20%", 1.2f); }
     it.active = false; pickT = 0.25f; pnl += 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
   }
 
@@ -1115,6 +1199,17 @@ static void updateGame(float dt) {
       float p = constrain(pBullBase + momentum * 1.5f, 0.1f, 0.9f);
       spawnAnimal(frand() < p);
     }
+  }
+
+  // vereinzeltes Bargeld abseits des Spielers, damit man nie ganz ohne Munition dasteht;
+  // wer fast leer ist, findet schneller etwas, mehr als 2 solcher Scheine liegen nie herum
+  cashT -= dt;
+  if (cashT <= 0) {
+    cashT = ammo <= 3 ? 15 + frand() * 10 : 45 + frand() * 30;
+    int strays = 0;
+    for (int i = 0; i < nItems; i++) if (items[i].active && items[i].stray) strays++;
+    float x, y;
+    if (strays < 2 && findHiddenCell(x, y, 6)) dropItem(x, y, 0, true);
   }
 
   // KI-Ereignisse
@@ -1279,6 +1374,11 @@ static void renderGlitch() {
   }
 }
 
+static void renderFlicker() {   // Stromschwankung: 3D-Bild kurz halb so hell
+  if (flickerT <= 0) return;
+  for (int i = 0; i < SW * VH; i++) fb[i] = swp((swp(fb[i]) >> 1) & 0x7BEF);
+}
+
 static void renderWeapon() {
   int bob = (int)(fabsf(sinf(bobT)) * 4);
   int by = VH - 34 + bob + (flashT > 0 ? 3 : 0);
@@ -1306,12 +1406,17 @@ static void renderWeapon() {
 static void drawTickerBar(int y) {
   canvas.fillRect(0, y, SW, 9, c565(0, 0, 0));
   canvas.setTextSize(1); canvas.setTextDatum(top_left);
-  int w = strlen(tickerText) * 6;
-  int x = SW - ((int)(gameTime * 32) % (w + SW));
-  uint16_t col = fakeT > 0 ? c565(255, 60, 200) : c565(255, 200, 60);
-  canvas.setTextColor(col);
-  canvas.drawString(tickerText, x, y + 1);
-  if (x + w < SW) canvas.drawString(tickerText, x + w, y + 1);
+  int w = tickChars * 6;
+  int x0 = SW - ((int)(gameTime * 32) % (w + SW));
+  for (int pass = 0; pass < 2; pass++) {
+    int x = x0 + pass * w;
+    if (pass && x0 + w >= SW) break;
+    for (int i = 0; i < nTickSegs; i++) {
+      int sw = strlen(tickSegs[i].t) * 6;
+      if (x < SW && x + sw > 0) { canvas.setTextColor(tickSegs[i].col); canvas.drawString(tickSegs[i].t, x, y + 1); }
+      x += sw;
+    }
+  }
 }
 
 static void renderHUD() {
@@ -1340,8 +1445,9 @@ static void renderHUD() {
   canvas.fillRect(bx + gw, VH + 12, bw - gw, 5, c565(220, 40, 40));
   // Level-Markt
   const Market& m = levelMarket();
-  canvas.setTextColor(levelChg >= 0 ? c565(80, 255, 130) : c565(255, 80, 80));
-  snprintf(b, sizeof(b), "%s %s%.2f%%%s", level == NUM_LEVELS - 1 ? "MIX" : m.label, levelChg >= 0 ? "+" : "", levelChg, m.live ? "" : "*");
+  canvas.setTextColor(manipT > 0 && ((int)(gameTime * 4) % 2) ? c565(255, 60, 200) : levelChg >= 0 ? c565(80, 255, 130) : c565(255, 80, 80));
+  if (manipT > 0) snprintf(b, sizeof(b), "%s ALGO%+.1f%%", level == NUM_LEVELS - 1 ? "MIX" : m.label, levelChg);   // manipulierter Spielkurs
+  else snprintf(b, sizeof(b), "%s %s%.2f%%%s", level == NUM_LEVELS - 1 ? "MIX" : m.label, levelChg >= 0 ? "+" : "", levelChg, m.live ? "" : "*");
   canvas.drawString(b, 148, VH + 19);
   if (streamViewers()) { canvas.fillCircle(232, VH + 22, 3, c565(255, 40, 40)); }   // LIVE-Punkt
   // Sparkline Depotwert
@@ -1595,7 +1701,7 @@ void loop() {
     case ST_PLAY:
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
       updateGame(dt);
-      renderWalls(); renderSprites(); renderGlitch(); renderWeapon(); renderHUD();
+      renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); renderWeapon(); renderHUD();
       break;
     case ST_PAUSE:
       canvas.fillRect(30, 36, 180, 40, c565(0, 0, 0));

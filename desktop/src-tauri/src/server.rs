@@ -16,6 +16,8 @@ const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_PLAYERS: u32 = 4;
 const CACHE_SECONDS: u64 = 60;
 const SYMBOLS: [(&str, &str); 4] = [("%5EDJI", "5m"), ("%5EGSPC", "5m"), ("%5ENDX", "5m"), ("CL%3DF", "15m")];
+// Einzelwerte fuer den Ticker (nur Anzeige); gleiche Liste wie STOCKS in pc/game.html
+const STOCKS: &str = "GS,CAT,HD,JPM,BA,KO,AAPL,AMZN,GOOGL,META,LLY,BRK-B,NVDA,MSFT,AVGO,TSLA,NFLX,AMD,XOM,CVX";
 
 static PORT: OnceLock<u16> = OnceLock::new();
 static CACHE: OnceLock<Mutex<Option<(Instant, String)>>> = OnceLock::new();
@@ -315,6 +317,30 @@ fn fetch_one(symbol: &str, interval: &str) -> Option<Value> {
     }))
 }
 
+/// Alle Einzelwerte mit einer Anfrage: { "GS": { "p": 812.3, "prev": 805.1 }, ... }
+fn fetch_stocks() -> Value {
+    let url = format!("https://query1.finance.yahoo.com/v8/finance/spark?symbols={STOCKS}&range=1d&interval=1d");
+    let Some(v) = ureq::get(&url)
+        .set("User-Agent", "Mozilla/5.0 (MarginCall Desktop)")
+        .timeout(Duration::from_secs(10))
+        .call()
+        .ok()
+        .and_then(|r| r.into_json::<Value>().ok())
+    else {
+        return json!({});
+    };
+    let mut out = serde_json::Map::new();
+    if let Some(obj) = v.as_object() {
+        for (sym, x) in obj {
+            let p = x["close"].as_array().and_then(|c| c.iter().rev().find_map(|y| y.as_f64()));
+            if let (Some(p), Some(prev)) = (p, x["chartPreviousClose"].as_f64()) {
+                out.insert(sym.clone(), json!({ "p": p, "prev": prev }));
+            }
+        }
+    }
+    Value::Object(out)
+}
+
 fn markets_json() -> String {
     let cache = CACHE.get_or_init(|| Mutex::new(None));
     if let Some((t, s)) = &*cache.lock().unwrap() {
@@ -325,7 +351,7 @@ fn markets_json() -> String {
     let list: Vec<Value> = SYMBOLS.iter().map(|(sym, iv)| fetch_one(sym, iv).unwrap_or(Value::Null)).collect();
     let any = list.iter().any(|v| !v.is_null());
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    let out = json!({ "time": now, "markets": list }).to_string();
+    let out = json!({ "time": now, "markets": list, "stocks": fetch_stocks() }).to_string();
     if any {
         *cache.lock().unwrap() = Some((Instant::now(), out.clone()));
     }

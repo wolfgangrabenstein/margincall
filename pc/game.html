@@ -83,6 +83,11 @@ const markets = [
   { label: "OEL", name: "Rohöl WTI", p: 0, prev: 0, chg: 0, s: [], live: false },
 ];
 const M_DOW = 0, M_SPX = 1, M_NDX = 2, M_OIL = 3;
+// Einzelwerte je Index – nur fuer den Ticker, auf das Spiel wirken allein die Leitindizes
+const STOCKS = [["GS", 0], ["CAT", 0], ["HD", 0], ["JPM", 0], ["BA", 0], ["KO", 0],
+  ["AAPL", 1], ["AMZN", 1], ["GOOGL", 1], ["META", 1], ["LLY", 1], ["BRK-B", 1],
+  ["NVDA", 2], ["MSFT", 2], ["AVGO", 2], ["TSLA", 2], ["NFLX", 2], ["AMD", 2], ["XOM", 3], ["CVX", 3]]
+  .map(([sym, m]) => ({ sym, label: sym.replace("-", "."), m, p: 0, chg: 0, live: false }));
 let marketStatus = "SIMULIERT", marketTime = 0;
 
 function marketsSimulate() {
@@ -95,9 +100,12 @@ function marketsSimulate() {
     for (let k = 0; k < 78; k++) { v *= 1 + drift + (Math.random() * 2 - 1) * 0.0015; m.s.push(v); }
     m.p = v; m.chg = (m.p - m.prev) / m.prev * 100;
   });
+  // simulierte Einzelwerte folgen grob ihrem Index (ohne Preis, nur Veraenderung)
+  for (const s of STOCKS) if (!s.live) { s.p = 0; s.chg = markets[s.m].chg + (Math.random() * 2 - 1) * 1.5; }
 }
 async function marketsFetch() {
   if (settings.liveData !== true) {   // Datenschutz: ohne Zustimmung keine Anfrage an Yahoo Finance
+    markets.forEach(m => m.live = false); STOCKS.forEach(s => s.live = false);
     marketStatus = "SIMULIERT"; marketsSimulate(); buildTicker(); return;
   }
   try {
@@ -110,6 +118,10 @@ async function marketsFetch() {
       Object.assign(markets[i], { p: x.p, prev: x.prev, chg: (x.p - x.prev) / x.prev * 100, s: x.s, live: true });
       live++;
     });
+    for (const s of STOCKS) {
+      const x = d.stocks && d.stocks[s.sym];
+      if (x && x.prev) Object.assign(s, { p: x.p, chg: (x.p - x.prev) / x.prev * 100, live: true });
+    }
     if (live) { marketStatus = "LIVE"; marketTime = d.time * 1000; }
   } catch (e) { if (marketStatus !== "LIVE") marketStatus = "SIMULIERT (kein Server)"; }
   marketsSimulate();
@@ -169,12 +181,19 @@ const S = {}; ["BEAR0","BEAR1","SELL0","SELL1","BUB0","BUB1","SHARK0","SHARK1","
 const sprTex = [];
 function storeSprite(idx) { sprTex[idx] = tmp.slice(); }
 
-function seriesRange(m) {
+function seriesRange(m, manip = true) {
   let lo = Infinity, hi = -Infinity;
   for (const v of m.s) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  if (manip && manipDrawn && m.s.length) { const v = manipSeries(m, m.s.length - 1); lo = Math.min(lo, v); hi = Math.max(hi, v); }
   if (hi - lo < 1e-6) hi = lo + 1;
   return [lo, hi];
 }
+// Von ALGO-9000 verbogener Verlauf: ab 60 % des Tages schrittweise auf den manipulierten Kurs
+function manipSeries(m, i) {
+  const n = m.s.length, a = Math.floor(n * .6);
+  return m.s[i] * (1 + (i > a ? manipDrawn / 100 * (i - a) / Math.max(1, n - 1 - a) : 0));
+}
+const MANIP_COL = () => RGB(255, 60, 200);
 function genTickerTex(m) {
   tclear(RGB(8, 12, 22));
   const up = m.chg >= 0;
@@ -189,6 +208,10 @@ function genTickerTex(m) {
   }
   const py = 29 - Math.floor((m.prev - lo) / (hi - lo) * 15);
   if (py >= 13 && py <= 30) for (let x = 0; x < TEX; x += 3) tpx(x, py, RGB(200, 200, 90));
+  if (manipDrawn) for (let x = Math.floor(TEX * .6); x < TEX; x++) {
+    const i = n > 1 ? Math.floor(x * (n - 1) / (TEX - 1)) : 0;
+    tpx(x, clamp(29 - Math.floor((manipSeries(m, i) - lo) / (hi - lo) * 15), 12, 30), MANIP_COL());
+  }
   for (let i = 0; i < TEX; i++) { tpx(i, 0, RGB(90, 90, 100)); tpx(i, 11, RGB(40, 40, 60)); tpx(i, 31, RGB(90, 90, 100)); }
   storeWall(T.TICKER);
 }
@@ -205,6 +228,10 @@ function genChartTex(m) {
     trect(x + 1, Y(h), 1, Y(l) - Y(h) + 1, RGB(60, 60, 60));
     let t = Y(Math.max(o, c)), bt = Y(Math.min(o, c)); if (bt - t < 1) bt = t + 1;
     trect(x, t, 3, bt - t, c >= o ? RGB(20, 170, 60) : RGB(220, 40, 40));
+  }
+  if (manipDrawn) for (let x = 17; x < 31; x++) {   // manipulierter Verlauf, doppelt so dick
+    const i = Math.min(n - 1, Math.floor((x - 1) * n / 30)), y = clamp(Y(manipSeries(m, i)), 1, 29);
+    tpx(x, y, MANIP_COL()); tpx(x, y + 1, MANIP_COL());
   }
   for (let i = 0; i < TEX; i++) { tpx(i, 0, RGB(50, 50, 60)); tpx(i, 31, RGB(50, 50, 60)); tpx(0, i, RGB(50, 50, 60)); tpx(31, i, RGB(50, 50, 60)); }
   storeWall(T.CHART);
@@ -500,8 +527,10 @@ let level = 0, marketKills = 0;
 let fireCd = 0, flashT = 0, hurtT = 0, pickT = 0, msgT = 0, bobT = 0, gameTime = 0;
 let msg = "", hist = [], histT = 0;
 let levelChg = 0, oilChg = 0, pBullBase = .5, momentum = 0, replayT = 0, replayIdx = 0;
-let spawnT = 0, aiT = 0, aiFaceT = 0, fakeT = 0, crashT = 0, glitchT = 0, invertT = 0;
-let tickerText = "", bullsAlive = 0, bearsAlive = 0;
+// ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
+let realChg = 0, manipChg = 0, manipT = 0, dumpAt = 0, manipDrawn = 0, flickerT = 0;
+let spawnT = 0, cashT = 0, aiT = 0, aiFaceT = 0, fakeT = 0, crashT = 0, glitchT = 0, invertT = 0;
+let tickerSegs = [], tickerW = 0, bullsAlive = 0, bearsAlive = 0;
 const zbuf = new Float32Array(RW);
 
 // ---------------------------------------------------------------- Spieler & Multiplayer
@@ -575,22 +604,53 @@ function applyEvent(ev) {   // beim Mitspieler
   }
 }
 
-function fmtPrice(p) { return p < 1000 ? p.toFixed(2) : Math.round(p).toLocaleString("de-DE"); }
+function fmtPrice(p) { return p < 1000 ? p.toFixed(2).replace(".", ",") : Math.round(p).toLocaleString("de-DE"); }
 function fmtChg(c) { return (c >= 0 ? "+" : "") + c.toFixed(2).replace(".", ",") + " %"; }
 function buildTicker() {
-  tickerText = markets.map(m => {
-    let p = m.p, c = m.chg;
-    if (fakeT > 0) { c = (rnd() % 4001 - 2000) / 100; p *= 1 + c / 100; }
-    return `${m.label} ${fmtPrice(p)} ${fmtChg(c)}${m.live ? "" : "*"}`;
-  }).join("      ") + "      ";
+  // Segmente [Text, Farbe]: Index gelb (bzw. magenta bei Manipulation), danach seine Einzelwerte gruen/rot
+  tickerSegs = [];
+  markets.forEach(m => {
+    let p = m.p, c = m.chg, col = "#ffc83c";
+    if (fakeT > 0) { c = (rnd() % 4001 - 2000) / 100; p *= 1 + c / 100; col = "#ff3cc8"; }
+    else if (manipDrawn && m === levelMarket()) { c += manipDrawn; p *= 1 + manipDrawn / 100; col = "#ff3cc8"; }   // ALGO-Kurs statt echtem
+    tickerSegs.push([`${m.label} ${fmtPrice(p)} ${fmtChg(c)}${m.live ? "" : "*"}    `, col]);
+    for (const s of STOCKS) if (s.m === markets.indexOf(m)) {
+      const sc = fakeT > 0 ? (rnd() % 1601 - 800) / 100 : s.chg;
+      tickerSegs.push([`${s.label} ${s.p ? fmtPrice(s.p) + " " : ""}${sc >= 0 ? "▲" : "▼"}${fmtChg(Math.abs(sc)).replace("+", "")}${s.live ? "" : "*"}   `,
+        fakeT > 0 ? "#ff3cc8" : sc >= 0 ? "#50ff82" : "#ff5050"]);
+    }
+    tickerSegs.push(["      ", col]);
+  });
+  tickerW = 0;
 }
 function applyMarket(resetReplay = true) {
-  levelChg = level === NUM_LEVELS - 1 ? (markets[0].chg + markets[1].chg + markets[2].chg) / 3 : levelMarket().chg;
+  realChg = level === NUM_LEVELS - 1 ? (markets[0].chg + markets[1].chg + markets[2].chg) / 3 : levelMarket().chg;
   oilChg = markets[M_OIL].chg;
-  pBullBase = clamp(.5 + levelChg * .2, .15, .85);
-  genTickerTex(levelMarket()); genChartTex(levelMarket());
+  if (resetReplay) { replayIdx = 0; replayT = 0; momentum = 0; manipChg = manipT = dumpAt = 0; }
+  marketEffect();
+  manipDrawn = manipEff(); genTickerTex(levelMarket()); genChartTex(levelMarket());
   buildTicker();
-  if (resetReplay) { replayIdx = 0; replayT = 0; momentum = 0; }
+}
+// Manipulation blendet in den letzten 4 Sekunden aus
+const manipEff = () => manipT > 0 ? manipChg * Math.min(1, manipT / 4) : 0;
+function marketEffect() {   // Spielkurs = echter Kurs + Manipulation
+  levelChg = realChg + manipEff();
+  pBullBase = clamp(.5 + levelChg * .2, .15, .85);
+}
+function manipulate(chg, t, msg) {
+  manipChg = chg; manipT = t; dumpAt = 0; marketEffect();
+  sayAll(`${msg}  KURS ${fmtChg(chg)}`, 2.5);
+}
+// Wand-Charts und Ticker nachzeichnen, wenn sich die Manipulation spuerbar aendert
+function marketVisuals(dt) {
+  const eff = manipEff();
+  if (Math.abs(eff - manipDrawn) > .2 || (eff === 0 && manipDrawn !== 0)) {
+    manipDrawn = eff; genTickerTex(levelMarket()); genChartTex(levelMarket()); buildTicker();
+  }
+  // Licht flackert bei echten Kursspruengen (Intraday-Momentum) und bei Manipulation
+  const vol = Math.abs(momentum) * 2 + Math.abs(eff) * .4;
+  flickerT -= dt;
+  if (flickerT <= 0 && vol > .5 && Math.random() < Math.min(.25, vol * .03)) flickerT = .05 + Math.random() * .1;
 }
 const animalStrength = bull => Math.min(1 + Math.max(0, (bull ? 1 : -1) * levelChg) * .25, 1.6);
 const fireRateMul = () => oilChg > 0 ? 1 + Math.min(oilChg, 4) * .1 : 1;
@@ -681,7 +741,7 @@ function loadLevel(lv) {
     }
   }
   hist = []; histT = 0;
-  spawnT = 6; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
+  spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
   sayAll(`LEVEL ${lv + 1}: ${LEVEL_NAMES[lv]}`, 3);
   sfxAll("BELL"); musicStart(); emit(["music", 1]);
@@ -752,7 +812,7 @@ function killEnemy(e, byPlayer) {
     if (dist2P(e.x, e.y) < 64) say(e.f === F.BEAR ? "BULLEN TRAMPELN BÄREN NIEDER" : "BÄREN ZERFLEISCHEN BULLEN", 1.5);
   }
   sfxNear(e.type === E.BUBBLE ? "POP" : e.type === E.SLICK ? "OIL" : "STAMP", e.x, e.y, 10);
-  const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : .45) : .3;
+  const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < chance) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
 }
@@ -766,14 +826,14 @@ function aiEvent(forced = -1) {
   const ev = forced >= 0 ? forced : rnd() % 6;
   aiFaceT = 2.2; glitchT = Math.max(glitchT, .6); sfxAll("GLITCH");
   switch (ev) {
-    case 0: fakeT = 10; spawnNear(frand() < .5 ? E.BULL : E.BEAR, 2); sayAll("ALGO-9000: FAKE NEWS GESTREUT!", 2.5); break;
-    case 1: crashT = 8; sayAll("ALGO-9000: FLASH CRASH! ALLE GEGEN EUCH", 2.5); break;
-    case 2: spawnNear(E.BOT, 2 + rnd() % 2); sayAll("ALGO-9000: TRADING-BOTS AKTIV", 2.5); break;
-    case 3: spawnNear(E.BUBBLE, 3); sayAll("ALGO-9000: PUMP & DUMP!", 2.5); break;
-    case 4: glitchT = 4; invertT = 3; sayAll("ALGO-9000: SYSTEM MANIPULIERT!", 2.5); break;
+    case 0: fakeT = 10; spawnNear(frand() < .5 ? E.BULL : E.BEAR, 2); manipulate((frand() < .5 ? -1 : 1) * (2 + frand() * 2), 20, "ALGO-9000: FAKE NEWS GESTREUT!"); break;
+    case 1: crashT = 8; manipulate(-5, 15, "ALGO-9000: FLASH CRASH!"); break;
+    case 2: spawnNear(E.BOT, 2 + rnd() % 2); manipulate(-1.5 - frand(), 20, "ALGO-9000: TRADING-BOTS AKTIV"); break;
+    case 3: spawnNear(E.BUBBLE, 3); manipulate(4, 24, "ALGO-9000: PUMP & DUMP!"); dumpAt = 12; break;
+    case 4: glitchT = 4; invertT = 3; manipulate((frand() < .5 ? -1 : 1) * 4, 15, "ALGO-9000: SYSTEM MANIPULIERT!"); break;
     default:
       enemies.forEach(e => { if (e.alive && (e.type === E.BULL || e.type === E.BEAR)) { e.str *= 1.2; e.awake = true; } });
-      spawnNear(E.BULL, 1); spawnNear(E.BEAR, 1); sayAll("ALGO-9000: BULLEN & BÄREN AUFGEHETZT", 2.5);
+      spawnNear(E.BULL, 1); spawnNear(E.BEAR, 1); manipulate(realChg < 0 ? -3 : 3, 20, "ALGO-9000: BULLEN & BÄREN AUFGEHETZT");
   }
   buildTicker();
 }
@@ -1033,7 +1093,7 @@ const r2 = v => Math.round(v * 100) / 100;
 function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
-    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
+    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
     pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1058,7 +1118,8 @@ function clientSnapshot(m) {
   }
   if (state === ST.OPTIONS) optReturn = m.st; else state = m.st;
   roundT = m.rt; teamScore = m.ts; [bullsAlive, bearsAlive] = m.ba; marketKills = m.mk;
-  [fakeT, glitchT, aiFaceT, invertT, crashT] = m.fx;
+  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0] = m.fx;
+  marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
   for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname] of m.pl) {
@@ -1425,6 +1486,11 @@ function updateGame(dt) {
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; dodgeCd -= dt;
   aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt;
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || (Math.floor(gameTime * 4) % 2)) buildTicker(); }
+  if (manipT > 0) {
+    manipT -= dt;
+    if (dumpAt && manipT <= dumpAt && !isClient()) { dumpAt = 0; manipChg = -manipChg; sayAll(`ALGO-9000: DUMP!  KURS ${fmtChg(manipChg)}`, 2.5); sfxAll("GLITCH"); }
+    marketEffect();
+  }
 
   // lokale Steuerung
   if (!me.dead) {
@@ -1480,7 +1546,7 @@ function updateGame(dt) {
     for (const pl of players) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
       if (it.type === 0) { if (pl.ammo >= 99) continue; pl.ammo = Math.min(99, pl.ammo + 10); sayTo(pl, "CASHFLOW +10", 1.2); }
-      else { if (pl.hp >= 100) continue; pl.hp = Math.min(100, pl.hp + 25); sayTo(pl, "DIVIDENDE AUSGESCHÜTTET +25 %", 1.2); }
+      else { if (pl.hp >= 100) continue; pl.hp = Math.min(100, pl.hp + 20); sayTo(pl, "DIVIDENDE AUSGESCHÜTTET +20 %", 1.2); }
       it.active = false; addScore(pl, 25);
       if (pl.local) pickT = .25; else emit(["pick", pl.id]);
       sfxTo(pl, it.type === 0 ? "KACHING" : "COINS");
@@ -1511,6 +1577,17 @@ function updateGame(dt) {
     if (bullsAlive + bearsAlive < 9 + (mode === "coop" ? 4 * extraPl : 2 * (players.length - 1))) {
       const c = findHiddenCell(5);
       if (c) spawnEnemy(frand() < clamp(pBullBase + momentum * 1.5, .1, .9) ? E.BULL : E.BEAR, c[0], c[1]);
+    }
+  }
+  // vereinzeltes Bargeld abseits der Spieler, damit niemand ganz ohne Munition dasteht;
+  // wer fast leer ist, findet schneller etwas, mehr als 2 solcher Scheine liegen nie herum
+  cashT -= dt;
+  if (cashT <= 0) {
+    const broke = players.some(p => !p.dead && p.ammo <= 3);
+    cashT = broke ? 15 + frand() * 10 : 45 + frand() * 30;
+    if (items.filter(i => i.active && i.stray).length < 2) {
+      const c = findHiddenCell(6);
+      if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true });
     }
   }
   aiT -= dt;
@@ -1660,6 +1737,10 @@ function renderGlitch() {
     }
   }
 }
+function renderFlicker() {   // Stromschwankung: Bild kurz eine Stufe dunkler
+  if (flickerT <= 0) return;
+  for (let i = 0; i < fb.length; i++) fb[i] = ((fb[i] >> 1) & 0x7F7F7F7F) | 0xFF000000;
+}
 function renderWeapon() {
   const k = 1.35, cx = RW / 2, bob = Math.abs(Math.sin(bobT)) * 5, B = VH + bob, by = VH - 46 + bob + (flashT > 0 ? 4 : 0);
   const tri = (pts, col) => { lg.fillStyle = col; lg.beginPath(); lg.moveTo(pts[0], pts[1]); lg.lineTo(pts[2], pts[3]); lg.lineTo(pts[4], pts[5]); lg.fill(); };
@@ -1690,9 +1771,13 @@ const fmtTime = s => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s)
 function drawTicker(y) {
   g.fillStyle = "#000"; g.fillRect(0, y, DW, 26);
   g.font = FONT(17); g.textBaseline = "top"; g.textAlign = "left";
-  const w = g.measureText(tickerText).width, x = DW - ((gameTime * 90) % (w + DW));
-  g.fillStyle = fakeT > 0 ? "#ff3cc8" : "#ffc83c";
-  g.fillText(tickerText, x, y + 4); if (x + w < DW) g.fillText(tickerText, x + w, y + 4);
+  if (!tickerW) for (const s of tickerSegs) { s[2] = tickerW; tickerW += g.measureText(s[0]).width; }
+  const w = tickerW, x0 = DW - ((gameTime * 90) % (w + DW));
+  for (const x of x0 + w < DW ? [x0, x0 + w] : [x0])
+    for (const [t, col, off] of tickerSegs) {
+      const sx = x + off; if (sx > DW || sx < -400) continue;
+      g.fillStyle = col; g.fillText(t, sx, y + 4);
+    }
 }
 function renderNameTags() {
   for (const [sx, top, pl] of nameTags) {
@@ -1743,7 +1828,9 @@ function renderHUD() {
     g.fillStyle = "#dc2828"; g.fillRect(bx + gw2, HUD_Y + 36, bw - gw2, 14);
     text(`BULLEN ${bullsAlive}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`BÄREN ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
     const m = levelMarket();
-    text(`${level === NUM_LEVELS - 1 ? "MIX" : m.label} ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}  ·  ${marketStatus}${mode === "coop" ? `  ·  KOOP ${players.length} SPIELER` : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
+    const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
+    if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
+    else text(`${ml} ${fmtChg(levelChg)}  ·  ÖL ${fmtChg(oilChg)}  ·  ${marketStatus}${mode === "coop" ? `  ·  KOOP ${players.length} SPIELER` : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   if (pickT > 0) { g.strokeStyle = "rgba(60,255,120,.9)"; g.lineWidth = 6; g.strokeRect(3, 3, DW - 6, HUD_Y - 6); }
@@ -1781,7 +1868,7 @@ function chartBackground(up, down) {
   g.fillStyle = "#060a14"; g.fillRect(0, 0, DW, DH);
   g.strokeStyle = "#121a2c"; g.lineWidth = 1;
   for (let y = 30; y < DH; y += 45) { g.beginPath(); g.moveTo(0, y); g.lineTo(DW, y); g.stroke(); }
-  const m = markets[M_SPX], [lo, hi] = seriesRange(m), n = m.s.length;
+  const m = markets[M_SPX], [lo, hi] = seriesRange(m, false), n = m.s.length;
   const K = Math.ceil(DW / 24) + 1, shift = gameTime * 60, off = shift % 24;
   for (let k = 0; k < K; k++) {
     const idx = (k + Math.floor(shift / 24)) % Math.max(1, n - 1);
@@ -2230,8 +2317,8 @@ function renderPrivacy() {
   g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(90, 50, DW - 180, 440);
   text("LIVE-KURSE & DATENSCHUTZ", DW / 2, 70, "#ffd232", 32, "center");
   [
-    "MARGIN CALL kann die aktuellen Kurse von Dow Jones, S&P 500, Nasdaq-100",
-    "und Rohöl bei Yahoo Finance (query1.finance.yahoo.com) abrufen.",
+    "MARGIN CALL kann die aktuellen Kurse von Dow Jones, S&P 500, Nasdaq-100, Rohöl",
+    "und einigen Einzelaktien bei Yahoo Finance (query1.finance.yahoo.com) abrufen.",
     "Dabei sieht Yahoo deine IP-Adresse – wie bei jedem Webseitenaufruf.",
     "Es werden keine Spielstände, Namen oder sonstigen Daten übertragen.",
     "",
@@ -2452,8 +2539,8 @@ function renderScoreOverlay() {
 
 // ---------------------------------------------------------------- Hauptschleife
 let last = performance.now(), lobbyT = 0;
-function renderPlay() {
-  renderWalls(); renderSprites(); renderGlitch();
+function renderPlay(dt) {
+  marketVisuals(dt); renderWalls(); renderSprites(); renderGlitch(); renderFlicker();
   lg.putImageData(img, 0, 0); if (!me.dead) renderWeapon();
   g.drawImage(low, 0, 0, RW, VH, 0, 0, DW, HUD_Y);
   renderHUD();
@@ -2499,7 +2586,7 @@ function frame(now) {
     case ST.NAMEENTRY: gameTime += dt; renderNameEntry(); break;
     case ST.HIGHSCORES: gameTime += dt; renderHighscores(); break;
     case ST.LOBBY: gameTime += dt; renderLobby(); break;
-    case ST.PLAY: updateGame(dt); if (state === ST.PLAY) { renderPlay(); if (mpMenu) renderMpMenu(); } break;
+    case ST.PLAY: updateGame(dt); if (state === ST.PLAY) { renderPlay(dt); if (mpMenu) renderMpMenu(); } break;
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;
     case ST.JOIN: gameTime += dt; renderJoin(); break;
     case ST.PAUSE:

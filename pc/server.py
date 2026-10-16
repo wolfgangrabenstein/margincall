@@ -25,6 +25,8 @@ PORT = int(os.environ.get("MARGINCALL_PORT", "8080"))
 CACHE_SECONDS = 60
 MAX_PLAYERS = 4
 SYMBOLS = [("DOW", "%5EDJI", "5m"), ("S&P", "%5EGSPC", "5m"), ("NDX", "%5ENDX", "5m"), ("OEL", "CL%3DF", "15m")]
+# Einzelwerte fuer den Ticker (nur Anzeige); gleiche Liste wie STOCKS in game.html
+STOCKS = "GS,CAT,HD,JPM,BA,KO,AAPL,AMZN,GOOGL,META,LLY,BRK-B,NVDA,MSFT,AVGO,TSLA,NFLX,AMD,XOM,CVX"
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 _lock = threading.Lock()
@@ -49,6 +51,24 @@ def fetch_one(symbol, interval):
     return {"p": m["regularMarketPrice"], "prev": m["chartPreviousClose"], "s": closes}
 
 
+def fetch_stocks():
+    """Alle Einzelwerte mit einer Anfrage: {"GS": {"p": 812.3, "prev": 805.1}, ...}"""
+    url = f"https://query1.finance.yahoo.com/v8/finance/spark?symbols={STOCKS}&range=1d&interval=1d"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (MarginCall PC)"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.load(r)
+    except Exception as e:
+        print(f"  [!] Einzelwerte nicht abrufbar ({e})")
+        return {}
+    out = {}
+    for sym, x in d.items():
+        closes = [c for c in x.get("close") or [] if c is not None]
+        if closes and x.get("chartPreviousClose"):
+            out[sym] = {"p": closes[-1], "prev": x["chartPreviousClose"]}
+    return out
+
+
 def get_markets():
     with _lock:
         if _cache["data"] and time.time() - _cache["time"] < CACHE_SECONDS:
@@ -60,7 +80,7 @@ def get_markets():
         except Exception as e:  # einzelner Markt nicht verfuegbar -> Spiel simuliert ihn
             print(f"  [!] {label}: Kurs nicht abrufbar ({e})")
             result.append(None)
-    data = {"time": int(time.time()), "markets": result}
+    data = {"time": int(time.time()), "markets": result, "stocks": fetch_stocks()}
     with _lock:
         if any(result):
             _cache.update(time=time.time(), data=data)

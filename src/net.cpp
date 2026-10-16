@@ -14,6 +14,13 @@ Market markets[M_COUNT] = {
   {"%5ENDX",  "NDX"},
   {"CL%3DF",  "OEL"},
 };
+Stock stocks[STOCK_COUNT] = {
+  {"GS", "GS", M_DOW},     {"CAT", "CAT", M_DOW},     {"HD", "HD", M_DOW},       {"JPM", "JPM", M_DOW},
+  {"BA", "BA", M_DOW},     {"KO", "KO", M_DOW},       {"AAPL", "AAPL", M_SPX},   {"AMZN", "AMZN", M_SPX},
+  {"GOOGL", "GOOGL", M_SPX}, {"META", "META", M_SPX}, {"LLY", "LLY", M_SPX},     {"BRK-B", "BRK.B", M_SPX},
+  {"NVDA", "NVDA", M_NDX}, {"MSFT", "MSFT", M_NDX},   {"AVGO", "AVGO", M_NDX},   {"TSLA", "TSLA", M_NDX},
+  {"NFLX", "NFLX", M_NDX}, {"AMD", "AMD", M_NDX},     {"XOM", "XOM", M_OIL},     {"CVX", "CVX", M_OIL},
+};
 static uint32_t lastFetchMs = 0;
 static bool fetchedOnce = false;
 
@@ -35,6 +42,55 @@ void marketsSimulate() {
     k.price = v;
     k.chg = (k.price - k.prev) / k.prev * 100.0f;
   }
+  // simulierte Einzelwerte folgen grob ihrem Index (ohne Preis, nur Veraenderung)
+  for (auto& s : stocks) {
+    if (s.live) continue;
+    s.price = 0;
+    s.chg = markets[s.market].chg + ((int)(esp_random() % 2001) - 1000) / 1000.0f * 1.5f;
+  }
+}
+
+// Alle Einzelwerte mit einer Anfrage (Yahoo "spark", ca. 5 KB): {"GS":{..."chartPreviousClose":805.1,"close":[812.3]},...}
+static float jsonNum(const String& s, int from, const char* key) {
+  int k = s.indexOf(key, from);
+  if (k < 0) return NAN;
+  k += strlen(key);
+  while (k < (int)s.length() && (s[k] == ' ' || s[k] == '[')) k++;
+  return s.substring(k, k + 16).toFloat();
+}
+static int fetchStocks() {
+  String syms;
+  for (auto& s : stocks) { if (syms.length()) syms += ','; syms += s.symbol; }
+  WiFiClientSecure client;
+  client.setInsecure();   // oeffentliche Kursdaten, nur lesend
+  client.setTimeout(8);
+  HTTPClient http;
+  http.setTimeout(8000);
+  http.setUserAgent("Mozilla/5.0 (MarginCall Cardputer)");
+  String url = "https://query1.finance.yahoo.com/v8/finance/spark?symbols=" + syms + "&range=1d&interval=1d";
+  if (!http.begin(client, url)) return 0;
+  int ok = 0;
+  if (http.GET() == 200) {
+    String body = http.getString();
+    for (auto& s : stocks) {
+      String key = String("\"") + s.symbol + "\":{";
+      int at = body.indexOf(key);
+      if (at < 0) continue;
+      int end = body.indexOf("}", at);   // Objekt des Werts ist flach
+      float prev = jsonNum(body, at, "\"chartPreviousClose\":");
+      int c = body.indexOf("\"close\":[", at);
+      if (c < 0 || (end > 0 && c > end) || isnan(prev) || prev <= 0) continue;
+      // letzter Wert im close-Array
+      int ce = body.indexOf("]", c);
+      int last = body.lastIndexOf(",", ce);
+      if (last < c) last = c + 8;   // nur ein Wert: direkt hinter '['
+      float p = body.substring(last + 1, ce).toFloat();
+      if (p <= 0) continue;
+      s.price = p; s.chg = (p - prev) / prev * 100.0f; s.live = true; ok++;
+    }
+  }
+  http.end();
+  return ok;
 }
 
 // --- kleiner Stream-Parser fuer die Yahoo-Chart-JSON (kein Komplett-Puffer noetig)
@@ -142,7 +198,7 @@ int marketsFetch(void (*progress)(int, bool)) {
     if (good) ok++;
     if (progress) progress(i, good);
   }
-  if (ok) { lastFetchMs = millis(); fetchedOnce = true; }
+  if (ok) { lastFetchMs = millis(); fetchedOnce = true; fetchStocks(); }
   marketsSimulate();   // fehlende Maerkte simulieren
   streamPause(false);
   return ok;
