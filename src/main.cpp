@@ -861,7 +861,7 @@ static void loadLevel(int lv) {
   char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, L(LEVEL_NAMES_EN[lv], LEVEL_NAMES[lv]));
   say(b, 3.0f);
   sfxPlay(SFX_ID_BELL);   // Eroeffnungsglocke
-  musicStart();
+  musicStart(1 + lv);
 }
 
 // Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
@@ -1328,7 +1328,7 @@ static void startIsland() {
     isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
   }
   for (int k = 0; k < (hardcore ? 10 : 8); k++) { float x, y; if (isleFreeCell(6, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { makePirate(enemies[i]); enemies[i].awake = true; } } }
-  state = ST_PLAY; fireCd = 0.4f; musicStart();
+  state = ST_PLAY; fireCd = 0.4f; musicStart(6);
   { char b[48]; snprintf(b, sizeof(b), L("TAX HAVEN! %d S - GRAB THE GOLD", "STEUEROASE! %d S - SAMMLE DAS GOLD"), ISLE_TIME); say(b, 3.0f); }
 }
 // ---- Schlussszene nach der Steueroase: der Spieler im Liegestuhl auf seiner Yacht, mit Sonnenbrille und Cocktail.
@@ -1654,7 +1654,7 @@ static void renderCredits() {
 
 static void updateGame(float dt) {
   gameTime += dt;
-  musicSetPanic(hp < 30);
+  musicSetPanic(hp > 0 && hp < 30);
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; slowT -= dt;
   aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt;
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || ((int)(gameTime * 4) % 2)) buildTicker(); }
