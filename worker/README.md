@@ -6,7 +6,14 @@ Kleiner Server für die Online-Highscores von MARGIN CALL: ein Cloudflare Worker
 |---|---|
 | `GET /scores?scope=all&limit=100` | Top 100 aller Zeiten |
 | `GET /scores?scope=day&limit=100` | Top 100 von heute (Zeitzone Europe/Vienna) |
-| `POST /scores` | Eintrag `{name, score, level, won, deaths, ver}` speichern, liefert `{id, rank, total, dayRank, dayTotal}` |
+| `POST /scores` | Eintrag `{name, score, level, won, deaths, ver, hc}` speichern, liefert `{id, hc, rank, total, dayRank, dayTotal}` |
+
+Mit `hc=1` (GET) bzw. `"hc": true` (POST) geht es um die getrennte Hardcore-Rangliste.
+
+**Bestehende Datenbank von vor Version 3.11 nachrüsten** (einmalig, für die Live-Datenbank bereits erledigt):
+```
+npx wrangler d1 execute margincall-highscores --remote --file=migrate-hc.sql
+```
 
 Gespeichert werden Name, Punkte, Level, Sieg, Tode, Spielversion und Zeitpunkt, aber keine IP-Adressen. Gegen Spam gilt pro IP höchstens ein Eintrag alle 15 Sekunden; das wird nur im Arbeitsspeicher gezählt.
 

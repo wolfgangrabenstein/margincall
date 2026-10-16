@@ -618,6 +618,7 @@ static int replayIdx;
 static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
 static float realChg, manipChg, manipT, dumpAt;
+static bool hardcore;
 // Ticker als farbige Segmente: Index, danach seine Einzelwerte
 struct TickSeg { char t[28]; uint16_t col; };
 static TickSeg tickSegs[M_COUNT * 2 + STOCK_COUNT];
@@ -719,13 +720,25 @@ static int spawnEnemy(uint8_t type, float x, float y) {
   e.x = x; e.y = y; e.type = type; e.faction = TYPES[type].faction;
   e.alive = true; e.target = -2;
   e.str = type == E_BULL ? animalStrength(true) : (type == E_BEAR ? animalStrength(false) : 1.0f);
-  e.hp = (int16_t)roundf(TYPES[type].hp * e.str);
+  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.6f : 1.0f));
   e.cd = 1.0f + frand(); e.anim = frand() * 6; e.think = frand() * 0.4f;
   e.spawnCd = 6;
   float a = frand() * 6.283f; e.mdx = cosf(a); e.mdy = sinf(a);
   return i;
 }
 
+static bool lineOfSight(float x0, float y0, float x1, float y1);
+// Schussposition fuer Fernkaempfer: Mitte oder Rand des Gegners (so breit wie seine Trefferzone), von der aus der
+// Spieler frei sichtbar ist. Sonst trifft man breite Bosse halb hinter einer Kante, waehrend deren Schuesse dort haengen bleiben.
+static bool fireOrigin(const Enemy& e, float tx, float ty, float& ox, float& oy, float& oang) {
+  float dx = tx - e.x, dy = ty - e.y, d = sqrtf(dx * dx + dy * dy) + 1e-4f, qx = -dy / d, qy = dx / d, r = 0.32f * TYPES[e.type].scale;
+  static const float ks[5] = {0, -0.5f, 0.5f, -1, 1};
+  for (float k : ks) {
+    ox = e.x + qx * r * k; oy = e.y + qy * r * k;
+    if (!solidCell((int)floorf(ox), (int)floorf(oy)) && lineOfSight(ox, oy, tx, ty)) { oang = atan2f(ty - oy, tx - ox); return true; }
+  }
+  return false;
+}
 static bool lineOfSight(float x0, float y0, float x1, float y1) {
   float dx = x1 - x0, dy = y1 - y0, d = sqrtf(dx * dx + dy * dy);
   int steps = (int)(d * 5) + 1;
@@ -802,7 +815,8 @@ static void loadLevel(int lv) {
   musicStart();
 }
 
-static void newGame() { hp = 100; ammo = 30; pnl = 0; level = 0; loadLevel(0); }
+// Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
+static void newGame() { hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; level = 0; loadLevel(0); }
 
 static bool freeAt(float x, float y, float r) {
   return !solidCell((int)(x - r), (int)(y - r)) && !solidCell((int)(x + r), (int)(y - r)) &&
@@ -817,12 +831,14 @@ static bool moveEntity(float& x, float& y, float mx, float my, float r) {
 
 static void damagePlayer(int d, const char* why) {
   if (state != ST_PLAY) return;
+  if (hardcore) d = (int)roundf(d * 1.5f);
   hp -= d; hurtT = 0.35f; sfxPlay(SFX_ID_PHONE);
   if (why) say(why, 1.2f);
   if (hp <= 0) { hp = 0; state = ST_DEAD; musicStop(); sfxPlay(SFX_ID_CRASH); }
 }
 
 static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8_t faction, uint8_t spr) {
+  if (hardcore) spd *= 1.25f;
   for (auto& p : projs) if (!p.active) { p = {x, y, cosf(ang) * spd, sinf(ang) * spd, true, dmg, faction, spr}; return; }
 }
 
@@ -838,7 +854,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   const TypeInfo& ti = TYPES[e.type];
   if (e.type == E_BUBBLE || e.type == E_BOT) e.gone = true;
   if (byPlayer) {
-    kills++; pnl += ti.pts;
+    kills++; pnl += hardcore ? ti.pts * 3 / 2 : ti.pts;
     char b[48];
     switch (e.type) {
       case E_BEAR:   say("BAER ERLEGT!"); break;
@@ -856,7 +872,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   sfxNear(e.type == E_BUBBLE ? SFX_ID_POP : e.type == E_SLICK ? SFX_ID_OIL : SFX_ID_STAMP, e.x, e.y, 10);
   float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : 0.38f) : 0.22f;
   if (ti.boss) dropItem(e.x, e.y, 1);
-  else if (frand() < dropChance) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
+  else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
 }
 
 static void hurtEnemy(Enemy& t, int dmg, bool byPlayer) {
@@ -953,7 +969,7 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 }
 
 static void updateEnemy(Enemy& e, int idx, float dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul(); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.35f : 1.0f); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   const float spdMul = crashT > 0 ? 1.4f : 1.0f;
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
 
@@ -971,7 +987,8 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
   float nx = dx / d, ny = dy / d, ang = atan2f(dy, dx);
 
   if (!animal) {
-    bool los = d < 12 && lineOfSight(e.x, e.y, px, py);
+    float fx = e.x, fy = e.y, fa = ang;
+    bool los = d < 12 && fireOrigin(e, px, py, fx, fy, fa);
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
       case E_SELLER:
@@ -983,7 +1000,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         if (d < 0.9f && e.cd <= 0) { e.cd = 1.0f; damagePlayer(20, "FEINDLICHE UEBERNAHME!"); }
         if (los && e.cd <= 0) {
           e.cd = 1.3f; e.attackAnim = 0.4f;
-          for (int k = -1; k <= 1; k++) spawnProj(e.x, e.y, ang + k * 0.18f, 4.0f, 10, F_NEUTRAL, S_PROJ);
+          for (int k = -1; k <= 1; k++) spawnProj(fx, fy, fa + k * 0.18f, 4.0f, 10, F_NEUTRAL, S_PROJ);
           sfxNear(SFX_ID_ZAP, e.x, e.y, 12);
         }
         return;
@@ -992,7 +1009,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         else if (d < 2.5f) moveEntity(e.x, e.y, -nx * 0.8f * dt, -ny * 0.8f * dt, 0.25f);
         if (los && e.cd <= 0 && d < 10) {
           e.cd = 2.0f + frand(); e.attackAnim = 0.4f;
-          spawnProj(e.x, e.y, ang, 3.4f, 10, F_NEUTRAL, S_PROJ_OIL);
+          spawnProj(fx, fy, fa, 3.4f, 10, F_NEUTRAL, S_PROJ_OIL);
           sfxNear(SFX_ID_OIL, e.x, e.y, 10);
         }
         return;
@@ -1006,7 +1023,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         else moveEntity(e.x, e.y, -ny * w * 1.5f * dt, nx * w * 1.5f * dt, 0.2f);
         if (los && e.cd <= 0 && d < 10) {
           e.cd = 1.3f + frand() * 0.5f; e.attackAnim = 0.25f;
-          spawnProj(e.x, e.y, ang + (frand() - 0.5f) * 0.1f, 6.0f, 6, F_AI, S_LASER);
+          spawnProj(fx, fy, fa + (frand() - 0.5f) * 0.1f, 6.0f, 6, F_AI, S_LASER);
           sfxNear(SFX_ID_LASER, e.x, e.y, 10);
         }
         return;
@@ -1015,18 +1032,18 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         e.spawnCd -= dt;
         if (los && e.cd <= 0) {
           e.cd = 1.2f; e.attackAnim = 0.5f;
-          for (int k = -2; k <= 2; k++) spawnProj(e.x, e.y, ang + k * 0.14f, 5.0f, 8, F_AI, S_LASER);
+          for (int k = -2; k <= 2; k++) spawnProj(fx, fy, fa + k * 0.14f, 5.0f, 8, F_AI, S_LASER);
           sfxPlay(SFX_ID_LASER);
         }
         if (e.spawnCd <= 0) { e.spawnCd = 8; spawnNear(E_BOT, 2); }
-        if (!e.halfDone && e.hp < TYPES[E_ALGO].hp / 2) { e.halfDone = true; aiEvent(1); }
+        if (!e.halfDone && e.hp < TYPES[E_ALGO].hp * (hardcore ? 0.8f : 0.5f)) { e.halfDone = true; aiEvent(1); }
         return;
       default: break;
     }
     // Short Seller schiesst
     if (e.type == E_SELLER && los && e.cd <= 0 && d < 10) {
       e.cd = 1.6f + frand(); e.attackAnim = 0.3f;
-      spawnProj(e.x, e.y, ang + (frand() - 0.5f) * 0.12f, 4.5f, 8, F_BEAR, S_PROJ);
+      spawnProj(fx, fy, fa + (frand() - 0.5f) * 0.12f, 4.5f, 8, F_BEAR, S_PROJ);
       sfxNear(SFX_ID_ZAP, e.x, e.y, 10);
     }
     return;
@@ -1068,9 +1085,10 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
     case E_SELLER:
       if (d > 4.0f) moveEntity(e.x, e.y, nx * 1.1f * dt, ny * 1.1f * dt, 0.25f);
       else if (d < 2.2f) moveEntity(e.x, e.y, -nx * 0.9f * dt, -ny * 0.9f * dt, 0.25f);
-      if (e.cd <= 0 && d < 10 && lineOfSight(e.x, e.y, tx, ty)) {
+      float fx, fy, fa;
+      if (e.cd <= 0 && d < 10 && fireOrigin(e, tx, ty, fx, fy, fa)) {
         e.cd = 1.6f + frand(); e.attackAnim = 0.3f;
-        spawnProj(e.x, e.y, ang + (frand() - 0.5f) * 0.12f, 4.5f, 8, F_BEAR, S_PROJ);
+        spawnProj(fx, fy, fa + (frand() - 0.5f) * 0.12f, 4.5f, 8, F_BEAR, S_PROJ);
         sfxNear(SFX_ID_ZAP, e.x, e.y, 10);
       }
       break;
@@ -1162,8 +1180,8 @@ static void updateGame(float dt) {
     Item& it = items[i];
     if (!it.active) continue;
     if (dist2Player(it.x, it.y) > 0.3f) continue;
-    if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + 10); say("CASHFLOW +10", 1.2f); }
-    else { if (hp >= 100) continue; hp = min(100, hp + 20); say("DIVIDENDE AUSGESCHUETTET +20%", 1.2f); }
+    if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + (hardcore ? 7 : 10)); say(hardcore ? "CASHFLOW +7" : "CASHFLOW +10", 1.2f); }
+    else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? "DIVIDENDE AUSGESCHUETTET +15%" : "DIVIDENDE AUSGESCHUETTET +20%", 1.2f); }
     it.active = false; pickT = 0.25f; pnl += 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
   }
 
@@ -1182,7 +1200,7 @@ static void updateGame(float dt) {
   for (int i = 0; i < nEnemies; i++) {
     Enemy& e = enemies[i];
     if (e.gone) continue;
-    if (!e.alive) { e.deadT += dt; if (e.deadT > 25) e.gone = true; continue; }
+    if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
     if (e.faction == F_BULL) bullsAlive++; else if (e.faction == F_BEAR) bearsAlive++;
     updateEnemy(e, i, dt);
     if (state != ST_PLAY) return;
@@ -1202,7 +1220,7 @@ static void updateGame(float dt) {
   // wer fast leer ist, findet schneller etwas, mehr als 2 solcher Scheine liegen nie herum
   cashT -= dt;
   if (cashT <= 0) {
-    cashT = ammo <= 3 ? 15 + frand() * 10 : 45 + frand() * 30;
+    cashT = (ammo <= 3 ? 15 + frand() * 10 : 45 + frand() * 30) * (hardcore ? 1.6f : 1.0f);
     int strays = 0;
     for (int i = 0; i < nItems; i++) if (items[i].active && items[i].stray) strays++;
     float x, y;
@@ -1211,7 +1229,7 @@ static void updateGame(float dt) {
 
   // KI-Ereignisse
   aiT -= dt;
-  if (aiT <= 0) { aiT = level == NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30; aiEvent(); }
+  if (aiT <= 0) { aiT = (level == NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (hardcore ? 0.7f : 1.0f); aiEvent(); }
 
   // Projektile
   for (auto& p : projs) {
@@ -1533,7 +1551,7 @@ static void renderTitle() {
   }
   canvas.setTextColor(c565(160, 160, 180));
   canvas.drawString("E/S A/D W/R SPACE  P PAUSE  M MUSIK", 14, 109);
-  if (((int)(gameTime * 2)) % 2) centerText("[ENTER] HANDEL STARTEN", 121, 1, c565(255, 255, 255));
+  if (((int)(gameTime * 2)) % 2) centerText("[ENTER] HANDEL  [X] HARDCORE", 121, 1, c565(255, 255, 255));
   else centerText("MADE BY WOLFGANG RABENSTEIN", 121, 1, c565(110, 120, 150));
 }
 
@@ -1692,7 +1710,10 @@ void loop() {
       gameTime += dt;
       if (!fetchedAtBoot && netConnected()) { fetchedAtBoot = true; fetchMarketsNow(); buildTicker(); }
       renderTitle();
-      if (enterHit) { newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING); }
+      if (enterHit || hit('x')) {   // X = Hardcore
+        hardcore = !enterHit; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
+        if (hardcore) say("HARDCORE: EIN TOD UND ES IST VORBEI", 3.0f);
+      }
       else if (hit('w')) startWifiScan();
       break;
     case ST_PLAY:
@@ -1713,13 +1734,18 @@ void loop() {
       if (enterHit) {
         level++;
         if (marketsAgeMs() > 120000) fetchMarketsNow();
-        loadLevel(level); ammo = max(ammo, 15); state = ST_PLAY; fireCd = 0.4f;
+        loadLevel(level); if (!hardcore) ammo = max(ammo, 15); state = ST_PLAY; fireCd = 0.4f;
       }
       break;
     case ST_DEAD:
       gameTime += dt;
-      renderEndScreen("INSOLVENZ", "DEIN DEPOT IST AUF NULL", c565(255, 60, 60), false);
-      if (enterHit) { hp = 100; ammo = max(ammo, 30); pnl = pnl / 2; loadLevel(level); state = ST_PLAY; fireCd = 0.4f; }
+      if (hardcore) {   // Hardcore: Insolvenz ist endgueltig
+        renderEndScreen("GAME OVER", "HARDCORE: DER LAUF IST VORBEI", c565(255, 60, 60), false);
+        if (enterHit) { state = ST_TITLE; musicStart(); }
+      } else {
+        renderEndScreen("INSOLVENZ", "DEIN DEPOT IST AUF NULL", c565(255, 60, 60), false);
+        if (enterHit) { hp = 100; ammo = max(ammo, 30); pnl = pnl / 2; loadLevel(level); state = ST_PLAY; fireCd = 0.4f; }
+      }
       break;
     case ST_WIN:
       gameTime += dt;
