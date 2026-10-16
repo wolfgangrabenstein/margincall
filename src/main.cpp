@@ -1307,7 +1307,7 @@ static void startIsland() {
 // Echtzeit mit dem Low-Poly-Renderer, Kamerafahrt im Bogen auf die Yacht zu; ENTER ueberspringt.
 static constexpr float OUTRO_LEN = 13, OUTRO_X = 10, OUTRO_Y = 23.2f;
 static float outroT, isleEyeZ = -1;   // isleEyeZ >= 0: feste Augenhoehe statt Gelaende
-static constexpr int MAX_EXTRA_TRI = 200;
+static constexpr int MAX_EXTRA_TRI = 240;
 static IsleTri isleExtra[MAX_EXTRA_TRI]; static int nIsleExtra;
 static void oTri(const float* a, const float* b, const float* c, uint8_t r, uint8_t g, uint8_t bl) {
   if (nIsleExtra >= MAX_EXTRA_TRI) return;
@@ -1368,14 +1368,19 @@ static void outroScene(float t) {
   oBox(cx - 0.19f, Y + 0.05f, hz, cx + 0.19f, Y + 0.32f, hz + 0.14f, 40, 90, 200);
   { float a[3] = {cx - 0.2f, Y + 0.06f, hz + 0.15f}, b[3] = {cx + 0.2f, Y + 0.06f, hz + 0.15f}, c[3] = {cx + 0.2f, Y - 0.4f, D + 0.78f}, e[3] = {cx - 0.2f, Y - 0.4f, D + 0.78f};
     oQuad(a, b, c, e, 255, 120, 40); }
-  const float hx = cx, hy = Y - 0.48f, hzz = D + 1.0f, r = 0.2f;
-  float P[6][3] = {{hx + r, hy, hzz}, {hx - r, hy, hzz}, {hx, hy + r, hzz}, {hx, hy - r, hzz}, {hx, hy, hzz + r}, {hx, hy, hzz - r}};
-  const int E[4][2] = {{0, 2}, {2, 1}, {1, 3}, {3, 0}};
-  for (auto& e : E) { oTri(P[e[0]], P[e[1]], P[4], 90, 60, 35); oTri(P[e[0]], P[e[1]], P[5], 235, 190, 150); }
+  // Kopf: kastiger Low-Poly-Kopf, genau so breit wie die Meme-Brille
+  const float hx = cx, hy = Y - 0.48f, hb = D + 0.8f, HW = 0.25f, HD = 0.2f, ht = hb + 0.5f;
+  oBox(hx - HW, hy - HD, hb, hx + HW, hy + HD, ht - 0.07f, 235, 190, 150);
+  oBox(hx - HW - 0.012f, hy - HD - 0.012f, ht - 0.1f, hx + HW + 0.012f, hy + HD + 0.012f, ht + 0.02f, 90, 60, 35);
+  { float a[3] = {hx - HW, hy - HD - 0.013f, hb + 0.12f}, b[3] = {hx + HW, hy - HD - 0.013f, hb + 0.12f}, c[3] = {hx + HW, hy - HD - 0.013f, ht}, e[3] = {hx - HW, hy - HD - 0.013f, ht};
+    oQuad(a, b, c, e, 90, 60, 35); }
+  oBox(hx - HW - 0.045f, hy - 0.05f, hb + 0.2f, hx - HW, hy + 0.05f, hb + 0.31f, 235, 190, 150); oBox(hx + HW, hy - 0.05f, hb + 0.2f, hx + HW + 0.045f, hy + 0.05f, hb + 0.31f, 235, 190, 150);
+  { float a[3] = {hx - 0.1f, hy + HD + 0.005f, hb + 0.11f}, b[3] = {hx + 0.1f, hy + HD + 0.005f, hb + 0.135f}, c[3] = {hx + 0.1f, hy + HD + 0.005f, hb + 0.16f}, e[3] = {hx - 0.1f, hy + HD + 0.005f, hb + 0.13f};
+    oQuad(a, b, c, e, 150, 50, 50); }   // schraeges Grinsen
   // Meme-Sonnenbrille ("Deal with it"): Pixelbloecke mit weissen Glanzpixeln, schwebt gegen Ende auf das Gesicht herab
   if (t > 7.6f) {
     static const int8_t RUNS[13][4] = {{0, 0, 21, 0}, {1, 0, 9, 0}, {1, 12, 21, 0}, {2, 1, 8, 0}, {2, 13, 20, 0}, {3, 2, 7, 0}, {3, 14, 19, 0}, {1, 2, 3, 1}, {1, 14, 15, 1}, {2, 3, 4, 1}, {2, 15, 16, 1}, {3, 4, 4, 1}, {3, 16, 16, 1}};
-    const float drop = min(1.0f, (t - 7.6f) / 1.2f), gp = 0.019f, gx = hx - 11 * gp, gy = hy + 0.205f, gz = hzz + 0.06f + (1 - drop) * 0.9f;
+    const float drop = min(1.0f, (t - 7.6f) / 1.2f), gp = 2 * HW / 22, gx = hx - 11 * gp, gy = hy + HD + 0.008f, gz = ht - 0.13f + (1 - drop) * 0.9f;
     for (auto& rr : RUNS) {
       float y = gy + rr[3] * 0.006f, z0 = gz - (rr[0] + 1) * gp, z1 = gz - rr[0] * gp, xa = gx + rr[1] * gp, xb = gx + (rr[2] + 1) * gp;
       float a[3] = {xa, y, z0}, b[3] = {xb, y, z0}, c[3] = {xb, y, z1}, e[3] = {xa, y, z1};
@@ -1384,7 +1389,7 @@ static void outroScene(float t) {
   }
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   float ph = fmodf(t, 4) / 4, lift = ph < 0.3f ? sinf(ph / 0.3f * 3.1416f) : 0;
-  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.1f, hy + 0.2f, hzz - 0.05f}, hand[3];
+  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.1f, hy + HD + 0.03f, hb + 0.13f}, hand[3];
   for (int i = 0; i < 3; i++) hand[i] = rest[i] + (mouth[i] - rest[i]) * lift;
   oRib(sh, hand, 0.035f, 235, 190, 150);
   float g0[3] = {hand[0], hand[1], hand[2] + 0.02f}; const float gr = 0.07f, gh = 0.18f; float full = max(0.15f, 1 - t / OUTRO_LEN * 0.85f), lz = g0[2] + gh * full;
@@ -2289,7 +2294,7 @@ void loop() {
       float tx = OUTRO_X + 0.9f, ty = OUTRO_Y - 0.1f, ang = 0.45f + e * 0.85f, dist = 10 - e * 6.6f;
       px = tx + cosf(ang) * dist; py = ty + sinf(ang) * dist;
       float dl = sqrtf((tx - px) * (tx - px) + (ty - py) * (ty - py)); dirX = (tx - px) / dl; dirY = (ty - py) / dl; planeX = -dirY * PLANE; planeY = dirX * PLANE;
-      isleEyeZ = 1.8f - e * 0.55f; outroScene(outroT);
+      isleEyeZ = 1.85f - e * 0.4f; outroScene(outroT);
       renderIsland();
       isleEyeZ = -1; nIsleExtra = 0;
       canvas.fillRect(0, VH, SW, SH - VH, c565(0, 0, 0));

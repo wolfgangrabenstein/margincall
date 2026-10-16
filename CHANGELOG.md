@@ -2,7 +2,7 @@
 
 ## Version 3.17.0 – „Deal with it“ und eine knallharte Steueroase (16.10.2026)
 
-- **Meme-Sonnenbrille in der Schlussszene:** Der Spieler bekommt die bekannte „Deal with it“-Pixelbrille, schwarze Blöcke mit weißen Glanzpixeln. Sie schwebt wie im Meme von oben auf sein Gesicht herab, kurz bevor „EARLY RETIREMENT.“ erscheint.
+- **Meme-Sonnenbrille in der Schlussszene:** Der Spieler bekommt die bekannte „Deal with it“-Pixelbrille, schwarze Blöcke mit weißen Glanzpixeln, auf einem größeren, kastigen Kopf, der genau zur Brille passt, mit schrägem Grinsen. Sie schwebt wie im Meme von oben auf sein Gesicht herab, kurz bevor „EARLY RETIREMENT.“ erscheint.
 - **Steueroase deutlich härter:**
   - Nur noch 45 statt 75 Sekunden.
   - 42 statt 30 Goldmünzen.
