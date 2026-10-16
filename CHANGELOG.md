@@ -1,5 +1,9 @@
 # MARGIN CALL – Changelog
 
+## Version 3.14.0 (16.10.2026)
+
+- Kleinere Verbesserungen.
+
 ## Version 3.13.0 – Abspann und Bonus-Level „Steueroase“ (16.10.2026)
 
 - **Kurzer Abspann nach dem Endboss:** Nach dem Sieg über ALGO-9000 und dem Bullenmarkt-Bonus läuft ein Abspann von rund 15 Sekunden. Mit Enter lässt er sich überspringen.
