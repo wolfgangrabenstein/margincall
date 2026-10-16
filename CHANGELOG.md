@@ -1,5 +1,23 @@
 # MARGIN CALL – Changelog
 
+## Version 3.9.0 – ALGO-9000 manipuliert den Kurs, Einzelaktien im Ticker (16.10.2026)
+
+- **ALGO-9000 verschiebt den Spielkurs:** Jeder Angriff legt für 15–24 Sekunden einen Auf- oder Abschlag auf den echten Kurs des Levels. Alles, was am Kurs hängt, reagiert sofort darauf: das Verhältnis von Bullen zu Bären, ihre Stärke und im Team-Modus der Schadensbonus. Kurz vor Ende läuft die Manipulation langsam aus.
+  - **Flash Crash:** −5 %
+  - **Pump & Dump:** erst +4 %, nach 12 Sekunden kippt der Kurs auf −4 %
+  - **Fake News:** ±2–4 %
+  - **System manipuliert:** ±4 %
+  - **Trading-Bots:** −1,5 bis −2,5 %
+  - **Bullen & Bären aufgehetzt:** ±3 % in Richtung des echten Tagestrends
+- **Manipulation sichtbar:** Der HUD zeigt echten und manipulierten Kurs nebeneinander, z. B. „DOW +1,08 % → ALGO −3,92 %“, blinkend in Magenta. Wand-Charts und Laufband bekommen eine magentafarbene Linie mit dem verbogenen Verlauf. Der Ticker zeigt für den Level-Index den ALGO-Kurs.
+- **Licht flackert bei Kursausschlägen:** Bei starken echten Intraday-Bewegungen und bei Manipulation flackert das Licht kurz.
+- **Einzelaktien im Ticker:** Hinter jedem Index laufen seine bekanntesten Werte mit Kurs und Tagesveränderung, grün steigend, rot fallend. Beim Dow sind das z. B. Goldman Sachs, Caterpillar und Boeing, beim Nasdaq-100 Nvidia, Microsoft und Tesla, beim Öl Exxon und Chevron. Die Einzelwerte sind nur Anzeige; das Spiel richtet sich weiter allein nach den Leitindizes.
+- **Munition und Leben etwas knapper:**
+  - Gegner lassen seltener etwas fallen: 38 % statt 45 %, bei Kämpfen zwischen Tieren 22 % statt 30 %.
+  - Eine Dividende heilt 20 % statt 25 %.
+  - Dafür liegt **vereinzelt Bargeld** abseits herum, etwa alle ein bis zwei Minuten, höchstens zwei Scheine gleichzeitig. Wer fast keine Munition mehr hat, findet schneller etwas.
+- **Cardputer:** Alle Neuerungen gibt es auch auf dem Cardputer.
+
 ## Version 3.8.1 – Härterer Koop (16.10.2026)
 
 - **Gegner skalieren stärker mit der Spielerzahl:**

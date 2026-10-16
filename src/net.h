@@ -17,6 +17,17 @@ struct Market {
 };
 extern Market markets[M_COUNT];
 
+// Einzelwerte je Index – nur fuer den Ticker, auf das Spiel wirken allein die Leitindizes
+static constexpr int STOCK_COUNT = 20;
+struct Stock {
+  const char* symbol;   // Yahoo-Symbol
+  const char* label;    // Anzeige im Ticker
+  uint8_t market;       // zugehoeriger Index (M_DOW ...)
+  float price, chg;     // price = 0 bei simulierten Werten
+  bool live;
+};
+extern Stock stocks[STOCK_COUNT];
+
 void marketsSimulate();                              // Fallback ohne Internet
 int  marketsFetch(void (*progress)(int idx, bool ok)); // blockierend, liefert Anzahl Live-Maerkte
 uint32_t marketsAgeMs();                             // Zeit seit letztem erfolgreichem Abruf
