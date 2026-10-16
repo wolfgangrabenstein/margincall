@@ -768,7 +768,7 @@ static int spawnEnemy(uint8_t type, float x, float y) {
   e.x = x; e.y = y; e.type = type; e.faction = TYPES[type].faction;
   e.alive = true; e.target = -2; e.pir = -1;
   e.str = type == E_BULL ? animalStrength(true) : (type == E_BEAR ? animalStrength(false) : 1.0f);
-  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.6f : 1.0f));
+  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.8f : 1.0f));
   e.cd = 1.0f + frand(); e.anim = frand() * 6; e.think = frand() * 0.4f;
   e.spawnCd = 6;
   float a = frand() * 6.283f; e.mdx = cosf(a); e.mdy = sinf(a);
@@ -879,7 +879,7 @@ static bool moveEntity(float& x, float& y, float mx, float my, float r) {
 
 static void damagePlayer(int d, const char* why) {
   if (state != ST_PLAY) return;
-  if (hardcore) d = (int)roundf(d * 1.5f);
+  if (hardcore) d = (int)roundf(d * 1.65f);
   hp -= d; hurtT = 0.35f; sfxPlay(SFX_ID_PHONE);
   if (why) say(why, 1.2f);
   if (hp <= 0) {
@@ -890,7 +890,7 @@ static void damagePlayer(int d, const char* why) {
 }
 
 static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8_t faction, uint8_t spr) {
-  if (hardcore) spd *= 1.25f;
+  if (hardcore) spd *= 1.3f;
   for (auto& p : projs) if (!p.active) { p = {x, y, cosf(ang) * spd, sinf(ang) * spd, true, dmg, faction, spr}; return; }
 }
 
@@ -1026,7 +1026,7 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 }
 
 static void updateEnemy(Enemy& e, int idx, float dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.35f : 1.0f); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.45f : 1.0f); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   const float spdMul = crashT > 0 ? 1.4f : 1.0f;
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
 
@@ -1093,7 +1093,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
           sfxPlay(SFX_ID_LASER);
         }
         if (e.spawnCd <= 0) { e.spawnCd = 8; spawnNear(E_BOT, 2); }
-        if (!e.halfDone && e.hp < TYPES[E_ALGO].hp * (hardcore ? 0.8f : 0.5f)) { e.halfDone = true; aiEvent(1); }
+        if (!e.halfDone && e.hp < TYPES[E_ALGO].hp * (hardcore ? 0.9f : 0.5f)) { e.halfDone = true; aiEvent(1); }
         return;
       default: break;
     }
