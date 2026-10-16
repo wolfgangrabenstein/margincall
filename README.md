@@ -4,7 +4,7 @@
 
 **Language:** **English** · [Deutsch](README.de.md)
 
-A Doom-style stock market shooter: bulls and bears fight each other and you. Real daily quotes for the Dow Jones, S&P 500, Nasdaq-100 and crude oil decide which side is stronger, and the AI ALGO-9000 manipulates the market.
+A retro first-person stock market shooter: bulls and bears fight each other and you. Real daily quotes for the Dow Jones, S&P 500, Nasdaq-100 and crude oil decide which side is stronger, and the AI ALGO-9000 manipulates the market.
 
 Made by Wolfgang Rabenstein · Open source under the [MIT license](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
 
