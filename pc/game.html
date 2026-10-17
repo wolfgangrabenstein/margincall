@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.17.2";
+const APP_VERSION = "3.17.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1945,7 +1945,7 @@ function renderWeapon() {
 // Baeren und Schuesse eine Wand, so funktionieren Kollision, Gegner-KI und Schiessen unveraendert.
 const ISLE_TIME = 45, ISLE_COINS = 42, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
 const ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 15;   // Hoehengitter -6..26, Sichtweite in Feldern
-let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleResult = "";
+let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleCashT = 0, isleResult = "";
 let creditsT = 0;
 let isleExtra = [], isleEyeZ = null;   // Schlussszene: zusaetzliche Dreiecke, feste Augenhoehe
 const isleV = new Float32Array(ISLE_N * ISLE_N);
@@ -2025,7 +2025,7 @@ function isleBuildObjects() {
 }
 function startCredits() { creditsT = 0; state = ST.CREDITS; musicStart(); document.exitPointerLock?.(); }
 function startIsland() {
-  island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5;
+  island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5; isleCashT = 10;
   for (let j = 0; j < ISLE_N; j++) for (let i = 0; i < ISLE_N; i++) isleV[j * ISLE_N + i] = isleShape(i + ISLE_MIN, j + ISLE_MIN);
   world = []; for (let y = 0; y < MAP; y++) { world.push([]); for (let x = 0; x < MAP; x++) world[y].push(isleGround(x + .5, y + .5) > .06 ? "." : "~"); }
   enemies = []; items = []; projs = []; hist = []; histT = 0;
@@ -2036,6 +2036,7 @@ function startIsland() {
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
   const taken = isleBuildObjects();
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
+  for (let k = 0; k < (HC() ? 2 : 3); k++) { const c = isleFreeCell(4, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 0, active: true }); }   // vereinzelt Munition
   for (let k = 0; k < (HC() ? 10 : 8); k++) { const c = isleFreeCell(6); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
   state = ST.PLAY; fireCd = .4; musicStart(6); lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
@@ -2082,6 +2083,11 @@ function updateIsland(dt) {
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
     isleSpawnT = HC() ? 4.5 : 6;
     if (bearsAlive < (HC() ? 14 : 12)) { const c = isleFreeCell(8); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])); }
+  }
+  isleCashT -= dt;
+  if (isleCashT <= 0) {   // ab und zu neues Bargeld, hoechstens 2 Buendel liegen gleichzeitig herum
+    isleCashT = (HC() ? 14 : 10) + frand() * 4;
+    if (items.filter(i => i.active && i.type === 0).length < 2) { const c = isleFreeCell(5); if (c) items.push({ x: c[0], y: c[1], type: 0, active: true }); }
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);

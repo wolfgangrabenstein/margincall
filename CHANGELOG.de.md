@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.17.3 – Munition auf der Steueroase (18.10.2026)
+
+- **Bargeld auf der Insel:** Auf der Steueroase liegen jetzt auch vereinzelt Geldbündel als Munition, zu Beginn 3 (Hardcore 2). Alle 10 bis 14 Sekunden (Hardcore 14 bis 18) kommt ein neues dazu, solange weniger als 2 herumliegen.
+
 ## Version 3.17.2 – eigene Musik für jedes Level, Lautstärkeregler (16.10.2026)
 
 - **Jedes Level hat seine eigene Musik**, mit denselben Chiptune-Instrumenten wie bisher, damit alles zusammenpasst:

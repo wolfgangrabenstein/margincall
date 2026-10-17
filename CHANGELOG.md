@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.17.3 – Ammo on the tax haven (2026-10-18)
+
+- **Cash on the island:** The tax haven now also has a few cash bundles lying around as ammo, 3 at the start (Hardcore 2). Every 10 to 14 seconds (Hardcore 14 to 18) a new one appears, as long as fewer than 2 are lying around.
+
 ## Version 3.17.2 – Unique music for every level, volume controls (2026-10-16)
 
 - **Every level has its own music**, using the same chiptune instruments as before so everything fits together:

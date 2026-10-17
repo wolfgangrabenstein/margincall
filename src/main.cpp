@@ -1174,7 +1174,7 @@ static void centerText(const char* s, int y, int size, uint16_t col);
 // Die Insel liegt auf dem normalen 20x20-Raster: Wasser ('~') ist fuer Bewegung und Baeren eine Wand.
 static constexpr int ISLE_TIME = 45, ISLE_COINS = 42, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
 static constexpr long ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
-static float isleT, isleSpawnT, creditsT;
+static float isleT, isleSpawnT, isleCashT, creditsT;
 static int isleCoins;
 static const char* isleResult = "";
 static float isleV[ISLE_N * ISLE_N];
@@ -1312,7 +1312,7 @@ static void pirateAI(Enemy& e, float dt) {
   else if (e.cd <= 0 && fabsf(gameTime - pirHitAt) > (hardcore ? 0.35f : 0.5f)) { pirHitAt = gameTime; e.cd = 1.2f; e.attackAnim = 0.3f; damagePlayer((int)(11 * e.str), L("CUTLASS SLASH!", "SAEBELHIEB!")); }
 }
 static void startIsland() {
-  island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5;
+  island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5; isleCashT = 10;
   for (int j = 0; j < ISLE_N; j++) for (int i = 0; i < ISLE_N; i++) isleV[j * ISLE_N + i] = isleShape(i + ISLE_MIN, j + ISLE_MIN);
   for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++) world[y][x] = isleGround(x + 0.5f, y + 0.5f) > 0.06f ? '.' : '~';
   nEnemies = nItems = 0; marketKills = 0;
@@ -1327,6 +1327,7 @@ static void startIsland() {
     float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
     isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
   }
+  for (int k = 0; k < (hardcore ? 2 : 3); k++) { float x, y; if (isleFreeCell(4, true, x, y)) { isleTake(x, y); dropItem(x, y, 0); } }   // vereinzelt Munition
   for (int k = 0; k < (hardcore ? 10 : 8); k++) { float x, y; if (isleFreeCell(6, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { makePirate(enemies[i]); enemies[i].awake = true; } } }
   state = ST_PLAY; fireCd = 0.4f; musicStart(6);
   { char b[48]; snprintf(b, sizeof(b), L("TAX HAVEN! %d S - GRAB THE GOLD", "STEUEROASE! %d S - SAMMLE DAS GOLD"), ISLE_TIME); say(b, 3.0f); }
@@ -1487,6 +1488,12 @@ static void updateIsland(float dt) {
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren ruecken nach
     isleSpawnT = hardcore ? 4.5f : 6;
     float x, y; if (bearsAlive < (hardcore ? 14 : 12) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) makePirate(enemies[i]); }
+  }
+  isleCashT -= dt;
+  if (isleCashT <= 0) {   // ab und zu neues Bargeld, hoechstens 2 Buendel liegen gleichzeitig herum
+    isleCashT = (hardcore ? 14 : 10) + frand() * 4;
+    int cash = 0; for (int i = 0; i < nItems; i++) if (items[i].active && items[i].type == 0) cash++;
+    float x, y; if (cash < 2 && isleFreeCell(5, false, x, y)) dropItem(x, y, 0);
   }
   if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);

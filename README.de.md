@@ -16,14 +16,14 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 
 ## Downloads
 
-Aktuelle Version **3.17.2** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.17.3** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.17.2-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.2/MarginCall-3.17.2-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.17.2-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.2/MarginCall-3.17.2-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.17.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.2/MarginCall-3.17.2-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.17.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.2/MarginCall-3.17.2-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.17.3-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.17.3-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.17.3-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.17.3-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 
