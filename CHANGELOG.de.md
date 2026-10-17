@@ -2,6 +2,19 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.18.0 – Keycards, zufällige Level, sichtbare Schüsse (18.10.2026)
+
+- **Zufällige Level:** Bei jedem Spielstart sind die Gegner jedes Levels (außer der Steueroase) zufällig verteilt, und die Tresortür sitzt jedes Mal an einer anderen Stelle der Außenwand.
+- **Keycards:** Der Tresor öffnet sich nur mit der Keycard des Levels, und jeder Level hat seine eigene Farbe (gelb, blau, rot, grün, violett).
+  - In Leveln mit Boss lässt der Boss die Keycard fallen.
+  - In den anderen Leveln fällt sie, nachdem eine zufällige Zahl an Gegnern erledigt wurde.
+  - Ohne Keycard meldet die Tür, welche Farbe du brauchst. Hast du sie, zeigt das HUD sie an.
+- **Sichtbare Schüsse:** Die Waffe feuert fliegende Geldscheine ab. Schaden gibt es erst, wenn ein Schein trifft, und Wände halten ihn auf.
+- **Waffe überarbeitet:** Der Lauf sitzt jetzt auf einer verchromten Halterung im Koffer, mit Messingringen und einer Zuführung aus dem Geldscheinmagazin.
+- **Piraten bewachen den Schatz:** Die meisten Piraten bleiben bei den Münzhaufen. Greifst du einen an oder kommst zu nah, wehren er und seine Kameraden sich, verfolgen dich aber nur bis zu einer gewissen Entfernung und kehren dann im Zickzack zum Schatz zurück. Nur wenige jagen dich direkt.
+- **Pausenmenü:** Esc setzt das Spiel fort, Q geht ins Hauptmenü.
+- **Beenden:** Esc im Hauptmenü fragt jetzt nach, ob du das Spiel wirklich beenden willst. Enter beendet, Esc bricht ab.
+
 ## Version 3.17.3 – Munition auf der Steueroase (18.10.2026)
 
 - **Bargeld auf der Insel:** Auf der Steueroase liegen jetzt auch vereinzelt Geldbündel als Munition, zu Beginn 3 (Hardcore 2). Alle 10 bis 14 Sekunden (Hardcore 14 bis 18) kommt ein neues dazu, solange weniger als 2 herumliegen.

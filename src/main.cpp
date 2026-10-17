@@ -42,7 +42,7 @@ static uint16_t wallTex[NUM_WALL][TEX * TEX];       // RGB565 (nicht geswappt), 
 
 enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
        S_BULL0, S_BULL1, S_BARON0, S_BARON1, S_SLICK0, S_SLICK1, S_BOT0, S_BOT1, S_ALGO0, S_ALGO1,
-       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, NUM_SPR };
+       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, S_NOTE, S_KEY, NUM_SPR };
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
@@ -91,6 +91,12 @@ static void storeWall(int idx) {
     wallTex[idx][i] = c565((c >> 16) & 255, (c >> 8) & 255, c & 255);
   }
 }
+static void storeSprite(int idx);
+// Keycard des Levels: jede Tresortuer braucht ihre eigene Farbe
+static const uint8_t KEY_COL[5][3] = {{255, 210, 40}, {60, 140, 255}, {235, 50, 50}, {50, 205, 90}, {175, 80, 235}};
+static const char* const KEY_EN[5] = {"YELLOW", "BLUE", "RED", "GREEN", "PURPLE"};
+static const char* const KEY_DE[5] = {"GELBE", "BLAUE", "ROTE", "GRUENE", "VIOLETTE"};
+static void makeKeySprite(int lv);
 static void storeSprite(int idx) {
   for (int i = 0; i < TEX * TEX; i++) {
     uint32_t c = tmp[i];
@@ -98,6 +104,16 @@ static void storeSprite(int idx) {
     uint16_t v = swp(c565((c >> 16) & 255, (c >> 8) & 255, c & 255));
     sprTex[idx][i] = v ? v : swp(0x0841);  // echtes Schwarz != transparent
   }
+}
+static void makeKeySprite(int lv) {
+  const uint8_t* k = KEY_COL[lv % 5];
+  uint32_t dark = RGB(k[0] / 2, k[1] / 2, k[2] / 2);
+  tclear(0);
+  trect(5, 14, 22, 16, dark); trect(6, 15, 20, 14, RGB(k[0], k[1], k[2]));
+  trect(6, 18, 20, 3, RGB(240, 240, 245)); trect(9, 23, 6, 4, RGB(230, 185, 60)); trect(10, 24, 4, 2, RGB(170, 130, 30));
+  trect(18, 24, 6, 1, dark); trect(18, 26, 4, 1, dark);
+  tline(16, 14, 16, 8, RGB(40, 40, 50), 1); tcirc(16, 7, 2, RGB(40, 40, 50)); tcirc(16, 7, 1, 0);
+  storeSprite(S_KEY);
 }
 
 // ALGO-Manipulation, mit der die Wand-Charts zuletzt gezeichnet wurden (Prozentpunkte)
@@ -442,6 +458,12 @@ static void genSprites() {
   ttri(5, 14, 27, 14, 16, 2, RGB(10, 80, 30)); trect(11, 13, 10, 9, RGB(10, 80, 30));
   ttri(8, 13, 24, 13, 16, 4.5f, RGB(60, 230, 90)); trect(13, 12, 6, 9, RGB(60, 230, 90)); trect(14, 8, 2, 11, RGB(190, 255, 200));
   storeSprite(S_DIV);
+  // --- fliegender Geldschein (Projektil der Waffe)
+  tclear(T);
+  trect(5, 11, 22, 11, RGB(25, 95, 40)); trect(6, 12, 20, 9, RGB(120, 205, 120)); tcirc(16, 16.5f, 3, RGB(25, 95, 40)); tcirc(16, 16.5f, 1.6f, RGB(170, 235, 170));
+  trect(7, 13, 3, 2, RGB(25, 95, 40)); trect(22, 18, 3, 2, RGB(25, 95, 40));
+  storeSprite(S_NOTE);
+  makeKeySprite(0);
   // Piraten der Steueroase: 3 Typen (Kapitaen, Matrose, Freibeuter), je 2 Bilder (Laufen, Saebel erhoben)
   for (int k = 0; k < 3; k++) for (int f = 0; f < 2; f++) {
     tclear(0);
@@ -636,10 +658,11 @@ struct Enemy {
   float cd, anim, hurt, attackAnim, think, deadT, str, chargeT, chargeCd, mdx, mdy, spawnCd;
   int8_t pir;       // Piratentyp in der Steueroase (-1 = keiner)
   int16_t target;   // -1 = Spieler, -2 = keins, sonst Index
-  uint8_t role; bool alert; float gx, gy, delay;   // Piraten: 0 Jaeger, 1 Abfaenger, 2 Waechter (lauert bei gx/gy)
+  uint8_t role; bool alert; float gx, gy, delay, alertT;   // Piraten: 0 Jaeger, 2 Waechter (bewacht den Schatz bei gx/gy)
 };
 struct Item { float x, y; uint8_t type; bool active, stray; };   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
+static constexpr uint8_t F_SHOT = 9;   // Geldschein aus der Waffe des Spielers
 
 static constexpr int MAX_E = 48, MAX_I = 48, MAX_P = 32;
 static Enemy enemies[MAX_E]; static int nEnemies;
@@ -819,8 +842,59 @@ static void spawnNear(uint8_t type, int count) {
   for (int k = 0; k < count; k++) { float x, y; if (findHiddenCell(x, y, 3.5f)) spawnEnemy(type, x, y); }
 }
 
+// Keycard: Bosse lassen sie fallen; in Leveln ohne Boss faellt sie nach 8-16 erledigten Gegnern (jedes Mal zufaellig, ohne Hinweis)
+static bool hasKey, keyDropped, levelHasBoss; static int keyKills, keyNeed = 12;
+static uint8_t reach[MAP_H][MAP_W];
+static void computeReach() {   // alle Felder, die man vom Start aus zu Fuss erreicht
+  memset(reach, 0, sizeof(reach));
+  static uint16_t q[MAP_W * MAP_H]; int n = 0;
+  int sx = (int)px, sy = (int)py; reach[sy][sx] = 1; q[n++] = sy * MAP_W + sx;
+  while (n) {
+    int c = q[--n], x = c % MAP_W, y = c / MAP_W;
+    static const int8_t D[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    for (auto& d : D) { int nx = x + d[0], ny = y + d[1]; if (!solidCell(nx, ny) && !reach[ny][nx]) { reach[ny][nx] = 1; q[n++] = ny * MAP_W + nx; } }
+  }
+}
+static void placeVault(char wall) {   // Tresortuer an einer zufaelligen Aussenwand, erreichbar und moeglichst weit weg vom Start
+  static uint8_t cand[4 * MAP_W][2]; int nc = 0, nfar = 0;
+  for (int pass = 0; pass < 2 && !nfar; pass++) {
+    nc = 0;
+    for (int i = 1; i < MAP_W - 1; i++) {
+      const int C[4][4] = {{i, 0, i, 1}, {i, MAP_H - 1, i, MAP_H - 2}, {0, i, 1, i}, {MAP_W - 1, i, MAP_W - 2, i}};
+      for (auto& c : C) {
+        if (!reach[c[3]][c[2]]) continue;
+        float dx = c[2] + 0.5f - px, dy = c[3] + 0.5f - py;
+        if (pass == 0 && dx * dx + dy * dy < 81) continue;
+        cand[nc][0] = c[0]; cand[nc][1] = c[1]; nc++;
+      }
+    }
+    nfar = nc;
+  }
+  for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++) if (world[y][x] == 'X') world[y][x] = wall;
+  if (nc) { int k = rnd() % nc; world[cand[k][1]][cand[k][0]] = 'X'; }
+}
+static bool randomEnemyCell(float minD, float& ox, float& oy) {   // zufaelliges erreichbares Feld, nicht zu nah am Start und an anderen Gegnern
+  for (int t = 0; t < 160; t++) {
+    int x = 1 + rnd() % (MAP_W - 2), y = 1 + rnd() % (MAP_H - 2); float cx = x + 0.5f, cy = y + 0.5f, md = t < 120 ? minD : 3;
+    if (!reach[y][x] || dist2Player(cx, cy) < md * md) continue;
+    bool bad = false;
+    for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && (enemies[i].x - cx) * (enemies[i].x - cx) + (enemies[i].y - cy) * (enemies[i].y - cy) < 2) bad = true;
+    for (int i = 0; i < nItems; i++) if (items[i].active && (int)items[i].x == x && (int)items[i].y == y) bad = true;
+    if (bad) continue;
+    ox = cx; oy = cy; return true;
+  }
+  return false;
+}
+static void dropKey(float x, float y) {
+  keyDropped = true;
+  int i = 0; while (i < nItems && items[i].active) i++;
+  if (i == nItems) { if (nItems < MAX_I) nItems++; else i = 0; }
+  items[i] = {x, y, 3, true, false};
+  say(L("A KEYCARD DROPPED!", "EINE KEYCARD IST GEFALLEN!"), 2.5f);
+}
 static void loadLevel(int lv) {
   nEnemies = nItems = 0; kills = marketKills = 0;
+  uint8_t pend[64]; int npend = 0;   // Gegner der Karte, werden danach zufaellig verteilt
   for (auto& p : projs) p.active = false;
   applyMarket();
   for (int y = 0; y < MAP_H; y++)
@@ -830,22 +904,31 @@ static void loadLevel(int lv) {
       world[y][x] = '.';
       switch (c) {
         case 'P': px = cx; py = cy; break;
-        case 'A': spawnEnemy(frand() < pBullBase ? E_BULL : E_BEAR, cx, cy); break;
-        case 'u': spawnEnemy(E_BULL, cx, cy); break;
-        case 'b': spawnEnemy(E_BEAR, cx, cy); break;
-        case 's': spawnEnemy(E_SELLER, cx, cy); break;
-        case 'c': spawnEnemy(E_BUBBLE, cx, cy); break;
-        case 'H': spawnEnemy(E_SHARK, cx, cy); break;
-        case 'o': spawnEnemy(E_BARON, cx, cy); break;
-        case 'l': spawnEnemy(E_SLICK, cx, cy); break;
-        case 't': spawnEnemy(E_BOT, cx, cy); break;
-        case 'K': spawnEnemy(E_ALGO, cx, cy); break;
+        case 'A': if (npend < 64) pend[npend++] = frand() < pBullBase ? E_BULL : E_BEAR; break;
+        case 'u': if (npend < 64) pend[npend++] = E_BULL; break;
+        case 'b': if (npend < 64) pend[npend++] = E_BEAR; break;
+        case 's': if (npend < 64) pend[npend++] = E_SELLER; break;
+        case 'c': if (npend < 64) pend[npend++] = E_BUBBLE; break;
+        case 'H': if (npend < 64) pend[npend++] = E_SHARK; break;
+        case 'o': if (npend < 64) pend[npend++] = E_BARON; break;
+        case 'l': if (npend < 64) pend[npend++] = E_SLICK; break;
+        case 't': if (npend < 64) pend[npend++] = E_BOT; break;
+        case 'K': if (npend < 64) pend[npend++] = E_ALGO; break;
         case '$': case '+':
           if (nItems < MAX_I) items[nItems++] = {cx, cy, (uint8_t)(c == '+'), true, false};
           break;
         default: world[y][x] = c;
       }
     }
+  computeReach();
+  placeVault(LEVELS[lv][0][0]);
+  levelHasBoss = false;
+  for (int k = 0; k < npend; k++) {
+    if (TYPES[pend[k]].boss) levelHasBoss = true;
+    float x, y; if (randomEnemyCell(TYPES[pend[k]].boss ? 9 : 5, x, y)) spawnEnemy(pend[k], x, y);
+  }
+  hasKey = keyDropped = false; keyKills = 0; keyNeed = 8 + rnd() % 9;
+  makeKeySprite(lv);
   static const float dirs[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
   int best = 0, bestLen = -1;
   for (int d = 0; d < 4; d++) {
@@ -865,7 +948,7 @@ static void loadLevel(int lv) {
 }
 
 // Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
-static void newGame() { hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; island = islandDone = false; loadLevel(0); }
+static void newGame() { rngState = esp_random() | 1; hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; island = islandDone = false; loadLevel(0); }
 
 static bool freeAt(float x, float y, float r) {
   return !solidCell((int)(x - r), (int)(y - r)) && !solidCell((int)(x + r), (int)(y - r)) &&
@@ -915,8 +998,8 @@ static void killEnemy(Enemy& e, bool byPlayer) {
       case E_BULL:   say(L("BULL DOWN!", "BULLE ERLEGT!")); break;
       case E_SELLER: say(L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT")); break;
       case E_BUBBLE: say(L("BUBBLE BURST", "BLASE GEPLATZT")); break;
-      case E_SHARK:  say(L("HEDGE FUND SMASHED! TO THE VAULT!", "HEDGEFONDS ZERSCHLAGEN! ZUM TRESOR!"), 3); break;
-      case E_ALGO:   say(L("ALGO-9000 SHUT DOWN! TO THE VAULT!", "ALGO-9000 ABGESCHALTET! ZUM TRESOR!"), 3); break;
+      case E_SHARK:  say(L("HEDGE FUND SMASHED! GET THE KEYCARD!", "HEDGEFONDS ZERSCHLAGEN! KEYCARD HOLEN!"), 3); break;
+      case E_ALGO:   say(L("ALGO-9000 SHUT DOWN! GET THE KEYCARD!", "ALGO-9000 AUS! KEYCARD HOLEN!"), 3); break;
       default: snprintf(b, sizeof(b), "%s %s", L(TYPE_NAME_EN[e.type], ti.name), L("DOWN", "ERLEDIGT")); say(b);
     }
   } else {
@@ -924,6 +1007,10 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     if (dist2Player(e.x, e.y) < 64) say(e.type == E_BEAR || e.type == E_SELLER ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BAEREN NIEDER") : L("BEARS MAUL THE BULLS", "BAEREN ZERFLEISCHEN BULLEN"), 1.5f);
   }
   sfxNear(e.type == E_BUBBLE ? SFX_ID_POP : e.type == E_SLICK ? SFX_ID_OIL : SFX_ID_STAMP, e.x, e.y, 10);
+  if (!island && !keyDropped) {
+    if (ti.boss) { bool other = false; for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && isBoss(enemies[i])) other = true; if (!other) dropKey(e.x, e.y); }
+    else if (!levelHasBoss && byPlayer && ++keyKills >= keyNeed) dropKey(e.x, e.y);
+  }
   float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : 0.38f) : 0.22f;
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
@@ -968,9 +1055,9 @@ static void tryMove(float mx, float my) {
   float nx = px + mx, ny = py + my;
   int cx = (int)(nx + (mx > 0 ? r : -r)), cy = (int)(ny + (my > 0 ? r : -r));
   if ((cx >= 0 && cx < MAP_W && world[(int)py][cx] == 'X') || (cy >= 0 && cy < MAP_H && world[cy][(int)px] == 'X')) {
-    bool bossAlive = false;
-    for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && isBoss(enemies[i])) bossAlive = true;
-    if (bossAlive) { if (msgT <= 0) { say(L("VAULT LOCKED - BOSS STILL ALIVE!", "TRESOR GESPERRT - BOSS LEBT NOCH!"), 1.5f); sfxPlay(SFX_ID_DECLINED); } }
+    if (!hasKey) {
+      if (msgT <= 0) { char b[48]; snprintf(b, sizeof(b), L("VAULT LOCKED - NEED THE %s KEYCARD", "TRESOR ZU - DU BRAUCHST DIE %s KEYCARD"), L(KEY_EN[level % 5], KEY_DE[level % 5])); say(b, 1.5f); sfxPlay(SFX_ID_DECLINED); }
+    }
     else {
       state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += 500 + hp * 5;
       if (state == ST_WIN) {   // Bullenmarkt-Bonus: 10.000 + 25 % des P&L + 5.000 ohne Tod, Hardcore x1,5
@@ -989,18 +1076,20 @@ static void shoot() {
   if (fireCd > 0) return;
   if (ammo <= 0) { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITAET! CASH SAMMELN"), 1.2f); fireCd = 0.4f; sfxPlay(SFX_ID_DECLINED); return; }
   ammo--; fireCd = 0.28f; flashT = 0.12f; sfxPlay(SFX_ID_SHOT);
-  float invDet = 1.0f / (planeX * dirY - dirX * planeY);
-  int best = -1; float bestZ = zbuf[SW / 2];
-  for (int i = 0; i < nEnemies; i++) {
-    Enemy& e = enemies[i];
-    if (!e.alive) continue;
-    float sx = e.x - px, sy = e.y - py;
-    float tX = invDet * (dirY * sx - dirX * sy), tY = invDet * (-planeY * sx + planeX * sy);
-    if (tY < 0.2f || tY >= bestZ) continue;
-    float scr = SW / 2 * (1 + tX / tY), half = PROJ / tY * 0.3f * TYPES[e.type].scale + 2;
-    if (fabsf(scr - SW / 2) < half) { best = i; bestZ = tY; }
+  // die Kanone feuert einen Geldschein ab; Schaden gibt es erst, wenn er trifft
+  for (auto& p : projs) if (!p.active) { p = {px + dirX * 0.3f, py + dirY * 0.3f, dirX * 13, dirY * 13, true, 2, F_SHOT, S_NOTE}; break; }
+}
+static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teilschritten, damit er duenne Gegner nicht ueberspringt
+  for (int k = 0; k < 2 && p.active; k++) {
+    p.x += p.dx * dt * 0.5f; p.y += p.dy * dt * 0.5f;
+    if (solidCell((int)floorf(p.x), (int)floorf(p.y))) { p.active = false; break; }
+    for (int i = 0; i < nEnemies; i++) {
+      Enemy& e = enemies[i];
+      if (!e.alive) continue;
+      float r = 0.32f * TYPES[e.type].scale + 0.05f, dx = e.x - p.x, dy = e.y - p.y;
+      if (dx * dx + dy * dy < r * r) { hurtEnemy(e, p.dmg, true); p.active = false; break; }
+    }
   }
-  if (best >= 0) hurtEnemy(enemies[best], 2, true);
 }
 
 // ---------------------------------------------------------------- Gegner-KI
@@ -1287,28 +1376,53 @@ static void isleBuildObjects() {
 // Piraten: 60 % mehr Energie, etwas schneller als der Spieler. Rollen: Waechter lauern an einem Muenzhaufen und
 // greifen erst an, wenn man nahe kommt; Abfaenger laufen dorthin, wo der Spieler gleich sein wird; Jaeger verfolgen direkt.
 static void makePirate(Enemy& e) {
-  e.pir = rnd() % 3; e.hp = (int16_t)roundf(e.hp * 1.6f); e.alert = false; e.delay = 1.5f + frand() * 2;
-  int r = rnd() % 10, coins[MAX_I], nc = 0;
+  e.pir = rnd() % 3; e.hp = (int16_t)roundf(e.hp * 1.6f); e.alert = false; e.alertT = 0; e.delay = 1.5f + frand() * 2;
+  int coins[MAX_I], nc = 0;
   for (int i = 0; i < nItems; i++) if (items[i].active && items[i].type == 2 && (items[i].x - px) * (items[i].x - px) + (items[i].y - py) * (items[i].y - py) > 64) coins[nc++] = i;
-  e.role = r < 4 && nc ? 2 : r < 7 ? 1 : 0;
+  e.role = nc && rnd() % 100 < 85 ? 2 : 0;   // die meisten bewachen den Schatz, wenige jagen
   if (e.role == 2) { const Item& c = items[coins[rnd() % nc]]; e.gx = c.x; e.gy = c.y; e.x = c.x + 0.8f; e.y = c.y; if (solidCell((int)e.x, (int)e.y)) { e.x = c.x; e.y = c.y; } }
 }
 static float pirHitAt;   // gemeinsamer Angriffstakt: auch umzingelt trifft nur alle 0,5 s ein Saebel
+// Waechter (die meisten) bleiben beim Schatz. Wer angegriffen wird oder wem man zu nahe kommt, schlaegt zurueck, und die
+// Waechter in der Naehe helfen mit. Sie verfolgen aber nur innerhalb ihres Reviers: Laeuft der Spieler weiter weg, kehren
+// sie im Zickzack zum Schatz zurueck, statt sich einzeln weglocken und abschiessen zu lassen. Nur wenige Jaeger verfolgen direkt.
 static void pirateAI(Enemy& e, float dt) {
-  if (e.delay > 0) { e.delay -= dt; return; }
+  if (e.delay > 0 && e.hurt <= 0) { e.delay -= dt; return; }
   float dx = px - e.x, dy = py - e.y, d = sqrtf(dx * dx + dy * dy) + 1e-4f;
   auto go = [&](float tx, float ty, float v) {   // bewegen, an Wasserkanten seitlich ausweichen
     float ex = tx - e.x, ey = ty - e.y, l = sqrtf(ex * ex + ey * ey) + 1e-4f, mx = ex / l * v * dt, my = ey / l * v * dt;
     if (!moveEntity(e.x, e.y, mx, my, 0.25f)) moveEntity(e.x, e.y, -my, mx, 0.25f);
   };
-  if (e.role == 2 && !e.alert) {
-    if (d < 3.8f && lineOfSight(e.x, e.y, px, py)) { e.alert = true; e.attackAnim = 0.5f; sfxNear(SFX_ID_ROAR, e.x, e.y, 8); }
-    else { go(e.gx + cosf(e.anim * 0.8f) * 0.7f, e.gy + sinf(e.anim * 0.8f) * 0.7f, 0.8f); return; }   // lauert am Muenzhaufen
-  }
   float v = (hardcore ? 3.2f : 3.0f) * (crashT > 0 ? 1.2f : 1.0f);   // Spieler laeuft 2,8
-  float tx = px, ty = py;
-  if (e.role == 1 && d > 1.6f) { float lead = min(3.0f, d * 0.6f); tx += dirX * lead; ty += dirY * lead; }   // Weg abschneiden
-  if (d > 0.75f) go(tx, ty, v);
+  if (e.role == 2) {
+    bool there = false; int best = -1; float bd = 1e9f;
+    for (int i = 0; i < nItems; i++) {
+      if (!items[i].active || items[i].type != 2) continue;
+      if (fabsf(items[i].x - e.gx) < 0.3f && fabsf(items[i].y - e.gy) < 0.3f) there = true;
+      float q = (items[i].x - e.gx) * (items[i].x - e.gx) + (items[i].y - e.gy) * (items[i].y - e.gy);
+      if (q < bd) { bd = q; best = i; }
+    }
+    if (!there && best >= 0) { e.gx = items[best].x; e.gy = items[best].y; }   // Schatz weg: naechsten bewachen
+    if (e.hurt > 0) {   // angegriffen: zurueckschlagen und Kameraden in der Naehe alarmieren
+      if (!e.alert) {
+        sfxNear(SFX_ID_ROAR, e.x, e.y, 8);
+        for (int i = 0; i < nEnemies; i++) { Enemy& o = enemies[i]; if (&o != &e && o.alive && o.pir >= 0 && o.role == 2 && (o.x - e.x) * (o.x - e.x) + (o.y - e.y) * (o.y - e.y) < 25) { o.alert = true; o.alertT = 6; o.delay = 0; } }
+      }
+      e.alert = true; e.alertT = 6;
+    }
+    if (!e.alert && d < 3.8f && lineOfSight(e.x, e.y, px, py)) { e.alert = true; e.alertT = 6; e.attackAnim = 0.5f; sfxNear(SFX_ID_ROAR, e.x, e.y, 8); }
+    if (!e.alert) { go(e.gx + cosf(e.anim * 0.8f) * 0.7f, e.gy + sinf(e.anim * 0.8f) * 0.7f, 0.8f); return; }   // bewacht den Schatz
+    e.alertT -= dt;
+    float gdx = px - e.gx, gdy = py - e.gy;
+    if (gdx * gdx + gdy * gdy > (hardcore ? 49.0f : 36.0f)) {   // nicht weglocken lassen: im Zickzack zurueck zum Schatz
+      float hx = e.gx - e.x, hy = e.gy - e.y, hl = sqrtf(hx * hx + hy * hy) + 1e-4f, side = sinf(e.anim * 4) * 0.9f;
+      if (hl > 1.2f) go(e.gx - hy / hl * side, e.gy + hx / hl * side, v * 0.9f);
+      else go(e.gx + cosf(e.anim * 3) * 1.1f, e.gy + sinf(e.anim * 3) * 1.1f, v * 0.6f);   // am Schatz unruhig hin und her
+      if (e.alertT <= 0) e.alert = false;
+      return;
+    }
+  }
+  if (d > 0.75f) go(px, py, v);
   else if (e.cd <= 0 && fabsf(gameTime - pirHitAt) > (hardcore ? 0.35f : 0.5f)) { pirHitAt = gameTime; e.cd = 1.2f; e.attackAnim = 0.3f; damagePlayer((int)(11 * e.str), L("CUTLASS SLASH!", "SAEBELHIEB!")); }
 }
 static void startIsland() {
@@ -1489,6 +1603,7 @@ static void updateIsland(float dt) {
     isleSpawnT = hardcore ? 4.5f : 6;
     float x, y; if (bearsAlive < (hardcore ? 14 : 12) && isleFreeCell(8, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) makePirate(enemies[i]); }
   }
+  for (auto& p : projs) if (p.active && p.faction == F_SHOT) stepShot(p, dt);
   isleCashT -= dt;
   if (isleCashT <= 0) {   // ab und zu neues Bargeld, hoechstens 2 Buendel liegen gleichzeitig herum
     isleCashT = (hardcore ? 14 : 10) + frand() * 4;
@@ -1556,9 +1671,9 @@ static void isleAddTri(const float* a, const float* b, const float* c, uint8_t r
   it.col = swp(c565(constrain(cr, 0, 255), constrain(cg, 0, 255), constrain(cb, 0, 255)));
   for (int k = 0; k < n; k++) { it.x[k] = SW / 2 + Q[k][0] / Q[k][2] * PROJ; it.y[k] = VH / 2 - Q[k][1] / Q[k][2] * PROJ; }
 }
-static void isleAddSprite(float x, float y, int spr, float sc, bool hurt) {
+static void isleAddSprite(float x, float y, int spr, float sc, bool hurt, float zoff = 0) {
   if (nIsleItems >= MAX_ISLE_ITEMS) return;
-  float c[3]; isleCam(x, y, isleGround(x, y), c); if (c[2] < 0.2f) return;
+  float c[3]; isleCam(x, y, isleGround(x, y) + zoff, c); if (c[2] < 0.2f) return;
   float size = PROJ / c[2] * sc; if (size < 1) return;
   IsleItem& it = isleItems[nIsleItems++];
   it.d = c[2]; it.spr = spr; it.hurt = hurt; it.n = 0;
@@ -1621,6 +1736,7 @@ static void renderIsland() {
       isleAddTri(ctr, p0, p1, 255, k % 2 ? 205 : 180, k % 2 ? 50 : 30);
     }
   }
+  for (auto& p : projs) if (p.active && p.faction == F_SHOT) isleAddSprite(p.x, p.y, S_NOTE, 0.3f, false, 0.3f);
   for (int k = 0; k < nIsleExtra; k++) { const IsleTri& o = isleExtra[k]; isleAddTri(&o.v[0], &o.v[3], &o.v[6], o.r, o.g, o.b, o.deco ? 0.4f : 0, true); }
   for (int k = 0; k < nIsleObj; k++) { const IsleTri& o = isleObj[k];
     float mx = (o.v[0] + o.v[3] + o.v[6]) / 3 - px, my = (o.v[1] + o.v[4] + o.v[7]) / 3 - py;
@@ -1735,6 +1851,11 @@ static void updateGame(float dt) {
     if (!it.active) continue;
     if (dist2Player(it.x, it.y) > 0.3f) continue;
     if (it.type == 2) { it.active = false; islandCoin(); continue; }   // Goldmuenze in der Steueroase
+    if (it.type == 3) {
+      it.active = false; hasKey = true; pickT = 0.25f; sfxPlay(SFX_ID_KACHING);
+      char b[48]; snprintf(b, sizeof(b), L("%s KEYCARD! THE VAULT IS OPEN", "%s KEYCARD! DER TRESOR IST OFFEN"), L(KEY_EN[level % 5], KEY_DE[level % 5])); say(b, 2.5f);
+      continue;
+    }
     if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + (hardcore ? 7 : 10)); say(hardcore ? "CASHFLOW +7" : "CASHFLOW +10", 1.2f); }
     else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? L("DIVIDEND PAID +15%", "DIVIDENDE AUSGESCHUETTET +15%") : L("DIVIDEND PAID +20%", "DIVIDENDE AUSGESCHUETTET +20%"), 1.2f); }
     it.active = false; pickT = 0.25f; pnl += 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
@@ -1791,6 +1912,7 @@ static void updateGame(float dt) {
   // Projektile
   for (auto& p : projs) {
     if (!p.active) continue;
+    if (p.faction == F_SHOT) { stepShot(p, dt); continue; }
     p.x += p.dx * dt; p.y += p.dy * dt;
     if (solidCell((int)p.x, (int)p.y)) { p.active = false; continue; }
     if (dist2Player(p.x, p.y) < 0.12f) {
@@ -1897,7 +2019,7 @@ static void renderSprites() {
     }
     sprs[n++] = {e.x, e.y, (int16_t)t, sc, e.alive && e.hurt > 0, 0};
   }
-  for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type ? S_DIV : S_CASH), 0.5f, false, 0};
+  for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type == 3 ? S_KEY : items[i].type ? S_DIV : S_CASH), 0.5f, false, 0};
   for (auto& p : projs) if (p.active) sprs[n++] = {p.x, p.y, (int16_t)p.spr, 0.35f, false, 0};
 
   for (int i = 0; i < n; i++) { float dx = sprs[i].x - px, dy = sprs[i].y - py; sprs[i].dist = dx * dx + dy * dy; }
@@ -1913,7 +2035,7 @@ static void renderSprites() {
     int scrX = (int)(SW / 2 * (1 + tX / tY));
     int full = (int)(PROJ / tY);
     int size = (int)(full * s.scale); if (size < 1) continue;
-    bool floating = s.tex == S_PROJ || s.tex == S_PROJ_OIL || s.tex == S_LASER || s.tex == S_BOT0 || s.tex == S_BOT1;
+    bool floating = s.tex == S_PROJ || s.tex == S_PROJ_OIL || s.tex == S_LASER || s.tex == S_BOT0 || s.tex == S_BOT1 || s.tex == S_NOTE;
     int vMove = floating ? 0 : (full - size) / 2;
     int top = VH / 2 - size / 2 + vMove, left = scrX - size / 2;
     int32_t step = (TEX << 16) / size;
@@ -1962,7 +2084,7 @@ static void renderFlicker() {   // ALGO-9000 schlaegt zu: Licht flackert in den 
 
 static void renderWeapon() {
   int bob = (int)(fabsf(sinf(bobT)) * 4);
-  int by = VH - 34 + bob + (flashT > 0 ? 3 : 0);
+  int by = VH - 42 + bob + (flashT > 0 ? 3 : 0);
   if (flashT > 0) {
     canvas.fillCircle(120, by - 4, 11, c565(255, 170, 0));
     canvas.fillCircle(120, by - 4, 6, c565(255, 255, 180));
@@ -1977,12 +2099,19 @@ static void renderWeapon() {
   for (int i = 0; i < 3; i++) { R(-29 + i * 3, -38 + i * 3, 14, 18, c565(30, 110, 45)); R(-28 + i * 3, -37 + i * 3, 12, 16, c565(90, 180, 95)); }
   R(-24, -29, 14, 3, c565(250, 210, 60));
   R(12, -31, 14, 3, dark); R(12, -31, 3, 8, dark); R(23, -31, 3, 8, dark);
-  canvas.fillRect(cx - 6, by, 13, Y(-22) - by, c565(60, 62, 72));
-  canvas.fillRect(cx - 4, by, 4, Y(-22) - by, c565(160, 162, 175));
-  canvas.fillRect(cx - 8, by - 2, 17, 4, c565(200, 160, 40));
   canvas.fillRoundRect(X(-34), Y(-24), (int)(68 * s), (int)(28 * s), 4, c565(42, 31, 26));
   R(-32, -22, 64, 2, c565(90, 66, 50));
   R(-27, -21, 6, 5, gold); R(21, -21, 6, 5, gold);
+  // Kanone: verchromte Halterung im Kofferdeckel, konischer Lauf mit Messingringen, Zufuehrung aus dem Geldscheinmagazin
+  canvas.fillTriangle(X(-17), Y(-22), X(17), Y(-22), X(12), Y(-32), c565(95, 98, 112)); canvas.fillTriangle(X(-17), Y(-22), X(12), Y(-32), X(-12), Y(-32), c565(95, 98, 112));
+  canvas.fillTriangle(X(-17), Y(-22), X(-12), Y(-32), X(-9), Y(-32), c565(165, 168, 182));
+  for (int k = 0; k < 3; k++) { canvas.drawLine(X(-19) + k - 1, Y(-28), X(-19) + k - 1, Y(-38), c565(200, 160, 40)); canvas.drawLine(X(-19), Y(-41) + k - 1, X(-8), Y(-42) + k - 1, c565(200, 160, 40)); }
+  { int b0 = Y(-32), w0 = (int)(10 * s), w1 = (int)(7 * s);
+    canvas.fillTriangle(cx - w0, b0, cx + w0, b0, cx + w1, by, c565(58, 60, 70)); canvas.fillTriangle(cx - w0, b0, cx + w1, by, cx - w1, by, c565(58, 60, 70));
+    canvas.fillTriangle(cx - w0 + 1, b0, cx - 2, b0, cx - w1 + 1, by, c565(160, 162, 175));
+    for (int f = 1; f <= 2; f++) { int yy = b0 + (by - b0) * f / 3; canvas.fillRect(cx - w0 + f, yy, 2 * (w0 - f), 2, c565(200, 160, 40)); }
+    canvas.fillRect(cx - w1 - 1, by - 2, 2 * w1 + 3, 4, c565(220, 175, 50)); canvas.fillRect(cx - 3, by - 1, 7, 1, c565(15, 15, 18));
+    if (flashT <= 0) canvas.fillRect(cx - 3, by - 3, 7, 2, c565(110, 200, 110)); }   // naechster Geldschein schaut heraus
   R(-11, -11, 22, 9, c565(5, 18, 10));
   { static const int8_t PT[6][2] = {{-9, -4}, {-5, -6}, {-2, -5}, {2, -8}, {5, -7}, {9, -10}};
     for (int i = 0; i < 5; i++) canvas.drawLine(X(PT[i][0]), Y(PT[i][1]), X(PT[i + 1][0]), Y(PT[i + 1][1]), c565(80, 255, 120)); }
@@ -2029,6 +2158,11 @@ static void renderHUD() {
   snprintf(b, sizeof(b), "%d%%", hp); canvas.drawString(b, 3, VH + 12);
   canvas.setTextColor(ammo > 5 ? c565(120, 230, 140) : c565(255, 80, 80));
   snprintf(b, sizeof(b), "%d", ammo); canvas.drawString(b, 108, VH + 12);
+  if (hasKey && !island) {   // Keycard im Besitz
+    const uint8_t* kc = KEY_COL[level % 5];
+    canvas.fillRect(133, VH + 2, 12, 8, c565(kc[0] / 2, kc[1] / 2, kc[2] / 2)); canvas.fillRect(134, VH + 3, 10, 6, c565(kc[0], kc[1], kc[2]));
+    canvas.drawFastHLine(134, VH + 4, 10, c565(240, 240, 245)); canvas.fillRect(135, VH + 6, 3, 2, c565(230, 185, 60));
+  }
   canvas.setTextSize(1);
   // P&L
   canvas.setTextColor(c565(80, 255, 130));

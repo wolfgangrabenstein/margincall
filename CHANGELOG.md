@@ -2,6 +2,19 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.18.0 – Keycards, randomized levels, visible shots (2026-10-18)
+
+- **Randomized levels:** Every time you start a game, the enemies in each level (except the tax haven) are placed at random, and the vault door sits at a different spot on the outer wall.
+- **Keycards:** The vault only opens with the level's keycard, and each level has its own color (yellow, blue, red, green, purple).
+  - In levels with a boss, the boss drops the keycard.
+  - In the other levels, it drops after a random number of enemies have been taken out.
+  - Without the keycard, the door tells you which color you need. Once you have it, the HUD shows it.
+- **Visible shots:** The gun fires flying banknotes. Damage only happens when a note hits, and walls stop it.
+- **Gun reworked:** The barrel now sits on a chrome mount in the briefcase, with brass rings and a feed from the banknote magazine.
+- **Pirates guard the treasure:** Most pirates stay at the coin piles. If you attack one or get too close, it and its mates fight back, but they only chase you up to a certain distance and then zigzag back to the treasure. Only a few hunt you directly.
+- **Pause menu:** Esc resumes the game, Q goes to the main menu.
+- **Quitting:** Esc in the main menu now asks whether you really want to quit. Enter quits, Esc cancels.
+
 ## Version 3.17.3 – Ammo on the tax haven (2026-10-18)
 
 - **Cash on the island:** The tax haven now also has a few cash bundles lying around as ammo, 3 at the start (Hardcore 2). Every 10 to 14 seconds (Hardcore 14 to 18) a new one appears, as long as fewer than 2 are lying around.

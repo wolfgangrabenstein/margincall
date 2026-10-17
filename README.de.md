@@ -16,14 +16,14 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 
 ## Downloads
 
-Aktuelle Version **3.17.3** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.18.0** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.17.3-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.17.3-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.17.3-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.17.3-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.17.3/MarginCall-3.17.3-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.18.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.0/MarginCall-3.18.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.18.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.0/MarginCall-3.18.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.18.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.0/MarginCall-3.18.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.18.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.0/MarginCall-3.18.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 
@@ -49,8 +49,9 @@ Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/w
 | Feuern | Leertaste oder linke Maustaste |
 | Ausweichen | Richtung doppelt antippen |
 | Pause | Esc oder P |
-| Zurück ins Hauptmenü | Esc im Pausenmenü |
-| Beenden | Esc im Hauptmenü |
+| Weiterspielen | Esc oder P im Pausenmenü |
+| Zurück ins Hauptmenü | Q im Pausenmenü |
+| Beenden | Esc im Hauptmenü, dann mit Enter bestätigen |
 | Hardcore starten | X im Hauptmenü |
 | Sprache (Englisch/Deutsch) | Optionen → Language; Cardputer: L im Titelbild |
 | Vollbild | F4 |
