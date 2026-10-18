@@ -1554,7 +1554,7 @@ static void outroScene(float t) {
   }
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   float ph = fmodf(t, 4) / 4, lift = ph < 0.3f ? sinf(ph / 0.3f * 3.1416f) : 0;
-  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.11f, hy + 0.21f, hb + 0.125f}, hand[3];
+  float sh[3] = {cx + 0.2f, Y - 0.25f, D + 0.72f}, rest[3] = {cx + 0.38f, Y + 0.1f, D + 0.5f}, mouth[3] = {hx + 0.03f, hy + 0.33f, hb - 0.07f}, hand[3];   // Hand vor dem Kinn, Glasrand auf Mundhoehe
   for (int i = 0; i < 3; i++) hand[i] = rest[i] + (mouth[i] - rest[i]) * lift;
   oRib(sh, hand, 0.04f, 30, 60, 140); oBox(hand[0] - 0.035f, hand[1] - 0.035f, hand[2] - 0.03f, hand[0] + 0.035f, hand[1] + 0.035f, hand[2] + 0.03f, 235, 190, 150);
   float g0[3] = {hand[0], hand[1], hand[2] + 0.02f}; const float gr = 0.07f, gh = 0.18f; float full = max(0.15f, 1 - t / OUTRO_LEN * 0.85f), lz = g0[2] + gh * full;
@@ -1565,7 +1565,9 @@ static void outroScene(float t) {
     float lc[3] = {g0[0], g0[1], lz}, l0[3] = {g0[0] + cosf(a0) * gr * full, g0[1] + sinf(a0) * gr * full, lz}, l1[3] = {g0[0] + cosf(a1) * gr * full, g0[1] + sinf(a1) * gr * full, lz};
     oTri(lc, l0, l1, 255, 140, 40);
   }
-  { float s0[3] = {g0[0] + 0.02f, g0[1], g0[2] + 0.1f}, s1[3] = {g0[0] + 0.06f, g0[1] - 0.02f, g0[2] + 0.3f}; oRib(s0, s1, 0.01f, 255, 60, 160);
+  { float s0[3] = {g0[0] + 0.02f, g0[1], g0[2] + 0.1f}, s1[3] = {g0[0] + 0.06f, g0[1] - 0.02f, g0[2] + 0.3f}, lips[3] = {hx + 0.03f, hy + 0.185f, hb + 0.12f};
+    for (int i = 0; i < 3; i++) s1[i] += (lips[i] - s1[i]) * lift;   // Strohhalm neigt sich beim Trinken zum Mund
+    oRib(s0, s1, 0.01f, 255, 60, 160);
     float u0[3] = {g0[0] - 0.02f, g0[1], g0[2] + 0.3f}, u1[3] = {g0[0] - 0.12f, g0[1] + 0.03f, g0[2] + 0.22f}, u2[3] = {g0[0] + 0.07f, g0[1] - 0.03f, g0[2] + 0.22f}; oTri(u0, u1, u2, 255, 80, 180); }
 }
 static void startOutro() {
@@ -1764,10 +1766,10 @@ static void renderCredits() {
   canvas.fillRect(0, 0, SW, SH, c565(0, 0, 0));
   static const struct { const char* en; const char* de; uint8_t size; uint16_t col; } CL[] = {
     {"MARGIN CALL", "MARGIN CALL", 2, c565(255, 210, 50)}, {"", "", 1, 0}, {"A STOCK MARKET SHOOTER BY", "EIN BOERSEN-SHOOTER VON", 1, c565(160, 160, 180)}, {"WOLFGANG RABENSTEIN", "WOLFGANG RABENSTEIN", 1, c565(255, 255, 255)}, {"", "", 1, 0},
-    {"CODING ASSISTANT: CLAUDE (ANTHROPIC)", "CODE-ASSISTENZ: CLAUDE (ANTHROPIC)", 1, c565(200, 200, 215)}, {"LIVE QUOTES: YAHOO FINANCE", "LIVE-KURSE: YAHOO FINANCE", 1, c565(200, 200, 215)}, {"HARDWARE: M5STACK CARDPUTER ADV", "HARDWARE: M5STACK CARDPUTER ADV", 1, c565(200, 200, 215)}, {"", "", 1, 0},
+    {"LIVE QUOTES: YAHOO FINANCE", "LIVE-KURSE: YAHOO FINANCE", 1, c565(200, 200, 215)}, {"HARDWARE: M5STACK CARDPUTER ADV", "HARDWARE: M5STACK CARDPUTER ADV", 1, c565(200, 200, 215)}, {"", "", 1, 0},
     {"NO BEARS WERE SERIOUSLY HARMED.", "KEIN BAER WURDE ERNSTHAFT VERLETZT.", 1, c565(160, 160, 180)}, {"NOT INVESTMENT ADVICE.", "KEINE ANLAGEBERATUNG.", 1, c565(160, 160, 180)}, {"", "", 1, 0},
-    {"THE MARKET IS FREE.", "DER MARKT IST FREI.", 1, c565(80, 255, 130)}, {"BUT WHERE TO PUT THE MONEY...?", "DOCH WOHIN MIT DEM GELD...?", 1, c565(80, 255, 130)}, {"", "", 1, 0},
-    {"OFF TO THE TAX HAVEN!", "AB IN DIE STEUEROASE!", 2, c565(255, 210, 50)},
+    {"THE MARKET IS FREE AGAIN.", "DER MARKT IST WIEDER FREI.", 1, c565(80, 255, 130)}, {"BUT WHERE TO PUT ALL THAT", "ABER WOHIN JETZT MIT", 1, c565(80, 255, 130)}, {"MONEY NOW...?", "DEM GANZEN GELD...?", 1, c565(80, 255, 130)}, {"", "", 1, 0},
+    {"OFF TO", "AB INS", 2, c565(255, 210, 50)}, {"TAX HAVEN!", "STEUERPARADIES!", 2, c565(255, 210, 50)},
   };
   int total = 0; for (auto& l : CL) total += l.size * 8 + 4;
   float t = min(1.0f, creditsT / (CREDITS_LEN - 2));

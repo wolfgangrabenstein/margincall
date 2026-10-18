@@ -2,6 +2,11 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.18.1 – neuer Schlusstext, Cocktail-Fix (18.10.2026)
+
+- **Abspann:** Der Schlusstext lautet jetzt „Der Markt ist wieder frei. Aber wohin jetzt mit dem ganzen Geld …? Ab ins Steuerparadies!“
+- **Schlussszene:** Beim Trinken landet das Cocktailglas nicht mehr im Kopf. Es bleibt vor dem Kinn, und der Strohhalm neigt sich zum Mund.
+
 ## Version 3.18.0 – Keycards, zufällige Level, sichtbare Schüsse (18.10.2026)
 
 - **Zufällige Level:** Bei jedem Spielstart sind die Gegner jedes Levels (außer der Steueroase) zufällig verteilt, und die Tresortür sitzt jedes Mal an einer anderen Stelle der Außenwand.

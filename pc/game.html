@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.18.0";
+const APP_VERSION = "3.18.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -2406,7 +2406,7 @@ function outroScene(t) {
     } }
   // Arm mit Cocktail: alle 4 s ein Schluck, das Glas wird langsam leer
   const ph = (t % 4) / 4, lift = ph < .3 ? Math.sin(ph / .3 * Math.PI) : 0;
-  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .11, hy + .21, hb + .125];
+  const sh = [cx + .2, Y - .25, D + .72], rest = [cx + .38, Y + .1, D + .5], mouth = [hx + .03, hy + .33, hb - .07];   // Hand vor dem Kinn, Glasrand auf Mundhoehe
   const hand = rest.map((v, i) => v + (mouth[i] - v) * lift);
   rib(sh, hand, .04, suit); box(hand[0] - .035, hand[1] - .035, hand[2] - .03, hand[0] + .035, hand[1] + .035, hand[2] + .03, skin);
   const g0 = [hand[0], hand[1], hand[2] + .02], gr = .07, gh = .18, full = Math.max(.15, 1 - t / OUTRO_LEN * .85);
@@ -2415,7 +2415,8 @@ function outroScene(t) {
     tri(g0, [g0[0] + Math.cos(a0) * gr, g0[1] + Math.sin(a0) * gr, g0[2] + gh], [g0[0] + Math.cos(a1) * gr, g0[1] + Math.sin(a1) * gr, g0[2] + gh], [200, 230, 240]);
     tri([g0[0], g0[1], lz], [g0[0] + Math.cos(a0) * gr * full, g0[1] + Math.sin(a0) * gr * full, lz], [g0[0] + Math.cos(a1) * gr * full, g0[1] + Math.sin(a1) * gr * full, lz], [255, 140, 40]);
   }
-  rib([g0[0] + .02, g0[1], g0[2] + .1], [g0[0] + .06, g0[1] - .02, g0[2] + .3], .01, [255, 60, 160]);
+  const tip0 = [g0[0] + .06, g0[1] - .02, g0[2] + .3], lips = [hx + .03, hy + .185, hb + .12];   // Strohhalm neigt sich beim Trinken zum Mund
+  rib([g0[0] + .02, g0[1], g0[2] + .1], tip0.map((v, i) => v + (lips[i] - v) * lift), .01, [255, 60, 160]);
   tri([g0[0] - .02, g0[1], g0[2] + .3], [g0[0] - .12, g0[1] + .03, g0[2] + .22], [g0[0] + .07, g0[1] - .03, g0[2] + .22], [255, 80, 180]);
   return T;
 }
@@ -2449,12 +2450,11 @@ const CREDITS_LEN = 18;
 const creditLines = () => [
   ["MARGIN CALL", 46, "#ffd232"], ["", 10], [L("A stock market shooter by", "Ein Börsen-Shooter von"), 18, "#a0a0b4"], ["WOLFGANG RABENSTEIN", 30, "#ffffff"], ["", 18],
   [L("Idea, design & development", "Idee, Design & Entwicklung"), 16, "#8290b0"], ["Wolfgang Rabenstein", 20, "#e6e6f0"], ["", 8],
-  [L("Coding assistant", "Code-Assistenz"), 16, "#8290b0"], ["Claude (Anthropic)", 20, "#e6e6f0"], ["", 8],
   [L("Live quotes", "Live-Kurse"), 16, "#8290b0"], ["Yahoo Finance", 20, "#e6e6f0"], ["", 8],
   [L("Tech", "Technik"), 16, "#8290b0"], ["Tauri · Rust · Cloudflare · M5Stack Cardputer", 20, "#e6e6f0"], ["", 18],
   [L("No bulls or bears were seriously harmed.", "Kein Bulle und kein Bär wurde ernsthaft verletzt."), 16, "#a0a0b4"], [L("Not investment advice.", "Keine Anlageberatung."), 16, "#a0a0b4"], ["", 26],
-  [L("The market is free.", "Der Markt ist frei."), 22, "#50ff82"], [L("But where to put all that money …?", "Doch wohin mit dem ganzen Geld …?"), 22, "#50ff82"], ["", 14],
-  [L("OFF TO THE TAX HAVEN!", "AB IN DIE STEUEROASE!"), 34, "#ffd232"],
+  [L("The market is free again.", "Der Markt ist wieder frei."), 22, "#50ff82"], [L("But where to put all that money now …?", "Aber wohin jetzt mit dem ganzen Geld …?"), 22, "#50ff82"], ["", 14],
+  [L("OFF TO TAX HAVEN!", "AB INS STEUERPARADIES!"), 34, "#ffd232"],
 ];
 function renderCredits() {
   chartBackground("#145a2d", "#282828");

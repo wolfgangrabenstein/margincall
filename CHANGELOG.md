@@ -2,6 +2,11 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.18.1 – New closing text, cocktail fix (2026-10-18)
+
+- **Credits:** The closing text now reads "The market is free again. But where to put all that money now …? Off to tax haven!"
+- **Closing scene:** When drinking, the cocktail glass no longer ends up inside the head. It stays in front of the chin, and the straw tilts toward the mouth.
+
 ## Version 3.18.0 – Keycards, randomized levels, visible shots (2026-10-18)
 
 - **Randomized levels:** Every time you start a game, the enemies in each level (except the tax haven) are placed at random, and the vault door sits at a different spot on the outer wall.
