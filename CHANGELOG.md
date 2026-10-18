@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.18.2 – Deck chair in a new color (2026-10-18)
+
+- **Closing scene:** The deck chair now has yellow-orange and white stripes instead of blue, so it stands out better against the blue suit.
+
 ## Version 3.18.1 – New closing text, cocktail fix (2026-10-18)
 
 - **Credits:** The closing text now reads "The market is free again. But where to put all that money now …? Off to tax haven!"

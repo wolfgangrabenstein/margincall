@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.18.1";
+const APP_VERSION = "3.18.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -2365,7 +2365,7 @@ function outroScene(t) {
     tri([sx, sy, D + 1.6], [sx + Math.cos(a0) * .95, sy + Math.sin(a0) * .95, D + 1.25], [sx + Math.cos(a1) * .95, sy + Math.sin(a1) * .95, D + 1.25], i % 2 ? [240, 240, 240] : [220, 50, 60]);
   }
   // Liegestuhl (Blick nach Sueden, zur Kamera)
-  const cx = X + .9, c0 = [40, 110, 200], c1 = [245, 245, 245];
+  const cx = X + .9, c0 = [250, 175, 40], c1 = [245, 245, 245];
   for (const [ax, ay] of [[-.3, .7], [.3, .7], [-.3, -.05], [.3, -.05]]) box(cx + ax - .025, Y + ay - .025, D, cx + ax + .025, Y + ay + .025, D + .25, teak);
   for (let i = 0; i < 4; i++) { const y0 = Y - .05 + i * .2, y1 = y0 + .2; quad([cx - .32, y0, D + .26], [cx + .32, y0, D + .26], [cx + .32, y1, D + .26], [cx - .32, y1, D + .26], i % 2 ? c1 : c0); }
   for (let i = 0; i < 3; i++) { const u0 = i / 3, u1 = (i + 1) / 3, ya = Y - .05 - u0 * .5, yb = Y - .05 - u1 * .5, za = D + .26 + u0 * .62, zb = D + .26 + u1 * .62;

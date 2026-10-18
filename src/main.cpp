@@ -1497,12 +1497,12 @@ static void outroScene(float t) {
   for (int i = 0; i < 4; i++) {
     float y0 = Y - 0.05f + i * 0.2f, y1 = y0 + 0.2f;
     float a[3] = {cx - 0.32f, y0, D + 0.26f}, b[3] = {cx + 0.32f, y0, D + 0.26f}, c[3] = {cx + 0.32f, y1, D + 0.26f}, e[3] = {cx - 0.32f, y1, D + 0.26f};
-    if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 40, 110, 200);
+    if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 250, 175, 40);
   }
   for (int i = 0; i < 3; i++) {
     float u0 = i / 3.0f, u1 = (i + 1) / 3.0f, ya = Y - 0.05f - u0 * 0.5f, yb = Y - 0.05f - u1 * 0.5f, za = D + 0.26f + u0 * 0.62f, zb = D + 0.26f + u1 * 0.62f;
     float a[3] = {cx - 0.32f, ya, za}, b[3] = {cx + 0.32f, ya, za}, c[3] = {cx + 0.32f, yb, zb}, e[3] = {cx - 0.32f, yb, zb};
-    if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 40, 110, 200);
+    if (i % 2) oQuad(a, b, c, e, 245, 245, 245); else oQuad(a, b, c, e, 250, 175, 40);
   }
   oBox(cx - 0.3f, Y + 0.68f, D, cx - 0.25f, Y + 0.73f, D + 0.25f, 180, 130, 80); oBox(cx + 0.25f, Y + 0.68f, D, cx + 0.3f, Y + 0.73f, D + 0.25f, 180, 130, 80);
   // Spieler: derselbe Trader wie im HUD - blauer Anzug, weisser Kragen, rote Krawatte, barfuss

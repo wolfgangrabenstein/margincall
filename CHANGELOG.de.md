@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.18.2 – Liegestuhl in neuer Farbe (18.10.2026)
+
+- **Schlussszene:** Der Liegestuhl ist jetzt gelb-orange und weiß gestreift statt blau und hebt sich damit besser vom blauen Anzug ab.
+
 ## Version 3.18.1 – neuer Schlusstext, Cocktail-Fix (18.10.2026)
 
 - **Abspann:** Der Schlusstext lautet jetzt „Der Markt ist wieder frei. Aber wohin jetzt mit dem ganzen Geld …? Ab ins Steuerparadies!“
