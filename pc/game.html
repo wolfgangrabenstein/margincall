@@ -79,7 +79,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.3";
+const APP_VERSION = "3.19.4";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1621,14 +1621,21 @@ function touchDodge() {
 }
 function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. wieder zurueck (wo der Browser das erlaubt)
   if (IN_APP) return;
-  if (document.fullscreenElement) { document.exitFullscreen?.().catch(() => { }); return; }
-  document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.("landscape").catch(() => { })).catch(() => { });
+  const ori = window.screen.orientation;   // window.screen: "screen" ist im Spiel die Zeichenflaeche
+  if (document.fullscreenElement) {   // zurueck: Sperre loesen, das Handy dreht wieder ins Hochformat
+    try { ori?.unlock?.(); } catch (e) { }
+    document.exitFullscreen?.().catch(() => { }); return;
+  }
+  document.documentElement.requestFullscreen?.({ navigationUI: "hide" }).then(() => ori?.lock?.("landscape").catch(() => { })).catch(() => { });
 }
 {
   const fsBtn = document.getElementById("fsBtn");
   if (!IN_APP && document.fullscreenEnabled) document.body.classList.add("canfs");   // iPhone-Safari kann kein Vollbild fuer Webseiten
   fsBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); audioUnlock(); mobileFullscreen(); });
-  document.addEventListener("fullscreenchange", () => { fsBtn.textContent = document.fullscreenElement ? "✕" : "⛶"; });
+  document.addEventListener("fullscreenchange", () => {
+    fsBtn.textContent = document.fullscreenElement ? "✕" : "⛶";
+    if (!document.fullscreenElement) try { window.screen.orientation?.unlock?.(); } catch (e) { }   // auch beim Verlassen per Zurueck-Taste
+  });
 }
 {
   const layer = document.getElementById("touch"), base = document.getElementById("stickBase"), knob = document.getElementById("stickKnob");

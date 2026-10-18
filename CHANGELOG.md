@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.4 – Fullscreen turns to landscape (2026-10-18)
+
+- **Fullscreen button on phones:** It now switches to landscape automatically; pressing it again leaves fullscreen and the phone turns back to portrait. Before, the rotate command never reached the browser.
+
 ## Version 3.19.3 – Better phone controls, fullscreen button (2026-10-18)
 
 - **Turning:** Swiping on the right side now turns more smoothly and scales with the screen width; fast swipes turn further. Turning only starts after a small movement, so the view doesn't jitter when tapping.

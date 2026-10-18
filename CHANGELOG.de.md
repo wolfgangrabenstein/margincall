@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.4 – Vollbild dreht ins Querformat (18.10.2026)
+
+- **Vollbild-Knopf am Handy:** Er schaltet jetzt automatisch ins Querformat; ein zweiter Druck verlässt das Vollbild, und das Handy dreht wieder ins Hochformat. Vorher kam der Befehl zum Drehen nicht beim Browser an.
+
 ## Version 3.19.3 – bessere Smartphone-Steuerung, Vollbild-Knopf (18.10.2026)
 
 - **Drehen:** Wischen auf der rechten Seite dreht jetzt ruhiger und passend zur Bildschirmbreite, schnelle Wischer drehen stärker. Erst ab einer kleinen Bewegung wird gedreht, damit das Bild beim Tippen nicht zittert.
