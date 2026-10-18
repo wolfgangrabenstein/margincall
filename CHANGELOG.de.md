@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.1 – Browser-Version repariert (18.10.2026)
+
+- **Browser-Version:** Die Meldung „Game Server Stopped“ erscheint nicht mehr. Die Browser-Version suchte fälschlich nach dem eingebauten Server der App, den es im Browser nicht gibt.
+
 ## Version 3.19.0 – Online-Multiplayer und Browser-Version (18.10.2026)
 
 - **Online-Multiplayer übers Internet:** Unter *Multiplayer → Online spielen* spielst du mit 2–4 Leuten über das Internet, in allen drei Modi (Koop, Team, Deathmatch).

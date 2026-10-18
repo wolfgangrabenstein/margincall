@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.0";
+const APP_VERSION = "3.19.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -3119,7 +3119,7 @@ document.addEventListener("visibilitychange", () => {
 });
 // Spiel-Server (MarginCall.exe) beendet? Dann verstummt das Spiel und zeigt einen Hinweis.
 setInterval(async () => {
-  if (location.protocol === "file:") return;
+  if (location.protocol === "file:" || WEB_BUILD) return;   // Browser-Version: kein eigener Server, den man pruefen koennte
   try {
     const r = await fetch("/api/ping", { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
@@ -3642,7 +3642,7 @@ musicStart();
 if (settings.liveData === undefined && !URLP.has("join")) state = ST.PRIVACY;
 marketsFetch();
 setInterval(marketsFetch, 60000);
-fetch("/api/info", { cache: "no-store" }).then(r => r.json()).then(i => { myAddr = `${i.ip}:${i.port}`; }).catch(() => { });
+if (!WEB_BUILD) fetch("/api/info", { cache: "no-store" }).then(r => r.json()).then(i => { myAddr = `${i.ip}:${i.port}`; }).catch(() => { });
 if (URLP.has("join")) enterLobby();
 if (IN_APP && settings.fullscreen) setFullscreen(true);
 requestAnimationFrame(frame);
