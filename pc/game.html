@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#05070d">
 <title>MARGIN CALL</title>
 <style>
   :root {
@@ -36,15 +40,19 @@
   #stickKnob { position: absolute; left: 35px; top: 35px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.38); }
   #touch button { position: absolute; border-radius: 50%; font: 700 15px var(--font-ui); touch-action: none; color: var(--text);
     background: rgba(11,17,32,.55); border: 2px solid rgba(255,255,255,.3); }
-  #touch #tFire { right: calc(28px + env(safe-area-inset-right, 0px)); bottom: 30%; width: 100px; height: 100px;
-    background: rgba(170,30,30,.55); border-color: rgba(255,210,58,.75); color: var(--gold); font-size: 16px; }
-  #touch #tDodge { right: calc(146px + env(safe-area-inset-right, 0px)); bottom: 34%; width: 66px; height: 66px; font-size: 22px; }
+  #touch #tFire { right: calc(12px + env(safe-area-inset-right, 0px)); top: 26%; width: 74px; height: 74px;
+    background: rgba(170,30,30,.5); border-color: rgba(255,210,58,.7); color: var(--gold); font-size: 13px; }
+  #touch #tDodge { right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(26% + 86px); width: 56px; height: 56px; font-size: 20px; }
+  #fsBtn { display: none; position: fixed; z-index: 7; right: calc(10px + env(safe-area-inset-right, 0px)); top: 10px; width: 44px; height: 44px;
+    border-radius: 10px; border: 2px solid rgba(255,255,255,.35); background: rgba(11,17,32,.6); color: var(--text); font: 700 20px var(--font-ui); touch-action: manipulation; }
+  body.playing #fsBtn { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   #touch #tPause { left: calc(14px + env(safe-area-inset-left, 0px)); top: 14px; width: 50px; height: 50px; font-size: 18px; }
   #rotate { display: none; position: fixed; inset: 0; z-index: 6; background: rgba(5,7,13,.94); color: var(--gold);
     font: 700 20px var(--font-ui); align-items: center; justify-content: center; text-align: center; padding: 24px; }
   #kbd { position: fixed; left: -200px; top: 0; width: 10px; height: 10px; opacity: 0; }
   @media (pointer: coarse) {
     body { padding: 0; }
+    body.canfs #fsBtn { display: block; }
     #screen { width: min(100vw, calc(100vh * 16 / 9)); border: 0; border-radius: 0; }
     #hint { display: none; }
   }
@@ -59,6 +67,7 @@
   <button id="tFire">FIRE</button><button id="tDodge">⤳</button><button id="tPause">II</button>
 </div>
 <div id="rotate">↻</div>
+<button id="fsBtn" aria-label="Fullscreen">⛶</button>
 <input id="kbd" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-hidden="true">
 <script>
 "use strict";
@@ -70,7 +79,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.2";
+const APP_VERSION = "3.19.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1570,7 +1579,7 @@ const TITLE_BTNS = [{ x: 50, y: 455, w: 200, h: 44, key: "n" }, { x: 265, y: 455
 screen.addEventListener("mousedown", e => {
   e.preventDefault();
   audioUnlock();
-  if (COARSE) { mobileFullscreen(); setTimeout(syncKbd, 0); }
+  if (COARSE) setTimeout(syncKbd, 0);
   const mk = "Mouse" + e.button;
   if (state === ST.OPTIONS) {
     if (optWaiting) assignBind(mk);
@@ -1610,26 +1619,49 @@ function touchDodge() {
   dodgeX = dirX * f - dirY * sd; dodgeY = dirY * f + dirX * sd;
   dodgeT = DODGE_TIME; dodgeCd = DODGE_TIME + DODGE_COOLDOWN; sfx("DODGE");
 }
-function mobileFullscreen() {   // Querformat im Vollbild (wo der Browser das erlaubt)
-  if (IN_APP || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-  document.documentElement.requestFullscreen().then(() => screen.orientation?.lock?.("landscape").catch(() => { })).catch(() => { });
+function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. wieder zurueck (wo der Browser das erlaubt)
+  if (IN_APP) return;
+  if (document.fullscreenElement) { document.exitFullscreen?.().catch(() => { }); return; }
+  document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.("landscape").catch(() => { })).catch(() => { });
+}
+{
+  const fsBtn = document.getElementById("fsBtn");
+  if (!IN_APP && document.fullscreenEnabled) document.body.classList.add("canfs");   // iPhone-Safari kann kein Vollbild fuer Webseiten
+  fsBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); audioUnlock(); mobileFullscreen(); });
+  document.addEventListener("fullscreenchange", () => { fsBtn.textContent = document.fullscreenElement ? "✕" : "⛶"; });
 }
 {
   const layer = document.getElementById("touch"), base = document.getElementById("stickBase"), knob = document.getElementById("stickKnob");
   const fireB = document.getElementById("tFire"), R = 62, looks = new Map();
   let stickId = null, sx = 0, sy = 0;
-  const look = e => { if (!looks.has(e.pointerId)) return; mouseTurn += (e.clientX - looks.get(e.pointerId)) * 2.4 * (settings.invert ? -1 : 1); looks.set(e.pointerId, e.clientX); };
+  const taps = new Map();   // pointerId -> {x, y, t, moved, timer}: rechte Haelfte antippen = feuern
+  const look = e => {
+    if (!looks.has(e.pointerId)) return;
+    const dx = e.clientX - looks.get(e.pointerId); looks.set(e.pointerId, e.clientX);
+    const tp = taps.get(e.pointerId);
+    if (tp && !tp.moved && Math.hypot(e.clientX - tp.x, e.clientY - tp.y) > 12) { tp.moved = true; clearTimeout(tp.timer); if (tp.hold) { tp.hold = false; touchFire = false; } }
+    if (tp && !tp.moved) return;   // erst ab 12 px Bewegung wird gedreht (sonst zittert das Bild beim Tippen)
+    const rad = dx / Math.max(320, innerWidth) * 3.5 * (1 + Math.min(1.5, Math.abs(dx) / 40));   // schnelle Wischer drehen staerker
+    mouseTurn += rad / (.0006 * settings.sens) * (settings.invert ? -1 : 1);
+  };
   const release = e => {
     if (e.pointerId === stickId) { stickId = null; touchMv.x = touchMv.y = 0; base.style.display = "none"; }
+    const tp = taps.get(e.pointerId);
+    if (tp) { clearTimeout(tp.timer); if (tp.hold) touchFire = false; else if (!tp.moved && performance.now() - tp.t < 300) shoot(); taps.delete(e.pointerId); }
     looks.delete(e.pointerId);
   };
   layer.addEventListener("pointerdown", e => {
     if (e.target !== layer) return;
-    e.preventDefault(); audioUnlock(); mobileFullscreen();
+    e.preventDefault(); audioUnlock();
     if (e.clientX < innerWidth * .45 && stickId === null) {
       stickId = e.pointerId; sx = e.clientX; sy = e.clientY;
       base.style.left = sx + "px"; base.style.top = sy + "px"; base.style.display = "block"; knob.style.transform = "";
-    } else looks.set(e.pointerId, e.clientX);
+    } else {
+      looks.set(e.pointerId, e.clientX);
+      const tp = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, hold: false };
+      tp.timer = setTimeout(() => { if (!tp.moved) { tp.hold = true; touchFire = true; } }, 300);   // ruhig halten = Dauerfeuer
+      taps.set(e.pointerId, tp);
+    }
     try { layer.setPointerCapture(e.pointerId); } catch (err) { }
   });
   layer.addEventListener("pointermove", e => {

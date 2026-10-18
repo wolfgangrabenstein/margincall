@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.3 – bessere Smartphone-Steuerung, Vollbild-Knopf (18.10.2026)
+
+- **Drehen:** Wischen auf der rechten Seite dreht jetzt ruhiger und passend zur Bildschirmbreite, schnelle Wischer drehen stärker. Erst ab einer kleinen Bewegung wird gedreht, damit das Bild beim Tippen nicht zittert.
+- **Feuern:** Rechte Seite antippen = ein Schuss, ruhig gedrückt halten = Dauerfeuer. Der Feuerknopf ist kleiner und sitzt jetzt am rechten Rand, damit er beim Drehen nicht im Weg ist.
+- **Vollbild-Knopf:** Auf dem Handy schaltet ein eigener Knopf ins Vollbild und wieder zurück (iPhone: über „Zum Home-Bildschirm“ startet das Spiel ebenfalls ohne Browserleiste).
+
 ## Version 3.19.2 – Smartphone-Steuerung, Keycard-Sound, Online-Feinschliff (18.10.2026)
 
 - **Smartphone und Tablet:**

@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.3 – Better phone controls, fullscreen button (2026-10-18)
+
+- **Turning:** Swiping on the right side now turns more smoothly and scales with the screen width; fast swipes turn further. Turning only starts after a small movement, so the view doesn't jitter when tapping.
+- **Firing:** Tap the right side = one shot, hold still = continuous fire. The fire button is smaller and now sits at the right edge, so it is not in the way when turning.
+- **Fullscreen button:** On phones, a dedicated button switches to fullscreen and back (iPhone: launching the game via "Add to Home Screen" also hides the browser bar).
+
 ## Version 3.19.2 – Phone controls, keycard sound, online polish (2026-10-18)
 
 - **Phones and tablets:**
