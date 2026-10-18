@@ -2,6 +2,16 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.0 – Online-Multiplayer und Browser-Version (18.10.2026)
+
+- **Online-Multiplayer übers Internet:** Unter *Multiplayer → Online spielen* spielst du mit 2–4 Leuten über das Internet, in allen drei Modi (Koop, Team, Deathmatch).
+  - **Öffentliche Spiele** erscheinen in einer Liste für alle mit derselben Spielversion.
+  - **Private Spiele** stehen nicht in der Liste; Freunde treten mit dem fünfstelligen Code bei, der oben rechts in der Lobby steht.
+  - Online werden 10 Updates pro Sekunde verschickt, Mitspieler und Geschosse werden dazwischen weich weiterbewegt.
+  - Der Spiel-Server läuft kostenlos bei Cloudflare und leitet die Nachrichten nur weiter; der Host rechnet das Spiel wie im LAN.
+- **Datenschutz:** Vor dem ersten Online-Spiel erklärt ein Hinweis, was übertragen wird; verbunden wird erst nach deiner Zustimmung. Zurückziehen geht jederzeit unter *Optionen → Online-Multiplayer*.
+- **Browser-Version:** MARGIN CALL läuft jetzt auch direkt im Browser unter https://wolfgangrabenstein.github.io/margincall/, mit Solo und Online-Multiplayer. Live-Kurse kommen dort über den MARGIN-CALL-Server, sodass Yahoo deine IP-Adresse nicht sieht.
+
 ## Version 3.18.2 – Liegestuhl in neuer Farbe (18.10.2026)
 
 - **Schlussszene:** Der Liegestuhl ist jetzt gelb-orange und weiß gestreift statt blau und hebt sich damit besser vom blauen Anzug ab.

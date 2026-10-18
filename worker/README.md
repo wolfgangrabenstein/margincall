@@ -1,12 +1,23 @@
-# Online-Rangliste (Cloudflare Worker)
+# Online-Server (Cloudflare Worker)
 
-Kleiner Server für die Online-Highscores von MARGIN CALL: ein Cloudflare Worker mit einer D1-Datenbank (SQLite). Er ist im kostenlosen Cloudflare-Tarif nutzbar.
+Kleiner Server für MARGIN CALL: Online-Rangliste, Online-Multiplayer und Live-Kurse für die Browser-Version. Ein Cloudflare Worker mit einer D1-Datenbank (SQLite) und Durable Objects für die Spielräume, nutzbar im kostenlosen Cloudflare-Tarif.
 
 | Endpunkt | Zweck |
 |---|---|
 | `GET /scores?scope=all&limit=100` | Top 100 aller Zeiten |
 | `GET /scores?scope=day&limit=100` | Top 100 von heute (Zeitzone Europe/Vienna) |
 | `POST /scores` | Eintrag `{name, score, level, won, deaths, ver, hc}` speichern, liefert `{id, hc, rank, total, dayRank, dayTotal}` |
+| `GET /rooms?v=3.19.0` | Öffentliche Online-Spiele in der Lobby, nur gleiche Spielversion |
+| `GET /room/new?pub=1&v=…` | WebSocket: neues Online-Spiel hosten (`pub=0` = privat, nur per Code) |
+| `GET /room/<CODE>?v=…` | WebSocket: Online-Spiel beitreten |
+| `GET /market` | Live-Kurse für die Browser-Version (Yahoo Finance, 2 Minuten zwischengespeichert) |
+
+**Online-Multiplayer:** Jeder Raum ist ein Durable Object und leitet die Nachrichten weiter wie der eingebaute Server der App im LAN: Der erste Spieler ist der Host, seine Nachrichten gehen an alle (oder an `to`), die der Mitspieler mit `from` an den Host. Der Raum speichert keine Spielinhalte; die Tabelle `rooms` enthält nur die offenen Spiele für die Liste. Im kostenlosen Tarif zählen 20 WebSocket-Nachrichten als eine von 100.000 Anfragen pro Tag.
+
+**Datenbank für den Online-Multiplayer nachrüsten** (einmalig, für die Live-Datenbank bereits erledigt):
+```
+npx wrangler d1 execute margincall-highscores --remote --file=migrate-rooms.sql
+```
 
 Mit `hc=1` (GET) bzw. `"hc": true` (POST) geht es um die getrennte Hardcore-Rangliste.
 

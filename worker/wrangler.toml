@@ -7,3 +7,12 @@ binding = "DB"
 database_name = "margincall-highscores"
 # ID aus "npx wrangler d1 create margincall-highscores"
 database_id = "80df487f-d4d3-4d3f-926c-302ee10a5c10"
+
+# Online-Multiplayer: ein Durable Object pro Spielraum (SQLite-Variante, im kostenlosen Tarif nutzbar)
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

@@ -57,7 +57,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.18.2";
+const APP_VERSION = "3.19.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -116,7 +116,7 @@ async function marketsFetch() {
     marketStatus = "sim"; marketsSimulate(); buildTicker(); return;
   }
   try {
-    const r = await fetch("/api/market", { cache: "no-store" });
+    const r = await fetch(WEB_BUILD ? ONLINE_HS_URL + "/market" : "/api/market", { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     let live = 0;
@@ -580,7 +580,9 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15, ONLINE: 16, ONLINEASK: 17 };
+// Browser-Version (GitHub Pages, https): ohne eigenen Server, Kurse und Multiplayer laufen ueber den MARGIN-CALL-Server bei Cloudflare
+const WEB_BUILD = location.protocol === "https:";
 let state = ST.TITLE;
 let enemies = [], items = [], projs = [];
 let px = 0, py = 0, dirX = 1, dirY = 0, planeX = 0, planeY = PLANE;   // Kamera des lokalen Spielers
@@ -610,7 +612,7 @@ const pName = i => L(...PNAMES_I18N[i]);
 const ROUND_TIME = 240, ROUND_TARGET = 3000, ROUND_BREAK = 5;   // Rundenpause in Sekunden
 function nextRound() { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; }
 let mode = "solo";
-const net = { ws: null, id: 0, hostId: 0, connected: false };
+const net = { ws: null, id: 0, hostId: 0, connected: false, online: false, code: "", pub: true };
 const isMP = () => mode !== "solo";
 const isHost = () => !net.connected || net.id === net.hostId;
 const isClient = () => net.connected && net.id !== net.hostId;
@@ -1164,10 +1166,11 @@ function updateEnemy(e, dt) {
 // ---------------------------------------------------------------- Netzwerk
 function netSend(obj) { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(obj)); }
 function netNotice(text) { netMsg = text; netMsgT = 4; }
-function netConnect() {
-  if (location.protocol === "file:") { netNotice(L("MULTIPLAYER ONLY IN THE MARGIN CALL APP", "MULTIPLAYER NUR IN DER MARGIN CALL APP")); return; }
+function netConnect(url) {   // ohne url: LAN ueber den eigenen Server; mit url: Online-Raum
+  if (!url && location.protocol === "file:") { netNotice(L("MULTIPLAYER ONLY IN THE MARGIN CALL APP", "MULTIPLAYER NUR IN DER MARGIN CALL APP")); return; }
   netDisconnect();
-  const ws = new WebSocket(`ws://${location.host}/ws`);
+  net.online = !!url; net.code = "";
+  const ws = new WebSocket(url || `ws://${location.host}/ws`);
   net.ws = ws;
   ws.onmessage = ev => netReceive(JSON.parse(ev.data));
   ws.onclose = () => {
@@ -1175,7 +1178,8 @@ function netConnect() {
     net.ws = null; net.connected = false;
     if (isMP() || state === ST.LOBBY) { leaveMP(); netNotice(L("CONNECTION TO THE GAME LOST", "VERBINDUNG ZUM SPIEL BEENDET")); }
   };
-  ws.onerror = () => netNotice(L("NO CONNECTION TO THE GAME SERVER", "KEINE VERBINDUNG ZUM SPIEL-SERVER"));
+  ws.onerror = () => netNotice(net.online ? L("ONLINE SERVER NOT REACHABLE – PLEASE TRY AGAIN LATER", "ONLINE-SERVER NICHT ERREICHBAR – BITTE SPÄTER NOCHMAL")
+    : L("NO CONNECTION TO THE GAME SERVER", "KEINE VERBINDUNG ZUM SPIEL-SERVER"));
 }
 function netDisconnect() { if (net.ws) { const ws = net.ws; net.ws = null; ws.close(); } net.connected = false; }
 function leaveMP() {
@@ -1193,7 +1197,11 @@ function syncPlayersWithPeers(ids) {
 }
 function netReceive(m) {
   switch (m.t) {
-    case "full": netNotice(L("GAME IS FULL (MAX. 4 PLAYERS)", "SPIEL IST VOLL (MAX. 4 SPIELER)")); netDisconnect(); state = ST.TITLE; return;
+    case "full": netNotice(L("GAME IS FULL (MAX. 4 PLAYERS)", "SPIEL IST VOLL (MAX. 4 SPIELER)")); { const o = net.online; netDisconnect(); state = o ? ST.ONLINE : ST.TITLE; } return;
+    case "room": net.code = m.code; net.pub = !!m.pub; return;   // Online: Code des Raums
+    case "gone": netNotice(L("GAME NOT FOUND – IT MAY HAVE ENDED", "SPIEL NICHT GEFUNDEN – EVTL. SCHON BEENDET")); netDisconnect(); state = ST.ONLINE; return;
+    case "version": netNotice(L(`THE HOST PLAYS VERSION ${m.v} – BOTH NEED THE SAME VERSION`, `DER HOST SPIELT VERSION ${m.v} – IHR BRAUCHT DIESELBE VERSION`)); netDisconnect(); state = ST.ONLINE; return;
+    case "retry": { const pub = net.pub; netDisconnect(); hostOnline(pub); return; }
     case "welcome":
       net.id = m.id; net.hostId = m.host; net.connected = true;
       players = [me = makePlayer(m.id, true)];
@@ -1202,7 +1210,8 @@ function netReceive(m) {
     case "peers": {
       const hostLeft = net.hostId && m.host !== net.hostId;
       net.hostId = m.host;
-      if (hostLeft && (state !== ST.LOBBY)) { leaveMP(); netNotice(L("THE HOST LEFT THE GAME", "DER HOST HAT DAS SPIEL VERLASSEN")); return; }
+      if (hostLeft && (state !== ST.LOBBY || net.online)) {   // online endet der Raum mit dem Host auch in der Lobby
+      leaveMP(); netNotice(L("THE HOST LEFT THE GAME", "DER HOST HAT DAS SPIEL VERLASSEN")); return; }
       if (isHost() || state === ST.LOBBY) syncPlayersWithPeers(m.ids);
       return;
     }
@@ -1251,7 +1260,7 @@ function hostSendSnapshot() {
       return [e.type, r2(e.x), r2(e.y), (e.alive ? 1 : 0) | (e.hurt > 0 ? 2 : 0) | (alt ? 4 : 0)];
     }),
     it: items.filter(i => i.active).map(i => [r2(i.x), r2(i.y), i.type]), vx: vaultPos, k: hasKey ? 1 : 0,
-    pr: projs.map(p => [r2(p.x), r2(p.y), p.spr]),
+    pr: projs.map(p => [r2(p.x), r2(p.y), p.spr, r2(p.dx), r2(p.dy)]),
     ev: outEvents,
   };
   outEvents = [];
@@ -1426,10 +1435,11 @@ const OPT_ROWS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id }
   optRow("mouseLook", "Mouse look", "Maussteuerung"), optRow("sens", "Mouse sensitivity", "Mausempfindlichkeit"), optRow("invert", "Invert mouse", "Maus invertieren"),
   optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
+  optRow("onlineMP", "Online multiplayer (Cloudflare)", "Online-Multiplayer (Cloudflare)"),
   optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "Back", "Zurück")];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = 88, OPT_DY = 18;
+const OPT_Y0 = 84, OPT_DY = 17;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1448,6 +1458,7 @@ function optActivate() {
     case "fullscreen": setFullscreen(!fsOn); break;
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "online": settings.onlineScores = !onlineOn(); saveSettings(); break;
+    case "onlineMP": settings.onlineMP = settings.onlineMP !== true; saveSettings(); break;
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
@@ -1468,7 +1479,7 @@ function optKey(k) {
     if (row.kind === "bind") optCol = clamp(optCol + d, 0, 1);
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "fullscreen") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1505,8 +1516,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "fullscreen") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "fullscreen" ? fsOn : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? fsOn : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "lang") {
       text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
@@ -1581,6 +1592,8 @@ function onKeyPress(k) {
   if (edit) { editKey(k); return; }
   if (state === ST.OPTIONS) { optKey(k); return; }
   if (state === ST.JOIN) { joinKey(k); return; }
+  if (state === ST.ONLINE) { onlineKey(k); return; }
+  if (state === ST.ONLINEASK) { onlineAskKey(k); return; }
   if (chatTyping && (state === ST.LOBBY || state === ST.PLAY)) { chatKey(k); return; }
   if (state === ST.NAMEENTRY) { nameKey(k); return; }
   if (state === ST.HIGHSCORES) { highscoreKey(k); return; }
@@ -1605,7 +1618,7 @@ function onKeyPress(k) {
       if (k === "o") openOptions();
       else if (k === "h") openHighscores();
       else if (k === "Escape") quitAsk = true;
-      else if (k === "n") { if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
+      else if (k === "n") { if (WEB_BUILD) openOnline(); else if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter" || k === "x") {   // X = Hardcore
         hardcore = k === "x"; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
         state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
@@ -1640,7 +1653,8 @@ function onKeyPress(k) {
       }
       break;
     case ST.MPMENU:
-      if (k === "k") editNick();
+      if (k === "o") openOnline();
+      else if (k === "k") editNick();
       else if (k === "h") enterLobby();
       else if (k === "j") { joinText = ""; joinSel = 0; gamesT = 0; foundGames = []; state = ST.JOIN; }
       else if (k === "Escape") state = ST.TITLE;
@@ -1748,7 +1762,7 @@ function updateGame(dt) {
   if (histT <= 0) { histT = .4; hist.push(me.hp); if (hist.length > 60) hist.shift(); }
 
   if (isClient()) {   // Mitspieler: nur Position melden, den Rest rechnet der Host
-    if (performance.now() - lastSent > 45) { lastSent = performance.now(); netSend({ t: "me", x: r2(px), y: r2(py), dx: +dirX.toFixed(3), dy: +dirY.toFixed(3) }); }
+    if (performance.now() - lastSent > (net.online ? 100 : 45)) { lastSent = performance.now(); netSend({ t: "me", x: r2(px), y: r2(py), dx: +dirX.toFixed(3), dy: +dirY.toFixed(3) }); }
     me.slowT -= dt;
     return;
   }
@@ -1845,7 +1859,7 @@ function updateGame(dt) {
       state = ST.ROUNDEND; roundT = ROUND_BREAK; musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
     }
   }
-  if (isMP() && performance.now() - lastSent > 50) { lastSent = performance.now(); hostSendSnapshot(); }
+  if (isMP() && performance.now() - lastSent > (net.online ? 100 : 50)) { lastSent = performance.now(); hostSendSnapshot(); }
 }
 
 // ---------------------------------------------------------------- Rendering
@@ -1903,7 +1917,8 @@ function collectSprites() {
       list.push({ x: p[1] + (x - p[1]) * a, y: p[2] + (y - p[2]) * a, tex: alive ? ti.spr + ((fl & 4) ? 1 : 0) : S.DEAD, sc: alive ? ti.scale : .6, hurt: alive && (fl & 2) });
     });
     for (const [x, y, type] of snapCur.it) list.push({ x, y, tex: itemSpr(type), sc: .5 });
-    for (const [x, y, spr] of snapCur.pr) list.push({ x, y, tex: spr, sc: .35 });
+    const age = Math.min(.15, (performance.now() - snapTimeCur) / 1000);   // Geschosse zwischen zwei Updates weiterfliegen lassen
+    for (const [x, y, spr, dx = 0, dy = 0] of snapCur.pr) list.push({ x: x + dx * age, y: y + dy * age, tex: spr, sc: .35 });
   } else {
     for (const e of enemies) {
       if (e.gone) continue;
@@ -1914,7 +1929,11 @@ function collectSprites() {
     for (const it of items) if (it.active) list.push({ x: it.x, y: it.y, tex: itemSpr(it.type), sc: .5 });
     for (const p of projs) list.push({ x: p.x, y: p.y, tex: p.spr, sc: .35 });
   }
-  for (const pl of players) if (!pl.local && !pl.dead) list.push({ x: pl.x, y: pl.y, tex: playerSprite(pl), sc: 1, player: pl });
+  for (const pl of players) if (!pl.local && !pl.dead) {   // Mitspieler weich nachfuehren (online kommen nur 10 Updates pro Sekunde)
+    if (pl.sx === undefined || Math.hypot(pl.x - pl.sx, pl.y - pl.sy) > 2) { pl.sx = pl.x; pl.sy = pl.y; }
+    else { pl.sx += (pl.x - pl.sx) * .3; pl.sy += (pl.y - pl.sy) * .3; }
+    list.push({ x: pl.sx, y: pl.sy, tex: playerSprite(pl), sc: 1, player: pl });
+  }
   return list;
 }
 function renderSprites() {
@@ -2691,6 +2710,10 @@ function renderLobby() {
     text(`${L("“", "„")}${gname}${L("”", "“")}${isHost() ? "  ✎ [G]" : ""}`, DW / 2, 70, "#c8c8d7", 15, "center");
     if (isHost()) { g.font = FONT(15); const w = g.measureText(`„${gname}“  ✎ [G]`).width; zone(DW / 2 - w / 2, 66, w, 22, "g"); }
   }
+  if (net.online && net.code) {   // Online: Code zum Weitergeben
+    text(`CODE ${net.code}`, DW - 80, 30, "#ffd232", 24, "right");
+    text(net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE – SHARE THE CODE", "ONLINE · PRIVAT – CODE WEITERGEBEN"), DW - 80, 58, net.pub ? "#50c8ff" : "#c890ff", 12, "right");
+  }
   if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDE MIT SPIEL-SERVER …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16); return; }
   const host = isHost();
   const list = host ? lobbyPlayers() : lobbyInfo;
@@ -2764,7 +2787,9 @@ function renderLobby() {
   }
   zoneButton(490, 442, 220, 36, L("[ESC] LEAVE", "[ESC] VERLASSEN"), "#ff7050", "Escape", 16);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
-  text(isLocalOrigin() ? L(`Others find you under [N] MULTIPLAYER → [J] JOIN (or address ${myAddr || "…"})`, `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`)
+  text(net.online ? (net.pub ? L(`Others find your game under ONLINE PLAY – or join with code ${net.code}`, `Mitspieler finden dein Spiel unter ONLINE SPIELEN – oder treten mit Code ${net.code} bei`)
+      : L(`Private game: others join under ONLINE PLAY with code ${net.code}`, `Privates Spiel: Mitspieler treten unter ONLINE SPIELEN mit Code ${net.code} bei`))
+    : isLocalOrigin() ? L(`Others find you under [N] MULTIPLAYER → [J] JOIN (or address ${myAddr || "…"})`, `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`)
     : `${L("Connected to", "Verbunden mit")} ${location.host}`, DW / 2, 492, "#6b7896", 13, "center");
 }
 function scoreboard(y0) {
@@ -3112,13 +3137,15 @@ function renderPrivacy() {
   text(L("LIVE QUOTES & PRIVACY", "LIVE-KURSE & DATENSCHUTZ"), DW / 2, 70, "#ffd232", 32, "center");
   [
     L("MARGIN CALL can fetch current quotes for the Dow Jones, S&P 500, Nasdaq-100, crude oil", "MARGIN CALL kann die aktuellen Kurse von Dow Jones, S&P 500, Nasdaq-100, Rohöl"),
-    L("and some individual stocks from Yahoo Finance (query1.finance.yahoo.com).", "und einigen Einzelaktien bei Yahoo Finance (query1.finance.yahoo.com) abrufen."),
-    L("Yahoo sees your IP address – like with any website you visit.", "Dabei sieht Yahoo deine IP-Adresse – wie bei jedem Webseitenaufruf."),
+    WEB_BUILD ? L("and some individual stocks from Yahoo Finance – via the MARGIN CALL server at Cloudflare.", "und einigen Einzelaktien bei Yahoo Finance abrufen – über den MARGIN-CALL-Server bei Cloudflare.")
+      : L("and some individual stocks from Yahoo Finance (query1.finance.yahoo.com).", "und einigen Einzelaktien bei Yahoo Finance (query1.finance.yahoo.com) abrufen."),
+    WEB_BUILD ? L("Cloudflare sees your IP address – like with any website; Yahoo does not.", "Dabei sieht Cloudflare deine IP-Adresse – wie bei jedem Webseitenaufruf, Yahoo nicht.")
+      : L("Yahoo sees your IP address – like with any website you visit.", "Dabei sieht Yahoo deine IP-Adresse – wie bei jedem Webseitenaufruf."),
     L("No game data, names or other data are sent.", "Es werden keine Spielstände, Namen oder sonstigen Daten übertragen."),
     "",
     L("Without live quotes you play with simulated prices – everything else works the same.", "Ohne Live-Kurse spielst du mit simulierten Kursen – alles andere funktioniert gleich."),
     L("You can change this anytime under [O] OPTIONS → “Live quotes”.", "Du kannst das jederzeit unter [O] OPTIONEN → „Live-Kurse“ ändern."),
-    L("Multiplayer only connects to a host whose address you enter yourself.", "Multiplayer verbindet sich nur mit dem Host, dessen Adresse du selbst eingibst."),
+    L("Multiplayer only connects to games you choose; online play asks for consent first.", "Multiplayer verbindet sich nur mit Spielen, die du wählst; online erst nach Zustimmung."),
     L("Highscores are only posted online when you confirm it after a run.", "Highscores gehen nur online, wenn du das nach einem Lauf bestätigst."),
   ].forEach((l, i) => text(l, DW / 2, 128 + i * 26, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
   zoneButton(160, 372, 310, 44, L("[ENTER] LOAD LIVE QUOTES", "[ENTER] LIVE-KURSE LADEN"), "#50ff82", "enter");
@@ -3328,16 +3355,100 @@ function editGameName() { openEdit(L("GAME NAME", "SPIELNAME"), settings.gameNam
 // ---------------------------------------------------------------- Hosten / Beitreten / MP-Menue
 function renderMpChoice() {
   chartBackground("#123a26", "#3a1414");
-  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 50, DW - 320, 440);
-  text("MULTIPLAYER", DW / 2, 64, "#ffd232", 40, "center");
-  text(L("YOUR NICKNAME", "DEIN NICKNAME"), 300, 120, "#6b7896", 13);
-  zoneButton(300, 136, 360, 32, `${myNick()}   ✎ [K]`, "#ffd232", "k", 18);
-  zoneButton(300, 204, 360, 44, L("[H] HOST GAME", "[H] SPIEL HOSTEN"), "#50c8ff", "h", 24);
-  text(L(`Name your game in the lobby · address: ${myAddr || "…"}`, `Spielname folgt in der Lobby · Adresse: ${myAddr || "…"}`), DW / 2, 256, "#a0a0b4", 14, "center");
-  zoneButton(300, 300, 360, 44, L("[J] JOIN GAME", "[J] SPIEL BEITRETEN"), "#50ff82", "j", 24);
-  text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 352, "#a0a0b4", 14, "center");
-  zoneButton(390, 432, 180, 34, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(160, 40, DW - 320, 460);
+  text("MULTIPLAYER", DW / 2, 52, "#ffd232", 40, "center");
+  text(L("YOUR NICKNAME", "DEIN NICKNAME"), 300, 104, "#6b7896", 13);
+  zoneButton(300, 120, 360, 32, `${myNick()}   ✎ [K]`, "#ffd232", "k", 18);
+  zoneButton(300, 176, 360, 40, L("[H] HOST GAME (LAN)", "[H] SPIEL HOSTEN (LAN)"), "#50c8ff", "h", 22);
+  text(L(`Name your game in the lobby · address: ${myAddr || "…"}`, `Spielname folgt in der Lobby · Adresse: ${myAddr || "…"}`), DW / 2, 222, "#a0a0b4", 14, "center");
+  zoneButton(300, 254, 360, 40, L("[J] JOIN GAME (LAN)", "[J] SPIEL BEITRETEN (LAN)"), "#50ff82", "j", 22);
+  text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 300, "#a0a0b4", 14, "center");
+  zoneButton(300, 332, 360, 40, L("[O] ONLINE PLAY", "[O] ONLINE SPIELEN"), "#ffd232", "o", 22);
+  text(L("Over the internet – public games or private ones with a code", "Übers Internet – öffentliche Spiele oder private mit Code"), DW / 2, 378, "#a0a0b4", 14, "center");
+  zoneButton(390, 440, 180, 34, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
 }
+// ---------------------------------------------------------------- Online-Multiplayer (Cloudflare)
+// Ein Raum beim MARGIN-CALL-Server leitet die Nachrichten weiter wie der eingebaute Server im LAN; der Host rechnet das Spiel.
+// Erst nach ausdruecklicher Zustimmung (settings.onlineMP) wird verbunden.
+const ONLINE_WS = ONLINE_HS_URL.replace(/^http/, "ws");
+const CODE_CHARS = "ABCDEFGJLMNQRSTUVWXYZ23456789";   // ohne H, K, P (Tastenkuerzel), O/0 und I/1
+let onlineRooms = [], onlineSel = 0, codeText = "", roomsT = 0, onlineBack = ST.TITLE;
+function openOnline() {
+  onlineBack = state === ST.MPMENU ? ST.MPMENU : ST.TITLE;
+  if (settings.onlineMP !== true) { state = ST.ONLINEASK; return; }
+  state = ST.ONLINE; onlineSel = 0; codeText = ""; roomsT = 0; onlineRooms = [];
+}
+function hostOnline(pub) {
+  netConnect(ONLINE_WS + "/room/new?pub=" + (pub ? 1 : 0) + "&v=" + APP_VERSION); net.pub = pub;
+  state = ST.LOBBY; lobbyInfo = [];
+}
+function joinOnline(code) {
+  if (!code) return;
+  netConnect(ONLINE_WS + "/room/" + code + "?v=" + APP_VERSION);
+  state = ST.LOBBY; lobbyInfo = [];
+}
+function onlineAskKey(k) {
+  if (k === "enter") { settings.onlineMP = true; saveSettings(); state = onlineBack; openOnline(); }
+  else if (k === "Escape" || k === "n") state = onlineBack;
+}
+function onlineKey(k) {
+  if (k === "Escape") { if (codeText) codeText = ""; else state = onlineBack; return; }
+  if (k.startsWith("room:")) { const r = onlineRooms[+k.slice(5)]; if (r) joinOnline(r.code); return; }
+  if (k === "ArrowUp") { onlineSel = Math.max(0, onlineSel - 1); return; }
+  if (k === "ArrowDown") { onlineSel = Math.min(Math.max(0, Math.min(6, onlineRooms.length) - 1), onlineSel + 1); return; }
+  if (k === "Backspace") { codeText = codeText.slice(0, -1); return; }
+  if (k === "enter") { if (codeText.length === 5) joinOnline(codeText); else if (!codeText && onlineRooms[onlineSel]) joinOnline(onlineRooms[onlineSel].code); return; }
+  if (k === "h") { hostOnline(true); return; }
+  if (k === "p") { hostOnline(false); return; }
+  if (k === "k") { editNick(); return; }
+  const c = k.length === 1 ? k.toUpperCase() : "";
+  if (c && CODE_CHARS.includes(c) && codeText.length < 5) codeText += c;
+}
+function renderOnlineAsk() {
+  chartBackground("#123a26", "#3a1414");
+  g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(70, 50, DW - 140, 440);
+  text(L("ONLINE MULTIPLAYER & PRIVACY", "ONLINE-MULTIPLAYER & DATENSCHUTZ"), DW / 2, 70, "#ffd232", 30, "center");
+  [
+    L("Online games run through the MARGIN CALL server at Cloudflare (margincall.workers.dev).", "Online-Spiele laufen über den MARGIN-CALL-Server bei Cloudflare (margincall.workers.dev)."),
+    L("It transmits your nickname, the game name and the running game (positions, hits, chat).", "Übertragen werden dein Nickname, der Spielname und das laufende Spiel (Positionen, Treffer, Chat)."),
+    L("Cloudflare sees your IP address – like with any website. Other players do not see it.", "Cloudflare sieht dabei deine IP-Adresse – wie bei jedem Webseitenaufruf. Mitspieler sehen sie nicht."),
+    L("Game name and host nickname are only kept for the game list while the game is open.", "Spielname und Host-Nickname stehen nur für die Spieleliste bereit, solange das Spiel offen ist."),
+    "",
+    WEB_BUILD ? L("Without consent you can still play solo.", "Ohne Zustimmung kannst du weiterhin allein spielen.")
+      : L("Without consent everything stays as before: solo and LAN multiplayer work normally.", "Ohne Zustimmung bleibt alles wie bisher: Solo und Multiplayer im eigenen Netzwerk funktionieren normal."),
+    L("You can withdraw your consent anytime under [O] OPTIONS → “Online multiplayer”.", "Du kannst die Zustimmung jederzeit unter [O] OPTIONEN → „Online-Multiplayer“ zurückziehen."),
+  ].forEach((l, i) => text(l, DW / 2, 132 + i * 28, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
+  zoneButton(160, 372, 310, 44, L("[ENTER] I AGREE", "[ENTER] EINVERSTANDEN"), "#50ff82", "enter");
+  zoneButton(490, 372, 310, 44, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#a0a0b4", "Escape");
+  text(L("Cloudflare privacy policy: cloudflare.com/privacypolicy", "Datenschutzhinweise von Cloudflare: cloudflare.com/de-de/privacypolicy"), DW / 2, 450, "#6b7896", 13, "center");
+}
+function renderOnline() {
+  chartBackground("#123a26", "#3a1414");
+  g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(120, 30, DW - 240, 480);
+  text(L("ONLINE PLAY", "ONLINE SPIELEN"), DW / 2, 42, "#ffd232", 36, "center");
+  zoneButton(300, 90, 360, 30, myNick() + "   ✎ [K]", "#ffd232", "k", 17);
+  zoneButton(150, 132, 320, 40, L("[H] HOST PUBLIC GAME", "[H] ÖFFENTLICHES SPIEL"), "#50c8ff", "h", 18);
+  zoneButton(490, 132, 320, 40, L("[P] HOST PRIVATE GAME", "[P] PRIVATES SPIEL"), "#c890ff", "p", 18);
+  text(L("Private games don't appear in the list – share the code with your friends.", "Private Spiele stehen nicht in der Liste – teile den Code mit deinen Freunden."), DW / 2, 180, "#8290b0", 13, "center");
+  text(L("OPEN GAMES", "OFFENE SPIELE"), 150, 206, "#6b7896", 13);
+  if (!onlineRooms.length) {
+    const dots = ".".repeat(1 + Math.floor(gameTime * 2) % 3);
+    text(L("No open games right now", "Gerade keine offenen Spiele") + dots, DW / 2, 250, "#a0a0b4", 17, "center");
+    text(L("Host one yourself – it will show up here for everyone with the same game version.", "Hoste selbst eines – es erscheint hier für alle mit derselben Spielversion."), DW / 2, 278, "#6b7896", 13, "center");
+  }
+  onlineRooms.slice(0, 6).forEach((r, i) => {
+    const y = 224 + i * 34, sel = i === onlineSel && !codeText;
+    const label = (r.name || "?") + (r.host ? "  ·  " + r.host : "") + "  ·  " + modeName(r.mode | 0) + "  ·  " + r.players + "/4";
+    zoneButton(150, y, DW - 300, 30, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "room:" + i, 15);
+  });
+  text(L("OR ENTER A CODE", "ODER CODE EINGEBEN"), 150, 434, "#6b7896", 13);
+  g.strokeStyle = codeText ? "#50ff82" : "#2a3656"; g.lineWidth = 2; g.strokeRect(150, 452, 200, 40);
+  text((codeText || (Math.floor(gameTime * 3) % 2 ? "" : "R7QXM")) + (codeText && Math.floor(gameTime * 3) % 2 ? "▌" : ""), 166, 461, codeText ? "#ffffff" : "#4a5672", 22);
+  zoneButton(370, 452, 210, 40, L("[ENTER] JOIN", "[ENTER] BEITRETEN"), "#50ff82", "enter", 16);
+  zoneButton(600, 452, 210, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  text(L("Version", "Version") + " " + APP_VERSION, DW - 130, 488, "#4a5672", 12, "right");
+}
+
 function renderJoin() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 40, DW - 280, 460);
@@ -3458,11 +3569,15 @@ function frame(now) {
   }
   // Host: Lobby-Status regelmaessig verteilen, Snapshots auch auf Endbildschirmen
   if (isHost() && net.connected) {
-    if (state === ST.LOBBY && (lobbyT -= dt) <= 0) { lobbyT = .3; hostSendLobby(); }
+    if (state === ST.LOBBY && (lobbyT -= dt) <= 0) { lobbyT = net.online ? 1 : .3; hostSendLobby(); }
   }
   lobbyNoteT -= dt;
   // Spiel im LAN ankuendigen, solange der Host in der Lobby ist (nur in der App bzw. am eigenen Server)
-  const shouldAdvertise = isLocalOrigin() && net.connected && isHost() && state === ST.LOBBY;
+  const shouldAdvertise = isLocalOrigin() && net.connected && !net.online && isHost() && state === ST.LOBBY;
+  if (state === ST.ONLINE && (roomsT -= dt) <= 0) {   // oeffentliche Online-Spiele abfragen
+    roomsT = 3;
+    fetch(ONLINE_HS_URL + "/rooms?v=" + APP_VERSION, { cache: "no-store" }).then(r => r.json()).then(l => { onlineRooms = Array.isArray(l) ? l : []; }).catch(() => { onlineRooms = []; });
+  }
   if (shouldAdvertise && (advertiseT -= dt) <= 0) {
     advertiseT = 1; advertising = true;
     fetch("/api/host", { method: "POST", body: JSON.stringify({ active: true, name: myGameName(), host: me.name, mode: modeName(lobbyMode), players: players.length }) }).catch(() => { });
@@ -3474,7 +3589,7 @@ function frame(now) {
     gamesT = 1;
     fetch("/api/games", { cache: "no-store" }).then(r => r.json()).then(l => { foundGames = Array.isArray(l) ? l : []; }).catch(() => { });
   }
-  if (isHost() && net.connected && isMP() && state !== ST.PLAY && state !== ST.LOBBY && performance.now() - lastSent > 200) { lastSent = performance.now(); hostSendSnapshot(); }
+  if (isHost() && net.connected && isMP() && state !== ST.PLAY && state !== ST.LOBBY && performance.now() - lastSent > (net.online ? 500 : 200)) { lastSent = performance.now(); hostSendSnapshot(); }
   switch (state) {
     case ST.TITLE: gameTime += dt; renderTitle(); if (quitAsk) renderQuitAsk(); break;
     case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
@@ -3484,6 +3599,8 @@ function frame(now) {
     case ST.PLAY: updateGame(dt); if (state === ST.PLAY) { renderPlay(dt); if (mpMenu) renderMpMenu(); } break;
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;
     case ST.JOIN: gameTime += dt; renderJoin(); break;
+    case ST.ONLINE: gameTime += dt; renderOnline(); break;
+    case ST.ONLINEASK: gameTime += dt; renderOnlineAsk(); break;
     case ST.PAUSE:
       g.fillStyle = "#000"; g.fillRect(230, 160, 500, 130);
       text(L("TRADING HALTED", "HANDEL AUSGESETZT"), DW / 2, 178, "#ffd232", 28, "center");

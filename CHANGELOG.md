@@ -2,6 +2,16 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.0 – Online multiplayer and browser version (2026-10-18)
+
+- **Online multiplayer over the internet:** Under *Multiplayer → Online play* you play with 2–4 people over the internet, in all three modes (co-op, team, deathmatch).
+  - **Public games** appear in a list for everyone with the same game version.
+  - **Private games** are not listed; friends join with the five-character code shown in the top right corner of the lobby.
+  - Online, 10 updates per second are sent; other players and shots move smoothly in between.
+  - The game server runs for free on Cloudflare and only forwards the messages; the host runs the game just like in LAN play.
+- **Privacy:** Before your first online game, a notice explains what is transmitted, and the game only connects after you agree. You can withdraw your consent anytime under *Options → Online multiplayer*.
+- **Browser version:** MARGIN CALL now also runs right in the browser at https://wolfgangrabenstein.github.io/margincall/, with solo and online multiplayer. Live quotes come through the MARGIN CALL server there, so Yahoo does not see your IP address.
+
 ## Version 3.18.2 – Deck chair in a new color (2026-10-18)
 
 - **Closing scene:** The deck chair now has yellow-orange and white stripes instead of blue, so it stands out better against the blue suit.

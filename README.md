@@ -16,16 +16,20 @@ MARGIN CALL runs as a small standalone app on Windows, macOS and Linux (Tauri), 
 |---|---|
 | ![Title screen](docs/screenshot-title.png) | ![Gameplay](docs/screenshot-level1.png) |
 
+## Play in the browser
+
+No installation needed: **[play MARGIN CALL in the browser](https://wolfgangrabenstein.github.io/margincall/)**. Solo and online multiplayer work there too; LAN multiplayer needs the app.
+
 ## Downloads
 
-Current version **3.18.2** – click a file and the download starts right away:
+Current version **3.19.0** – click a file and the download starts right away:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.18.2-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.18.2-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
-| [**MarginCall-3.18.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.18.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
+| [**MarginCall-3.19.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.19.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
+| [**MarginCall-3.19.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.19.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
 Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md)
 
@@ -66,6 +70,15 @@ Newer version out? Always current: [latest release](https://github.com/wolfgangr
 
 All keys can be remapped in the options menu. On the Cardputer: E/S move, A/D turn, W/R strafe.
 
+## Online multiplayer (2–4 players over the internet)
+
+1. Choose **[N] Multiplayer → [O] Online play** (in the browser version: **[N] Multiplayer**) and agree to the privacy notice once.
+2. **Public game:** press **[H]**. Your game shows up in the list of open games for everyone with the same game version.
+3. **Private game:** press **[P]** and share the five-character code shown in the top right corner of the lobby with your friends.
+4. **Join:** pick a game from the list or type the code and press **Enter**.
+
+Online play is free and runs through a small game server on Cloudflare. The free daily quota is shared by all players worldwide; if it is used up, online play pauses until 00:00 UTC (LAN keeps working).
+
 ## Multiplayer (2–4 players on the same network)
 
 1. One player chooses **[N] Multiplayer → [H] Host game**. The lobby shows the address, e.g. `192.168.1.20:8080`.
@@ -93,7 +106,7 @@ All keys can be remapped in the options menu. On the Cardputer: E/S move, A/D tu
 
 ## Privacy
 
-Live quotes are only loaded if you agree on first start. The game then requests public market data from Yahoo Finance, which sees your IP address like with any website you visit. You can change this anytime under *Options → Live quotes*. Only what you explicitly upload ends up on the online leaderboard: after a run, your self-chosen name and score are sent to the leaderboard server only when you press "Save & post online" (Enter). TAB saves locally only, ESC saves nothing; you can change the default permanently under *Options → Online leaderboard*. Otherwise the game transmits nothing; in multiplayer it only connects to the host whose address you enter. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
+Live quotes are only loaded if you agree on first start. The game then requests public market data from Yahoo Finance, which sees your IP address like with any website you visit. You can change this anytime under *Options → Live quotes*. Only what you explicitly upload ends up on the online leaderboard: after a run, your self-chosen name and score are sent to the leaderboard server only when you press "Save & post online" (Enter). TAB saves locally only, ESC saves nothing; you can change the default permanently under *Options → Online leaderboard*. Online multiplayer only connects after you agree to a separate notice: your nickname, the game name and the running game are forwarded to the other players through the MARGIN CALL server on Cloudflare, which does not store game contents. Otherwise the game transmits nothing; in LAN multiplayer it only connects to the host you pick. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
 
 ## Code signing policy
 

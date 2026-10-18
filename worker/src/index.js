@@ -1,4 +1,4 @@
-// MARGIN CALL – Online-Rangliste (Cloudflare Worker + D1)
+// MARGIN CALL – Online-Rangliste, Online-Multiplayer und Kurse fuer die Browser-Version (Cloudflare Worker + D1)
 //
 //   GET  /scores?scope=all|day&hc=0|1&limit=100   Top-Liste (Gesamt bzw. heute; normal bzw. Hardcore)
 //   POST /scores  {name, score, level, won, deaths, ver, hc}
@@ -7,6 +7,14 @@
 // Normal und Hardcore sind getrennte Ranglisten (Spalte hc).
 // Gespeichert werden nur Name, Punkte, Level, Sieg, Tode, Modus, Spielversion und Zeitpunkt –
 // keine IP-Adressen. Der Tag richtet sich nach der Zeitzone Europe/Vienna.
+//
+//   GET  /rooms?v=<Version>        oeffentliche Online-Spiele in der Lobby (gleiche Spielversion)
+//   GET  /room/new?pub=1&v=…       (WebSocket) neues Online-Spiel hosten, oeffentlich (pub=1) oder privat
+//   GET  /room/<CODE>?v=…          (WebSocket) Online-Spiel beitreten
+//   GET  /market                   Live-Kurse fuer die Browser-Version (Yahoo Finance, 2 Minuten zwischengespeichert)
+
+import { Room, ROOM_TTL_S } from "./rooms.js";
+export { Room };
 
 const MAX_SCORE = 50_000_000;
 const MIN_GAP_MS = 15_000;          // pro IP hoechstens ein Eintrag alle 15 s (nur im Speicher)
@@ -25,6 +33,70 @@ const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Vienna"
 const cleanName = v => String(v || "").replace(/[^\p{L}\p{N} ._\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 15).toUpperCase();
 const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi ? v : null;
 
+// ---- Online-Multiplayer
+const CODE_CHARS = "ABCDEFGJLMNQRSTUVWXYZ23456789";   // ohne H, K, P (Tastenkuerzel im Spiel), O/0 und I/1
+const cleanVer = v => String(v || "").replace(/[^0-9.]/g, "").slice(0, 12);
+async function rooms(env, ver) {
+  const { results } = await env.DB.prepare(
+    "SELECT code, name, host, mode, players FROM rooms WHERE pub = 1 AND ver = ?1 AND updated > ?2 AND players < 4 AND name <> '' ORDER BY updated DESC LIMIT 20")
+    .bind(ver, Math.floor(Date.now() / 1000) - ROOM_TTL_S).all();
+  return results;
+}
+async function openRoom(request, env, url) {
+  if (request.headers.get("Upgrade") !== "websocket") return json({ error: "WebSocket erwartet" }, 426);
+  const ver = cleanVer(url.searchParams.get("v")), pub = url.searchParams.get("pub") === "1";
+  let code = "";
+  for (let t = 0; t < 8 && !code; t++) {
+    const c = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => CODE_CHARS[b % CODE_CHARS.length]).join("");
+    if (!(await env.DB.prepare("SELECT code FROM rooms WHERE code = ?1").bind(c).first())) code = c;
+  }
+  if (!code) return json({ error: "kein Code frei" }, 503);
+  // alte Eintraege aufraeumen, dann den Raum anlegen (private Raeume stehen auch drin, damit der Code reserviert ist)
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM rooms WHERE updated < ?1").bind(now - 6 * 3600),
+    env.DB.prepare("INSERT INTO rooms (code, name, host, mode, players, pub, ver, updated) VALUES (?1, '', '', 0, 1, ?2, ?3, ?4)").bind(code, pub ? 1 : 0, ver, now),
+  ]);
+  const h = new Headers(request.headers);
+  h.set("x-room-code", code); h.set("x-room-create", "1"); h.set("x-room-pub", pub ? "1" : "0");
+  return env.ROOM.get(env.ROOM.idFromName(code)).fetch(new Request(request.url, { headers: h }));
+}
+function joinRoom(request, env, code) {
+  if (request.headers.get("Upgrade") !== "websocket") return json({ error: "WebSocket erwartet" }, 426);
+  const h = new Headers(request.headers);
+  h.set("x-room-code", code); h.delete("x-room-create"); h.delete("x-room-pub");
+  return env.ROOM.get(env.ROOM.idFromName(code)).fetch(new Request(request.url, { headers: h }));
+}
+
+// ---- Live-Kurse fuer die Browser-Version (gleiches Format wie /api/market der App)
+const SYMBOLS = [["%5EDJI", "5m"], ["%5EGSPC", "5m"], ["%5ENDX", "5m"], ["CL%3DF", "15m"]];
+const STOCKS = "GS,CAT,HD,JPM,BA,KO,AAPL,AMZN,GOOGL,META,LLY,BRK-B,NVDA,MSFT,AVGO,TSLA,NFLX,AMD,XOM,CVX";
+let marketCache = { t: 0, body: null };
+const yahoo = u => fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (MarginCall)" } }).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+async function market() {
+  if (marketCache.body && Date.now() - marketCache.t < 120_000) return marketCache.body;
+  const markets = await Promise.all(SYMBOLS.map(async ([sym, iv]) => {
+    try {
+      const d = (await yahoo("https://query1.finance.yahoo.com/v8/finance/chart/" + sym + "?range=1d&interval=" + iv)).chart.result[0];
+      let s = d.indicators.quote[0].close.filter(x => x !== null).map(x => Math.round(x * 100) / 100);
+      while (s.length > 96) { const h = []; for (let i = 0; i + 1 < s.length; i += 2) h.push(Math.round((s[i] + s[i + 1]) * 50) / 100); s = h; }
+      return { p: d.meta.regularMarketPrice, prev: d.meta.chartPreviousClose, s };
+    } catch { return null; }
+  }));
+  const stocks = {};
+  try {
+    const d = await yahoo("https://query1.finance.yahoo.com/v8/finance/spark?symbols=" + STOCKS + "&range=1d&interval=1d");
+    for (const [sym, x] of Object.entries(d)) {
+      const c = (x.close || []).filter(v => v !== null);
+      if (c.length && x.chartPreviousClose) stocks[sym] = { p: c[c.length - 1], prev: x.chartPreviousClose };
+    }
+  } catch { }
+  const body = { time: Math.floor(Date.now() / 1000), markets, stocks };
+  if (markets.some(Boolean)) marketCache = { t: Date.now(), body };
+  return body;
+}
+
+// ---- Rangliste
 async function top(env, scope, hc, limit) {
   const where = scope === "day" ? "WHERE hc = ?1 AND day = ?2" : "WHERE hc = ?1";
   const stmt = env.DB.prepare(
@@ -45,7 +117,7 @@ async function add(env, request) {
   if (!name || score === null || level === null || deaths === null) return json({ error: "ungueltig" }, 400);
   // Plausibilitaet: ein Sieg setzt Level 5 voraus
   const won = e.won === true && level === 5 ? 1 : 0;
-  const ver = String(e.ver || "").replace(/[^0-9.]/g, "").slice(0, 12);
+  const ver = cleanVer(e.ver);
   const hc = e.hc === true ? 1 : 0;
 
   if (ip) { recent.set(ip, now); if (recent.size > 5000) recent.clear(); }
@@ -72,6 +144,11 @@ export default {
       return json(await top(env, scope, url.searchParams.get("hc") === "1" ? 1 : 0, limit));
     }
     if (url.pathname === "/scores" && request.method === "POST") return add(env, request);
+    if (url.pathname === "/rooms") return json(await rooms(env, cleanVer(url.searchParams.get("v"))));
+    if (url.pathname === "/room/new") return openRoom(request, env, url);
+    const rm = url.pathname.match(/^\/room\/([A-Z0-9]{5})$/);
+    if (rm) return joinRoom(request, env, rm[1]);
+    if (url.pathname === "/market") return json(await market());
     if (url.pathname === "/") return json({ name: "MARGIN CALL Online-Rangliste", day: today() });
     return json({ error: "nicht gefunden" }, 404);
   },

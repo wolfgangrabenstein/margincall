@@ -14,16 +14,20 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 |---|---|
 | ![Titelbild](docs/screenshot-title.png) | ![Spielszene](docs/screenshot-level1.png) |
 
+## Im Browser spielen
+
+Ganz ohne Installation: **[MARGIN CALL im Browser spielen](https://wolfgangrabenstein.github.io/margincall/)**. Solo und Online-Multiplayer funktionieren auch dort; für Multiplayer im eigenen Netzwerk braucht es die App.
+
 ## Downloads
 
-Aktuelle Version **3.18.2** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.19.0** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.18.2-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.18.2-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.18.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.18.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.18.2/MarginCall-3.18.2-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.19.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.19.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.19.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.19.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.0/MarginCall-3.19.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 
@@ -64,6 +68,15 @@ Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/w
 
 Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiterhin: E/S laufen, A/D drehen, W/R seitwärts.
 
+## Online-Multiplayer (2–4 Spieler übers Internet)
+
+1. Wähle **[N] Multiplayer → [O] Online spielen** (in der Browser-Version: **[N] Multiplayer**) und stimme einmal dem Datenschutzhinweis zu.
+2. **Öffentliches Spiel:** Drücke **[H]**. Dein Spiel erscheint in der Liste offener Spiele für alle mit derselben Spielversion.
+3. **Privates Spiel:** Drücke **[P]** und gib den fünfstelligen Code, der oben rechts in der Lobby steht, an deine Freunde weiter.
+4. **Beitreten:** Wähle ein Spiel aus der Liste oder tippe den Code ein und drücke **Enter**.
+
+Online-Spielen ist kostenlos und läuft über einen kleinen Spiel-Server bei Cloudflare. Das kostenlose Tageskontingent teilen sich alle Spieler weltweit; ist es aufgebraucht, pausiert Online-Spielen bis 00:00 UTC (das eigene Netzwerk funktioniert weiter).
+
 ## Multiplayer (2–4 Spieler im selben Netzwerk)
 
 1. Ein Spieler wählt **[N] Multiplayer → [H] Spiel hosten**. Die Lobby zeigt die Adresse, z. B. `192.168.1.20:8080`.
@@ -91,7 +104,7 @@ Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiter
 
 ## Datenschutz
 
-Live-Kurse werden nur geladen, wenn du beim ersten Start zustimmst. Dann fragt das Spiel öffentliche Kursdaten bei Yahoo Finance ab, wobei Yahoo wie bei jedem Webseitenaufruf deine IP-Adresse sieht. Ändern kannst du das jederzeit unter *Optionen → Live-Kurse*. In die Online-Rangliste kommt nur, was du ausdrücklich hochlädst: Nach einem Lauf gehen dein selbst gewählter Name und deine Punkte erst an den Ranglisten-Server, wenn du „Speichern & online stellen“ (Enter) drückst. Mit TAB speicherst du nur lokal, mit ESC gar nicht; dauerhaft umstellen geht unter *Options → Online leaderboard*. Sonst überträgt das Spiel nichts; im Multiplayer verbindet es sich nur mit dem Host, dessen Adresse du eingibst. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
+Live-Kurse werden nur geladen, wenn du beim ersten Start zustimmst. Dann fragt das Spiel öffentliche Kursdaten bei Yahoo Finance ab, wobei Yahoo wie bei jedem Webseitenaufruf deine IP-Adresse sieht. Ändern kannst du das jederzeit unter *Optionen → Live-Kurse*. In die Online-Rangliste kommt nur, was du ausdrücklich hochlädst: Nach einem Lauf gehen dein selbst gewählter Name und deine Punkte erst an den Ranglisten-Server, wenn du „Speichern & online stellen“ (Enter) drückst. Mit TAB speicherst du nur lokal, mit ESC gar nicht; dauerhaft umstellen geht unter *Options → Online leaderboard*. Online-Multiplayer verbindet sich erst, nachdem du einem eigenen Hinweis zugestimmt hast: Dein Nickname, der Spielname und das laufende Spiel werden über den MARGIN-CALL-Server bei Cloudflare an die Mitspieler weitergeleitet, der keine Spielinhalte speichert. Sonst überträgt das Spiel nichts; im Multiplayer im eigenen Netzwerk verbindet es sich nur mit dem Host, den du auswählst. Details: [Code signing policy → Privacy policy](CODE_SIGNING_POLICY.md#privacy-policy--datenschutz).
 
 ## Code signing policy
 

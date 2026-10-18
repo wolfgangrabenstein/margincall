@@ -1,0 +1,38 @@
+# Browser-Version von MARGIN CALL auf GitHub Pages (https://wolfgangrabenstein.github.io/margincall/).
+# Wird veroeffentlicht, sobald sich pc/game.html auf main aendert (also mit jeder neuen Spielversion);
+# Online-Spiele verbinden nur gleiche Versionen. Kann auch von Hand gestartet werden.
+name: Browser-Version
+
+on:
+  push:
+    branches: [main]
+    paths: ["pc/game.html", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Seite zusammenstellen
+        run: |
+          mkdir site
+          cp pc/game.html site/index.html
+          touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
