@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.5 – Separate screen halves, big fire button (2026-10-18)
+
+- **Phone controls:** The left and right halves of the screen are now strictly separate: the left side only controls the stick (a second finger on the left is ignored), the right side only turns. Moving and turning at the same time now works without interference.
+- **No more unwanted continuous fire** when you hold your finger still while turning; a short tap on the right still fires one shot.
+- **Fire button** is big again, bottom right above the status bar; dodge sits above it to the left.
+
 ## Version 3.19.4 – Fullscreen turns to landscape (2026-10-18)
 
 - **Fullscreen button on phones:** It now switches to landscape automatically; pressing it again leaves fullscreen and the phone turns back to portrait. Before, the rotate command never reached the browser.

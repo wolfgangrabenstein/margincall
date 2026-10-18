@@ -40,9 +40,9 @@
   #stickKnob { position: absolute; left: 35px; top: 35px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.38); }
   #touch button { position: absolute; border-radius: 50%; font: 700 15px var(--font-ui); touch-action: none; color: var(--text);
     background: rgba(11,17,32,.55); border: 2px solid rgba(255,255,255,.3); }
-  #touch #tFire { right: calc(12px + env(safe-area-inset-right, 0px)); top: 26%; width: 74px; height: 74px;
-    background: rgba(170,30,30,.5); border-color: rgba(255,210,58,.7); color: var(--gold); font-size: 13px; }
-  #touch #tDodge { right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(26% + 86px); width: 56px; height: 56px; font-size: 20px; }
+  #touch #tFire { right: calc(22px + env(safe-area-inset-right, 0px)); bottom: 28%; width: 108px; height: 108px;
+    background: rgba(170,30,30,.55); border-color: rgba(255,210,58,.8); color: var(--gold); font-size: 17px; }
+  #touch #tDodge { right: calc(146px + env(safe-area-inset-right, 0px)); bottom: calc(28% + 70px); width: 60px; height: 60px; font-size: 20px; }
   #fsBtn { display: none; position: fixed; z-index: 7; right: calc(10px + env(safe-area-inset-right, 0px)); top: 10px; width: 44px; height: 44px;
     border-radius: 10px; border: 2px solid rgba(255,255,255,.35); background: rgba(11,17,32,.6); color: var(--text); font: 700 20px var(--font-ui); touch-action: manipulation; }
   body.playing #fsBtn { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
@@ -79,7 +79,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.4";
+const APP_VERSION = "3.19.5";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1654,20 +1654,20 @@ function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. w
   const release = e => {
     if (e.pointerId === stickId) { stickId = null; touchMv.x = touchMv.y = 0; base.style.display = "none"; }
     const tp = taps.get(e.pointerId);
-    if (tp) { clearTimeout(tp.timer); if (tp.hold) touchFire = false; else if (!tp.moved && performance.now() - tp.t < 300) shoot(); taps.delete(e.pointerId); }
+    if (tp) { clearTimeout(tp.timer); if (tp.hold) touchFire = false; else if (!tp.moved && performance.now() - tp.t < 220) shoot(); taps.delete(e.pointerId); }
     looks.delete(e.pointerId);
   };
   layer.addEventListener("pointerdown", e => {
     if (e.target !== layer) return;
     e.preventDefault(); audioUnlock();
-    if (e.clientX < innerWidth * .45 && stickId === null) {
+    // linke und rechte Haelfte sind strikt getrennt: links nur der Stick (ein Finger), rechts nur Drehen
+    if (e.clientX < innerWidth / 2) {
+      if (stickId !== null) return;   // zweiter Finger links: ignorieren statt drehen
       stickId = e.pointerId; sx = e.clientX; sy = e.clientY;
       base.style.left = sx + "px"; base.style.top = sy + "px"; base.style.display = "block"; knob.style.transform = "";
     } else {
       looks.set(e.pointerId, e.clientX);
-      const tp = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, hold: false };
-      tp.timer = setTimeout(() => { if (!tp.moved) { tp.hold = true; touchFire = true; } }, 300);   // ruhig halten = Dauerfeuer
-      taps.set(e.pointerId, tp);
+      taps.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, hold: false });   // kurz antippen = ein Schuss
     }
     try { layer.setPointerCapture(e.pointerId); } catch (err) { }
   });

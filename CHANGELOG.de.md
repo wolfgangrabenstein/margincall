@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.5 – getrennte Bildschirmhälften, großer Feuerknopf (18.10.2026)
+
+- **Handy-Steuerung:** Linke und rechte Bildschirmhälfte sind jetzt strikt getrennt: Links steuert nur der Stick (ein zweiter Finger links wird ignoriert), rechts wird nur gedreht. Laufen und Drehen gleichzeitig klappt damit ohne Störungen.
+- **Kein ungewolltes Dauerfeuer** mehr, wenn man beim Drehen den Finger kurz ruhig hält; ein kurzes Antippen rechts gibt weiterhin einen Schuss ab.
+- **Feuerknopf** wieder groß, unten rechts über der Statusleiste; Ausweichen sitzt links darüber.
+
 ## Version 3.19.4 – Vollbild dreht ins Querformat (18.10.2026)
 
 - **Vollbild-Knopf am Handy:** Er schaltet jetzt automatisch ins Querformat; ein zweiter Druck verlässt das Vollbild, und das Handy dreht wieder ins Hochformat. Vorher kam der Befehl zum Drehen nicht beim Browser an.
