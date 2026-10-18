@@ -2,6 +2,20 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.2 – Smartphone-Steuerung, Keycard-Sound, Online-Feinschliff (18.10.2026)
+
+- **Smartphone und Tablet:**
+  - **Neue Steuerung:** Links ein virtueller Stick zum Laufen und Seitwärtsgehen, rechts wischen zum Drehen, ein großer Feuerknopf (beim Halten ebenfalls zum Drehen wischbar), dazu Knöpfe für Ausweichen und Pause.
+  - **Menüs bedienbar:** Die Knöpfe im Bild lassen sich jetzt antippen. Vorher lag die alte Steuerleiste darüber, und ein Tippen landete oft im Pausenmenü.
+  - **Großes Bild:** Im Querformat füllt das Spiel den ganzen Bildschirm, wo der Browser es erlaubt im Vollbild. Im Hochformat erscheint während des Spiels der Hinweis, das Handy zu drehen.
+  - **Bildschirmtastatur** für Nickname, Spielname, Code und Highscore-Namen.
+- **Keycard-Sound:** Beim Aufheben einer Keycard ertönt ein eigener Klang: Karte durch den Leser ziehen, zwei Pieptöne, heller Gong.
+- **Online-Multiplayer:**
+  - Der Spiel-Code steht in der Lobby jetzt groß in einem eigenen Kasten, mit Knopf zum Kopieren ([Y]).
+  - „Privatem Spiel beitreten“ ist ein eigener Knopf ([J]); erst danach erscheint der Dialog für den Code.
+- **Browser-Version:** „Beenden“ schließt den Tab, sofern der Browser das zulässt.
+- **Versionsanzeige:** Das Hauptmenü zeigt jetzt die Spielversion, auch auf dem Cardputer.
+
 ## Version 3.19.1 – Browser-Version repariert (18.10.2026)
 
 - **Browser-Version:** Die Meldung „Game Server Stopped“ erscheint nicht mehr. Die Browser-Version suchte fälschlich nach dem eingebauten Server der App, den es im Browser nicht gibt.

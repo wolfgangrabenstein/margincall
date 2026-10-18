@@ -2,6 +2,20 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.2 – Phone controls, keycard sound, online polish (2026-10-18)
+
+- **Phones and tablets:**
+  - **New controls:** A virtual stick on the left for moving and strafing, swipe on the right to turn, a big fire button (you can also swipe on it to turn while holding it), plus buttons for dodge and pause.
+  - **Menus work:** The on-screen buttons can now be tapped. Before, the old control bar covered them, and a tap often ended up in the pause menu.
+  - **Big picture:** In landscape the game fills the whole screen, in fullscreen where the browser allows it. In portrait a notice asks you to turn the phone while playing.
+  - **On-screen keyboard** for nickname, game name, code and highscore name.
+- **Keycard sound:** Picking up a keycard now plays its own sound: a card swipe, two beeps and a bright chime.
+- **Online multiplayer:**
+  - The game code is now shown large in its own box in the lobby, with a copy button ([Y]).
+  - "Join private game" is its own button ([J]); only then does the code dialog appear.
+- **Browser version:** "Quit" closes the tab if the browser allows it.
+- **Version display:** The main menu now shows the game version, on the Cardputer too.
+
 ## Version 3.19.1 – Browser version fixed (2026-10-18)
 
 - **Browser version:** The "Game server stopped" message no longer appears. The browser version wrongly looked for the app's built-in server, which does not exist in the browser.

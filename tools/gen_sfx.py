@@ -321,12 +321,24 @@ def snd_dodge():
     return o
 
 
+def snd_keycard():
+    """Keycard aufgehoben: Karte durch den Leser ziehen, zwei Pieptoene, heller Gong (Zugang gewaehrt)."""
+    o = buf(0.65)
+    add_noise(o, 0.0, 0.07, 0.35, lp=0.5, hp=0.6, env=lambda t: math.sin(math.pi * t / 0.07))
+    add_sweep(o, 0.09, 0.09, 1320, 1320, 0.45, decay=6, wave="sq")
+    add_sweep(o, 0.2, 0.12, 1760, 1760, 0.45, decay=6, wave="sq")
+    add_bell(o, 0.2, 2093, [(1, 1, 7), (2.01, 0.4, 10), (3, 0.2, 14)], 0.5, 0.4)
+    lowpass(o, 0.5)
+    fade_out(o, 0.05)
+    return o
+
+
 SOUNDS = [
     ("KACHING", snd_kaching), ("COINS", snd_coins), ("SHOT", snd_shot), ("HIT", snd_hit),
     ("STAMP", snd_stamp), ("PHONE", snd_phone), ("ZAP", snd_zap), ("BELL", snd_bell),
     ("CRASH", snd_crash), ("DECLINED", snd_declined), ("POP", snd_pop),
     ("BULL", snd_bull), ("ROAR", snd_roar), ("GLITCH", snd_glitch), ("OIL", snd_oil), ("LASER", snd_laser),
-    ("DODGE", snd_dodge),
+    ("DODGE", snd_dodge), ("KEYCARD", snd_keycard),
 ]
 
 

@@ -46,6 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
+#define FW_VERSION "3.19.2"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1854,7 +1855,7 @@ static void updateGame(float dt) {
     if (dist2Player(it.x, it.y) > 0.3f) continue;
     if (it.type == 2) { it.active = false; islandCoin(); continue; }   // Goldmuenze in der Steueroase
     if (it.type == 3) {
-      it.active = false; hasKey = true; pickT = 0.25f; sfxPlay(SFX_ID_KACHING);
+      it.active = false; hasKey = true; pickT = 0.25f; sfxPlay(SFX_ID_KEYCARD);
       char b[48]; snprintf(b, sizeof(b), L("%s KEYCARD! THE VAULT IS OPEN", "%s KEYCARD! DER TRESOR IST OFFEN"), L(KEY_EN[level % 5], KEY_DE[level % 5])); say(b, 2.5f);
       continue;
     }
@@ -2270,7 +2271,7 @@ static void renderTitle() {
   int phase = ((int)(gameTime * 2)) % 4;
   if (phase == 1 || phase == 3) centerText(L("[ENTER] TRADE  [X] HARDCORE", "[ENTER] HANDEL  [X] HARDCORE"), 121, 1, c565(255, 255, 255));
   else if (phase == 2) centerText(L("[L] DEUTSCH", "[L] ENGLISH"), 121, 1, c565(120, 200, 255));
-  else centerText("MADE BY WOLFGANG RABENSTEIN", 121, 1, c565(110, 120, 150));
+  else centerText("MADE BY WOLFGANG RABENSTEIN  V" FW_VERSION, 121, 1, c565(110, 120, 150));
 }
 
 static void renderEndScreen(const char* title, const char* sub, uint16_t col, bool bull) {

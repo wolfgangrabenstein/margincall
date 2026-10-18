@@ -28,25 +28,38 @@
     cursor: crosshair;
   }
   #hint { color: var(--muted); font-size: 12px; margin-top: 8px; text-align: center; }
-  #touch { display: none; position: fixed; inset: auto 0 0 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-    justify-content: space-between; pointer-events: none; }
-  #touch .pad { display: grid; grid-template-columns: repeat(3, 54px); gap: 6px; pointer-events: auto; }
-  #touch button { width: 54px; height: 54px; border-radius: 10px; border: 1px solid var(--line); background: rgba(11,17,32,.75);
-    color: var(--text); font: 700 15px var(--font-ui); touch-action: none; }
-  #touch .fire { width: 84px; height: 84px; border-radius: 50%; background: rgba(120,20,20,.8); color: var(--gold); pointer-events: auto; align-self: end; }
-  @media (pointer: coarse) { #touch { display: flex; } #hint { display: none; } }
+  /* Smartphone: Steuerung nur waehrend des Spiels ueber dem Bild (linke Haelfte = Stick, rechte Haelfte = Drehen) */
+  #touch { display: none; position: fixed; inset: 0; z-index: 5; touch-action: none; user-select: none; -webkit-user-select: none; }
+  body.playing #touch { display: block; }
+  #stickBase { display: none; position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.07); pointer-events: none; }
+  #stickKnob { position: absolute; left: 35px; top: 35px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.38); }
+  #touch button { position: absolute; border-radius: 50%; font: 700 15px var(--font-ui); touch-action: none; color: var(--text);
+    background: rgba(11,17,32,.55); border: 2px solid rgba(255,255,255,.3); }
+  #touch #tFire { right: calc(28px + env(safe-area-inset-right, 0px)); bottom: 30%; width: 100px; height: 100px;
+    background: rgba(170,30,30,.55); border-color: rgba(255,210,58,.75); color: var(--gold); font-size: 16px; }
+  #touch #tDodge { right: calc(146px + env(safe-area-inset-right, 0px)); bottom: 34%; width: 66px; height: 66px; font-size: 22px; }
+  #touch #tPause { left: calc(14px + env(safe-area-inset-left, 0px)); top: 14px; width: 50px; height: 50px; font-size: 18px; }
+  #rotate { display: none; position: fixed; inset: 0; z-index: 6; background: rgba(5,7,13,.94); color: var(--gold);
+    font: 700 20px var(--font-ui); align-items: center; justify-content: center; text-align: center; padding: 24px; }
+  #kbd { position: fixed; left: -200px; top: 0; width: 10px; height: 10px; opacity: 0; }
+  @media (pointer: coarse) {
+    body { padding: 0; }
+    #screen { width: min(100vw, calc(100vh * 16 / 9)); border: 0; border-radius: 0; }
+    #hint { display: none; }
+  }
+  @media (pointer: coarse) and (orientation: portrait) { body.playing #rotate { display: flex; } }
 </style>
 </head>
 <body>
 <canvas id="screen" width="960" height="540"></canvas>
 <div id="hint"></div>
 <div id="touch">
-  <div class="pad">
-    <button data-k="a">A</button><button data-k="w">▲</button><button data-k="d">D</button>
-    <button data-k="ArrowLeft">⟲</button><button data-k="s">▼</button><button data-k="ArrowRight">⟳</button>
-  </div>
-  <button class="fire" data-k=" ">FEUER</button>
+  <div id="stickBase"><div id="stickKnob"></div></div>
+  <button id="tFire">FIRE</button><button id="tDodge">⤳</button><button id="tPause">II</button>
 </div>
+<div id="rotate">↻</div>
+<input id="kbd" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-hidden="true">
 <script>
 "use strict";
 // =====================================================================================
@@ -57,7 +70,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.1";
+const APP_VERSION = "3.19.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1335,6 +1348,7 @@ function backToTitle() {   // Q in der Pause: ins Hauptmenue, ganz beendet wird 
 function quitGame() {
   if (IN_APP) { location.href = "http://margincall.quit/"; return; }
   if (typeof netDisconnect === "function") netDisconnect();
+  try { window.close(); } catch (e) { }   // klappt nur, wenn der Browser es zulaesst; sonst bleibt der Hinweis
   netNotice(L("YOU CAN CLOSE THIS TAB NOW", "DU KANNST DIESEN TAB JETZT SCHLIESSEN")); state = ST.TITLE; musicStop();
 }
 // Hardcore (nur Solo): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – und ein Tod beendet den Lauf
@@ -1396,13 +1410,17 @@ function setFullscreen(on) {
 document.addEventListener("fullscreenchange", () => { if (!IN_APP) fsOn = !!document.fullscreenElement; });
 // Maussteuerung direkt einfangen (geht nur direkt nach einer Taste oder einem Klick des Spielers)
 function lockMouse() {
-  if (!settings.mouseLook || document.pointerLockElement === screen) return;
+  if (COARSE || !settings.mouseLook || document.pointerLockElement === screen) return;
   try { const p = screen.requestPointerLock?.(); if (p && p.catch) p.catch(() => { }); } catch (e) { }
 }
 const pauseAge = () => (performance.now() - pausedAt) / 1000;
 // Bei Maussteuerung faengt der Browser das erste Esc ab und gibt nur die Maus frei: das gilt als Pause.
+let hadLock = false;
 document.addEventListener("pointerlockchange", () => {
-  if (document.pointerLockElement || state !== ST.PLAY || mpMenu || (me && me.dead)) return;
+  if (document.pointerLockElement) { hadLock = true; return; }
+  if (!hadLock) return;   // manche Handy-Browser melden auch einen fehlgeschlagenen Versuch – das ist keine Pause
+  hadLock = false;
+  if (state !== ST.PLAY || mpMenu || (me && me.dead)) return;
   if (isMP()) mpMenu = true; else state = ST.PAUSE;
   pausedAt = performance.now();
 });
@@ -1410,6 +1428,7 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
 
 const keys = new Set();
 let mouseTurn = 0;
+const COARSE = matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints > 0 && matchMedia("(hover: none)").matches);   // Smartphone oder Tablet
 const down = a => settings.binds[a].some(k => k && keys.has(k));
 const isBound = (a, k) => settings.binds[a].includes(k);
 const keyName = e => e.code === "Space" ? " " : e.code === "Enter" || e.code === "NumpadEnter" ? "enter" : e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -1536,6 +1555,7 @@ function renderOptions() {
 }
 
 addEventListener("keydown", e => {
+  if (e.target === kbd) return;   // Bildschirmtastatur: eigene Behandlung oben
   rawKey = e.key;
   const k = keyName(e);
   if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace", "F4", "PageUp", "PageDown"].includes(k)) e.preventDefault();
@@ -1550,6 +1570,7 @@ const TITLE_BTNS = [{ x: 50, y: 455, w: 200, h: 44, key: "n" }, { x: 265, y: 455
 screen.addEventListener("mousedown", e => {
   e.preventDefault();
   audioUnlock();
+  if (COARSE) { mobileFullscreen(); setTimeout(syncKbd, 0); }
   const mk = "Mouse" + e.button;
   if (state === ST.OPTIONS) {
     if (optWaiting) assignBind(mk);
@@ -1566,7 +1587,7 @@ screen.addEventListener("mousedown", e => {
     }
     if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN, ST.CREDITS, ST.OUTRO].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
-  if (state === ST.PLAY && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
+  if (state === ST.PLAY && !COARSE && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
   if (state === ST.PLAY) onKeyPress(mk); else if (e.button === 0 && state !== ST.LOBBY) onKeyPress("enter");
 });
@@ -1578,10 +1599,73 @@ addEventListener("mousemove", e => {
   }
   if (document.pointerLockElement === screen && settings.mouseLook) mouseTurn += e.movementX * (settings.invert ? -1 : 1);
 });
-document.querySelectorAll("#touch [data-k]").forEach(b => {
-  const k = b.dataset.k;
-  b.addEventListener("pointerdown", e => { e.preventDefault(); audioUnlock(); keys.add(k); onKeyPress(k === " " ? "enter" : k); });
-  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => b.addEventListener(ev, () => keys.delete(k)));
+// ---- Smartphone: linke Haelfte = virtueller Stick (laufen, seitwaerts), rechte Haelfte wischen = drehen,
+// Feuerknopf (beim Halten ebenfalls zum Drehen wischbar), Ausweichen und Pause. Nur sichtbar, solange gespielt wird.
+const touchMv = { x: 0, y: 0 }; let touchFire = false;
+function openPause() { if (isMP()) mpMenu = true; else state = ST.PAUSE; pausedAt = performance.now(); keys.clear(); }
+function touchDodge() {
+  if (dodgeCd > 0 || dodgeT > 0 || me.dead) return;
+  let f = touchMv.y, sd = touchMv.x; if (!f && !sd) f = 1;
+  const l = Math.hypot(f, sd); f /= l; sd /= l; if (invertT > 0) sd = -sd;
+  dodgeX = dirX * f - dirY * sd; dodgeY = dirY * f + dirX * sd;
+  dodgeT = DODGE_TIME; dodgeCd = DODGE_TIME + DODGE_COOLDOWN; sfx("DODGE");
+}
+function mobileFullscreen() {   // Querformat im Vollbild (wo der Browser das erlaubt)
+  if (IN_APP || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+  document.documentElement.requestFullscreen().then(() => screen.orientation?.lock?.("landscape").catch(() => { })).catch(() => { });
+}
+{
+  const layer = document.getElementById("touch"), base = document.getElementById("stickBase"), knob = document.getElementById("stickKnob");
+  const fireB = document.getElementById("tFire"), R = 62, looks = new Map();
+  let stickId = null, sx = 0, sy = 0;
+  const look = e => { if (!looks.has(e.pointerId)) return; mouseTurn += (e.clientX - looks.get(e.pointerId)) * 2.4 * (settings.invert ? -1 : 1); looks.set(e.pointerId, e.clientX); };
+  const release = e => {
+    if (e.pointerId === stickId) { stickId = null; touchMv.x = touchMv.y = 0; base.style.display = "none"; }
+    looks.delete(e.pointerId);
+  };
+  layer.addEventListener("pointerdown", e => {
+    if (e.target !== layer) return;
+    e.preventDefault(); audioUnlock(); mobileFullscreen();
+    if (e.clientX < innerWidth * .45 && stickId === null) {
+      stickId = e.pointerId; sx = e.clientX; sy = e.clientY;
+      base.style.left = sx + "px"; base.style.top = sy + "px"; base.style.display = "block"; knob.style.transform = "";
+    } else looks.set(e.pointerId, e.clientX);
+    try { layer.setPointerCapture(e.pointerId); } catch (err) { }
+  });
+  layer.addEventListener("pointermove", e => {
+    if (e.pointerId === stickId) {
+      let dx = e.clientX - sx, dy = e.clientY - sy; const l = Math.hypot(dx, dy);
+      if (l > R) { dx *= R / l; dy *= R / l; }
+      knob.style.transform = "translate(" + dx + "px," + dy + "px)";
+      touchMv.x = Math.abs(dx / R) > .25 ? dx / R : 0; touchMv.y = Math.abs(dy / R) > .25 ? -dy / R : 0;
+    } else look(e);
+  });
+  ["pointerup", "pointercancel"].forEach(ev => layer.addEventListener(ev, release));
+  fireB.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); audioUnlock(); touchFire = true; looks.set(e.pointerId, e.clientX); try { fireB.setPointerCapture(e.pointerId); } catch (err) { } });
+  fireB.addEventListener("pointermove", look);
+  ["pointerup", "pointercancel"].forEach(ev => fireB.addEventListener(ev, e => { touchFire = false; looks.delete(e.pointerId); }));
+  document.getElementById("tDodge").addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); touchDodge(); });
+  document.getElementById("tPause").addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); openPause(); });
+}
+// ---- Bildschirmtastatur fuer Namen, Codes und Chat: ein unsichtbares Eingabefeld bekommt den Fokus
+const kbd = document.getElementById("kbd");
+const wantText = () => !!edit || chatTyping || codeAsk || state === ST.NAMEENTRY;
+function syncKbd() {
+  if (!COARSE) return;
+  if (wantText()) { if (document.activeElement !== kbd) { kbd.value = " "; kbd.focus(); } }
+  else if (document.activeElement === kbd) kbd.blur();
+}
+kbd.value = " ";
+kbd.addEventListener("input", () => {
+  const v = kbd.value;
+  if (v.length < 1) onKeyPress("Backspace"); else for (const ch of v.slice(1)) onKeyPress(ch === " " ? " " : ch.toLowerCase());
+  kbd.value = " ";
+});
+kbd.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); onKeyPress("enter"); }
+  else if (e.key === "Escape") onKeyPress("Escape");
+  else if (e.key === "Backspace" && kbd.value.length <= 1) { e.preventDefault(); onKeyPress("Backspace"); }
+  syncKbd();
 });
 // F4: Vollbild an/aus. In der App schaltet das Fenster selbst um (Adresse wird von der App abgefangen).
 function toggleFullscreen() { setFullscreen(!fsOn); }
@@ -1631,6 +1715,7 @@ function onKeyPress(k) {
       if (k === "e" && !isHost()) { me.ready = !me.ready; netSend({ t: "ready", ready: me.ready }); sfx(me.ready ? "KACHING" : "HIT"); break; }
       if (k === "k") { editNick(); break; }
       if (k === "g" && isHost()) { editGameName(); break; }
+      if (k === "y" && net.online && net.code) { copyCode(); break; }
       if (k === "c") {
         me.avatar = me.avatar === "f" ? "m" : "f"; settings.avatar = me.avatar; saveSettings(); sfx("HIT");
         if (isHost()) hostSendLobby(); else netSend({ t: "avatar", avatar: me.avatar });
@@ -1736,9 +1821,10 @@ function updateGame(dt) {
     if (down("turnR")) turn += 1;
     if (down("strafeL")) side -= 1;
     if (down("strafeR")) side += 1;
+    fwd += touchMv.y; side += touchMv.x;
     let ang = turn * rot + mouseTurn * .0006 * settings.sens;
     if (invertT > 0) { ang = -ang; side = -side; }
-    if (down("fire")) shoot();
+    if (down("fire") || touchFire) shoot();
     if (ang) {
       const c = Math.cos(ang), s = Math.sin(ang);
       [dirX, dirY] = [dirX * c - dirY * s, dirX * s + dirY * c];
@@ -1780,7 +1866,7 @@ function updateGame(dt) {
     for (const pl of players) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
-      if (it.type === 3) { it.active = false; hasKey = true; sayAll(L(`${keyColName()} KEYCARD! THE VAULT IS OPEN`, `${keyColName()} KEYCARD! DER TRESOR IST OFFEN`), 2.5); sfxAll("KACHING"); break; }
+      if (it.type === 3) { it.active = false; hasKey = true; sayAll(L(`${keyColName()} KEYCARD! THE VAULT IS OPEN`, `${keyColName()} KEYCARD! DER TRESOR IST OFFEN`), 2.5); sfxAll("KEYCARD"); break; }
       if (it.type === 0) { if (pl.ammo >= 99) continue; const n = HC() ? 7 : 10; pl.ammo = Math.min(99, pl.ammo + n); sayTo(pl, `CASHFLOW +${n}`, 1.2); }
       else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `${L("DIVIDEND PAID", "DIVIDENDE AUSGESCHÜTTET")} +${n} %`, 1.2); }
       it.active = false; addScore(pl, 25);
@@ -2562,7 +2648,7 @@ function renderHUD() {
   }
   text(String(me.ammo), 410, HUD_Y + 32, me.ammo > 5 ? "#78e68c" : "#ff5050", 38);
   text(`P&L +$${me.score.toLocaleString(LOC())}${!isMP() && me.deaths ? `  ·  ☠ ${me.deaths}` : ""}`, 560, HUD_Y + 10, "#50ff82", 17);
-  if (settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && !me.dead)
+  if (!COARSE && settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && !me.dead)
     text(L("CLICK THE VIEW FOR MOUSE LOOK", "KLICK INS BILD FÜR MAUSSTEUERUNG"), DW / 2, HUD_Y - 30, "rgba(255,255,255,.75)", 15, "center");
   if (mode === "team" || mode === "dm") {
     text(`⏱ ${fmtTime(roundT)}`, DW - 14, HUD_Y + 10, roundT < 30 ? "#ff5050" : "#dcdce6", 17, "right");
@@ -2710,9 +2796,13 @@ function renderLobby() {
     text(`${L("“", "„")}${gname}${L("”", "“")}${isHost() ? "  ✎ [G]" : ""}`, DW / 2, 70, "#c8c8d7", 15, "center");
     if (isHost()) { g.font = FONT(15); const w = g.measureText(`„${gname}“  ✎ [G]`).width; zone(DW / 2 - w / 2, 66, w, 22, "g"); }
   }
-  if (net.online && net.code) {   // Online: Code zum Weitergeben
-    text(`CODE ${net.code}`, DW - 80, 30, "#ffd232", 24, "right");
-    text(net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE – SHARE THE CODE", "ONLINE · PRIVAT – CODE WEITERGEBEN"), DW - 80, 58, net.pub ? "#50c8ff" : "#c890ff", 12, "right");
+  if (net.online && net.code) {   // Online: Code gross zum Weitergeben, mit Kopierknopf
+    const bx = 690, by = 14, bw = 200, bh = 72;
+    g.fillStyle = "#1a1400"; g.fillRect(bx, by, bw, bh); g.strokeStyle = "#ffd232"; g.lineWidth = 3; g.strokeRect(bx, by, bw, bh);
+    text(L("GAME CODE", "SPIEL-CODE"), bx + bw / 2, by + 6, "#ffd232", 12, "center");
+    text(net.code.split("").join(" "), bx + bw / 2, by + 24, "#ffffff", 34, "center");
+    zoneButton(bx, by + bh + 6, bw, 24, L("[Y] COPY CODE", "[Y] CODE KOPIEREN"), "#ffd232", "y", 13);
+    text(net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE", "ONLINE · PRIVAT"), bx + bw / 2, by + bh + 36, net.pub ? "#50c8ff" : "#c890ff", 12, "center");
   }
   if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDE MIT SPIEL-SERVER …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16); return; }
   const host = isHost();
@@ -2802,7 +2892,7 @@ function scoreboard(y0) {
       : `${p.score.toLocaleString(LOC())} P&L · ${p.kills} KILLS · ${p.deaths || 0} ${L("DEATHS", "TODE")}`, DW - 60, y, "#50ff82", 16, "right");
   });
 }
-const CREDITS = "Made by Wolfgang Rabenstein";
+const CREDITS = `Made by Wolfgang Rabenstein  ·  v${APP_VERSION}`;   // mit Spielversion
 function renderEnd(title, sub, col, bull) {
   chartBackground(bull ? "#145a2d" : "#282828", bull ? "#282828" : "#6e1919");
   g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 70, DW, 380);
@@ -2982,6 +3072,13 @@ function genSfx() {
       addNoise(o, 0, .3, .9, 0, .35, .5, t => Math.sin(Math.PI * Math.min(1, t / .26)) ** 2);
       addSweep(o, 0, .08, 140, 60, .6, 30);
       fadeOut(o, .05); return o;
+    },
+    KEYCARD() {   // Karte durch den Leser ziehen, zwei Pieptoene, heller Gong: Zugang gewaehrt
+      const o = buf(.65);
+      addNoise(o, 0, .07, .35, 0, .5, .6, t => Math.sin(Math.PI * t / .07));
+      addSweep(o, .09, .09, 1320, 1320, .45, 6, "sq"); addSweep(o, .2, .12, 1760, 1760, .45, 6, "sq");
+      addBell(o, .2, 2093, [[1, 1, 7], [2.01, .4, 10], [3, .2, 14]], .5, .4);
+      lowpass(o, .5); fadeOut(o, .05); return o;
     },
     LASER() { const o = buf(.14); addSweep(o, 0, .14, 2600, 700, .5, 10, "sq", .5); addSweep(o, 0, .14, 2650, 720, .3, 10, "sq", .5); lowpass(o, .5); return o; },
   };
@@ -3391,18 +3488,28 @@ function onlineAskKey(k) {
   if (k === "enter") { settings.onlineMP = true; saveSettings(); state = onlineBack; openOnline(); }
   else if (k === "Escape" || k === "n") state = onlineBack;
 }
+let codeAsk = false;   // Dialog "Privatem Spiel beitreten" offen
+function copyCode() {
+  try { navigator.clipboard.writeText(net.code).then(() => { lobbyNote = L("CODE COPIED", "CODE KOPIERT"); lobbyNoteT = 2; sfx("HIT"); }).catch(() => { }); } catch (e) { }
+}
 function onlineKey(k) {
-  if (k === "Escape") { if (codeText) codeText = ""; else state = onlineBack; return; }
+  if (codeAsk) {
+    if (k === "Escape") { codeAsk = false; codeText = ""; return; }
+    if (k === "Backspace") { codeText = codeText.slice(0, -1); return; }
+    if (k === "enter") { if (codeText.length === 5) { codeAsk = false; joinOnline(codeText); } return; }
+    const c = k.length === 1 ? k.toUpperCase() : "";
+    if (c && CODE_CHARS.includes(c) && codeText.length < 5) codeText += c;
+    return;
+  }
+  if (k === "Escape") { state = onlineBack; return; }
   if (k.startsWith("room:")) { const r = onlineRooms[+k.slice(5)]; if (r) joinOnline(r.code); return; }
   if (k === "ArrowUp") { onlineSel = Math.max(0, onlineSel - 1); return; }
   if (k === "ArrowDown") { onlineSel = Math.min(Math.max(0, Math.min(6, onlineRooms.length) - 1), onlineSel + 1); return; }
-  if (k === "Backspace") { codeText = codeText.slice(0, -1); return; }
-  if (k === "enter") { if (codeText.length === 5) joinOnline(codeText); else if (!codeText && onlineRooms[onlineSel]) joinOnline(onlineRooms[onlineSel].code); return; }
-  if (k === "h") { hostOnline(true); return; }
-  if (k === "p") { hostOnline(false); return; }
-  if (k === "k") { editNick(); return; }
-  const c = k.length === 1 ? k.toUpperCase() : "";
-  if (c && CODE_CHARS.includes(c) && codeText.length < 5) codeText += c;
+  if (k === "enter") { if (onlineRooms[onlineSel]) joinOnline(onlineRooms[onlineSel].code); return; }
+  if (k === "h") hostOnline(true);
+  else if (k === "p") hostOnline(false);
+  else if (k === "j") { codeAsk = true; codeText = ""; }
+  else if (k === "k") editNick();
 }
 function renderOnlineAsk() {
   chartBackground("#123a26", "#3a1414");
@@ -3426,27 +3533,39 @@ function renderOnline() {
   chartBackground("#123a26", "#3a1414");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(120, 30, DW - 240, 480);
   text(L("ONLINE PLAY", "ONLINE SPIELEN"), DW / 2, 42, "#ffd232", 36, "center");
-  zoneButton(300, 90, 360, 30, myNick() + "   ✎ [K]", "#ffd232", "k", 17);
-  zoneButton(150, 132, 320, 40, L("[H] HOST PUBLIC GAME", "[H] ÖFFENTLICHES SPIEL"), "#50c8ff", "h", 18);
-  zoneButton(490, 132, 320, 40, L("[P] HOST PRIVATE GAME", "[P] PRIVATES SPIEL"), "#c890ff", "p", 18);
-  text(L("Private games don't appear in the list – share the code with your friends.", "Private Spiele stehen nicht in der Liste – teile den Code mit deinen Freunden."), DW / 2, 180, "#8290b0", 13, "center");
-  text(L("OPEN GAMES", "OFFENE SPIELE"), 150, 206, "#6b7896", 13);
+  zoneButton(300, 88, 360, 30, myNick() + "   ✎ [K]", "#ffd232", "k", 17);
+  zoneButton(150, 128, 320, 40, L("[H] HOST PUBLIC GAME", "[H] ÖFFENTLICHES SPIEL"), "#50c8ff", "h", 18);
+  zoneButton(490, 128, 320, 40, L("[P] HOST PRIVATE GAME", "[P] PRIVATES SPIEL"), "#c890ff", "p", 18);
+  zoneButton(300, 178, 360, 40, L("[J] JOIN PRIVATE GAME", "[J] PRIVATEM SPIEL BEITRETEN"), "#ff90d0", "j", 18);
+  text(L("Private games don't appear in the list – they are joined with their code.", "Private Spiele stehen nicht in der Liste – man tritt ihnen mit ihrem Code bei."), DW / 2, 226, "#8290b0", 13, "center");
+  text(L("OPEN GAMES", "OFFENE SPIELE"), 150, 252, "#6b7896", 13);
   if (!onlineRooms.length) {
     const dots = ".".repeat(1 + Math.floor(gameTime * 2) % 3);
-    text(L("No open games right now", "Gerade keine offenen Spiele") + dots, DW / 2, 250, "#a0a0b4", 17, "center");
-    text(L("Host one yourself – it will show up here for everyone with the same game version.", "Hoste selbst eines – es erscheint hier für alle mit derselben Spielversion."), DW / 2, 278, "#6b7896", 13, "center");
+    text(L("No open games right now", "Gerade keine offenen Spiele") + dots, DW / 2, 300, "#a0a0b4", 17, "center");
+    text(L("Host one yourself – it will show up here for everyone with the same game version.", "Hoste selbst eines – es erscheint hier für alle mit derselben Spielversion."), DW / 2, 328, "#6b7896", 13, "center");
   }
-  onlineRooms.slice(0, 6).forEach((r, i) => {
-    const y = 224 + i * 34, sel = i === onlineSel && !codeText;
+  onlineRooms.slice(0, 5).forEach((r, i) => {
+    const y = 270 + i * 34, sel = i === onlineSel;
     const label = (r.name || "?") + (r.host ? "  ·  " + r.host : "") + "  ·  " + modeName(r.mode | 0) + "  ·  " + r.players + "/4";
     zoneButton(150, y, DW - 300, 30, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "room:" + i, 15);
   });
-  text(L("OR ENTER A CODE", "ODER CODE EINGEBEN"), 150, 434, "#6b7896", 13);
-  g.strokeStyle = codeText ? "#50ff82" : "#2a3656"; g.lineWidth = 2; g.strokeRect(150, 452, 200, 40);
-  text((codeText || (Math.floor(gameTime * 3) % 2 ? "" : "R7QXM")) + (codeText && Math.floor(gameTime * 3) % 2 ? "▌" : ""), 166, 461, codeText ? "#ffffff" : "#4a5672", 22);
-  zoneButton(370, 452, 210, 40, L("[ENTER] JOIN", "[ENTER] BEITRETEN"), "#50ff82", "enter", 16);
-  zoneButton(600, 452, 210, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(390, 456, 180, 36, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
   text(L("Version", "Version") + " " + APP_VERSION, DW - 130, 488, "#4a5672", 12, "right");
+  if (codeAsk) {   // Dialog: Code eines privaten Spiels eingeben
+    g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
+    g.fillStyle = "#07090f"; g.fillRect(230, 140, 500, 260); g.strokeStyle = "#ff90d0"; g.lineWidth = 2; g.strokeRect(230, 140, 500, 260);
+    text(L("JOIN PRIVATE GAME", "PRIVATEM SPIEL BEITRETEN"), DW / 2, 158, "#ff90d0", 24, "center");
+    text(L("Enter the 5-character code from the host's lobby", "Gib den 5-stelligen Code aus der Lobby des Hosts ein"), DW / 2, 194, "#a0a0b4", 14, "center");
+    for (let i = 0; i < 5; i++) {
+      const x = 300 + i * 74, cur = i === codeText.length && Math.floor(gameTime * 3) % 2;
+      g.fillStyle = "#11161f"; g.fillRect(x, 222, 60, 70); g.strokeStyle = i < codeText.length ? "#50ff82" : cur ? "#ffd232" : "#2a3656"; g.lineWidth = 2; g.strokeRect(x, 222, 60, 70);
+      if (codeText[i]) text(codeText[i], x + 30, 236, "#ffffff", 40, "center");
+      zone(x, 222, 60, 70, "codefield");
+    }
+    zoneButton(270, 322, 200, 40, L("[ENTER] JOIN", "[ENTER] BEITRETEN"), codeText.length === 5 ? "#50ff82" : "#3a5a44", "enter", 16);
+    zoneButton(490, 322, 200, 40, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#8290b0", "Escape", 16);
+    if (COARSE) text(L("Tap a field to open the keyboard", "Tippe auf ein Feld für die Tastatur"), DW / 2, 376, "#6b7896", 12, "center");
+  }
 }
 
 function renderJoin() {
@@ -3557,6 +3676,13 @@ function frame(now) {
   g.imageSmoothingEnabled = false;
   netMsgT -= dt;
   clickZones = [];   // Klickflaechen werden beim Zeichnen jedes Bildes neu registriert
+  if (COARSE) {
+    const playing = state === ST.PLAY && !mpMenu && !chatTyping && !(me && me.dead);
+    if (document.body.classList.toggle("playing", playing) !== playing) { }
+    if (!playing) { touchMv.x = touchMv.y = 0; touchFire = false; }
+    document.getElementById("tFire").textContent = L("FIRE", "FEUER");
+    document.getElementById("rotate").textContent = L("↻  Turn your phone sideways", "↻  Dreh dein Handy quer");
+  }
   musicSchedule();   // sofort reagieren, wenn Pause an/aus geht
   if (serverGone) {   // Spiel einfrieren, bis der Server wieder da ist
     g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 170, DW, 170);

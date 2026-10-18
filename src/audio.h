@@ -19,6 +19,7 @@ enum SfxId {
   SFX_ID_OIL,       // Oelfass / Oelschlick
   SFX_ID_LASER,     // Trading-Bot-Laser
   SFX_ID_DODGE,     // Ausweichen (Whoosh)
+  SFX_ID_KEYCARD,   // Keycard aufgehoben (Zugang gewaehrt)
   SFX_COUNT
 };
 

@@ -11,7 +11,7 @@ struct SfxDef { const int8_t* data; size_t len; uint8_t ch; };
 static const SfxDef SFX_TABLE[SFX_COUNT] = {
   SFX(KACHING, 3), SFX(COINS, 3), SFX(SHOT, 1), SFX(HIT, 2), SFX(STAMP, 2), SFX(PHONE, 5),
   SFX(ZAP, 4), SFX(BELL, 6), SFX(CRASH, 6), SFX(DECLINED, 7), SFX(POP, 2),
-  SFX(BULL, 7), SFX(ROAR, 7), SFX(GLITCH, 6), SFX(OIL, 4), SFX(LASER, 4), SFX(DODGE, 3),
+  SFX(BULL, 7), SFX(ROAR, 7), SFX(GLITCH, 6), SFX(OIL, 4), SFX(LASER, 4), SFX(DODGE, 3), SFX(KEYCARD, 3),
 };
 
 void sfxPlay(SfxId id) {
