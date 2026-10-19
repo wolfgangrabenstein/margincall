@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.21.2 – Lives in the HUD, full price charts (2026-10-19)
+
+- **Lives visible:** In normal mode, hearts at the top right of the HUD show how many lives are left (hardcore: one heart). The stats overlay (Tab) also shows "Lives left".
+- **Price charts on the walls:** Shortly after the market opens there were only a few price points, so the charts looked flat and blocky. They now always show the latest ~78 price points (about one trading day), including the previous day if needed. Applies to browser, app and Cardputer.
+- **Solo choice:** the Normal button no longer has an arrow icon.
+
 ## Version 3.21.1 – Back button in the solo dialog (2026-10-19)
 
 - **Bug fix:** Clicking **Back** in the solo choice still started the game, because the "Play solo" button underneath was clicked as well. Main menu dialogs now only accept clicks on their own buttons.

@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.21.1";
+const APP_VERSION = "3.21.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -2821,6 +2821,10 @@ function renderHUD() {
   }
   text(String(me.ammo), 410, HUD_Y + 32, me.ammo > 5 ? "#78e68c" : "#ff5050", 38);
   text(`P&L +$${me.score.toLocaleString(LOC())}${!isMP() && me.deaths ? `  ·  ☠ ${me.deaths}` : ""}`, 560, HUD_Y + 10, "#50ff82", 17);
+  if (!isMP() && !EZ() && !island) {   // Leben als Herzen rechts oben im HUD (Normal 5, Hardcore 1)
+    const max = HC() ? 1 : SOLO_LIVES, left = HC() ? (me.dead ? 0 : 1) : livesLeft();
+    for (let i = 0; i < max; i++) text("♥", 940 - (max - i) * 22, HUD_Y + 8, i < left ? "#ff4060" : "#3a3f55", 20);
+  }
   if (!COARSE && settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && !me.dead)
     text(L("CLICK THE VIEW FOR MOUSE LOOK", "KLICK INS BILD FÜR MAUSSTEUERUNG"), DW / 2, HUD_Y - 30, "rgba(255,255,255,.75)", 15, "center");
   if (mode === "team" || mode === "dm") {
@@ -2854,7 +2858,7 @@ function renderHUD() {
     const m = levelMarket();
     const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
     if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
-    else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : isMP() ? "" : "  ·  ♥ " + livesLeft()}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
+    else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   for (const p of hurtPops) {   // Schaden faellt wie ein Kurssturz durchs Bild
@@ -3808,7 +3812,7 @@ function renderSoloAsk() {
     lines.forEach((l, i) => text(l, x + 100, 252 + i * 20, lc, 14, "center"));
   };
   col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives,", "unbegrenzt Leben,"), L("0.6× points", "0,6-fache Punkte")], "#b4dcf0");
-  col(380, "▶  [ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives –`, `${SOLO_LIVES} Leben –`), L("broke? A new loan", "pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
+  col(380, "[ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives –`, `${SOLO_LIVES} Leben –`), L("broke? A new loan", "pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
   col(590, "☠  [X] HARDCORE", "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
   zoneButton(380, 362, 200, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
 }
@@ -3834,13 +3838,14 @@ function renderMpMenu() {
 // ---------------------------------------------------------------- Statistik-Einblendung (Tab gedrueckt halten)
 function renderScoreOverlay() {
   const mp = isMP(), rows = mp ? [...players].sort((a, b) => b.score - a.score) : [me];
-  const h = mp ? 92 + rows.length * 34 : 200, y0 = Math.max(40, (HUD_Y - h) / 2);
+  const h = mp ? 92 + rows.length * 34 : 226, y0 = Math.max(40, (HUD_Y - h) / 2);
   g.fillStyle = "rgba(4,8,18,.9)"; g.fillRect(150, y0, DW - 300, h);
   g.strokeStyle = "#28c86e"; g.lineWidth = 2; g.strokeRect(150, y0, DW - 300, h);
   if (!mp) {
     text(L("YOUR RUN", "DEIN LAUF"), DW / 2, y0 + 14, "#ffd232", 26, "center");
     [["P&L", `+$${me.score.toLocaleString(LOC())}`, "#50ff82"], ["LEVEL", `${level + 1} / ${NUM_LEVELS}`, "#e6e6f0"],
      ["KILLS", String(me.kills), "#e6e6f0"], [L("DEATHS", "TODE"), String(me.deaths || 0), me.deaths ? "#ff7050" : "#e6e6f0"],
+     [L("LIVES LEFT", "LEBEN ÜBRIG"), EZ() ? "∞" : HC() ? "1 / 1" : `${livesLeft()} / ${SOLO_LIVES}`, "#ff4060"],
      [L("MARKET CLEANUP", "MARKTBEREINIGUNG"), String(marketKills), "#a0a0b4"]].forEach(([k, v, c], i) => {
       text(k, 260, y0 + 56 + i * 26, "#8290b0", 16); text(v, DW - 260, y0 + 56 + i * 26, c, 18, "right");
     });

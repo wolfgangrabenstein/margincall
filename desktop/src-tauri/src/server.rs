@@ -297,7 +297,8 @@ fn lan_ip() -> String {
 
 // ------------------------------------------------------------------ Kurse
 fn fetch_one(symbol: &str, interval: &str) -> Option<Value> {
-    let url = format!("https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval={interval}");
+    // 5 Tage abfragen und die letzten Punkte behalten, damit der Verlauf kurz nach Boersenstart nicht fast leer ist
+    let url = format!("https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval={interval}");
     let v: Value = ureq::get(&url)
         .set("User-Agent", "Mozilla/5.0 (MarginCall Desktop)")
         .timeout(Duration::from_secs(10))
@@ -308,12 +309,13 @@ fn fetch_one(symbol: &str, interval: &str) -> Option<Value> {
     let r = &v["chart"]["result"][0];
     let round2 = |x: f64| (x * 100.0).round() / 100.0;
     let mut closes: Vec<f64> = r["indicators"]["quote"][0]["close"].as_array()?.iter().filter_map(|x| x.as_f64()).map(round2).collect();
-    while closes.len() > 96 {
-        closes = closes.chunks(2).filter(|c| c.len() == 2).map(|c| round2((c[0] + c[1]) / 2.0)).collect();
+    let keep = if interval == "5m" { 78 } else { 96 };   // ~1 Handelstag (Indizes) bzw. 24 h (Oel)
+    if closes.len() > keep {
+        closes.drain(..closes.len() - keep);
     }
     Some(json!({
         "p": r["meta"]["regularMarketPrice"].as_f64()?,
-        "prev": r["meta"]["chartPreviousClose"].as_f64()?,
+        "prev": r["meta"]["previousClose"].as_f64().or_else(|| r["meta"]["chartPreviousClose"].as_f64())?,
         "s": closes,
     }))
 }

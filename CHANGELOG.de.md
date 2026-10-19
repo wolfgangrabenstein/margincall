@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.21.2 – Leben im HUD, volle Kursverläufe (19.10.2026)
+
+- **Leben sichtbar:** Im Normalmodus zeigen Herzen rechts oben im HUD, wie viele Leben noch übrig sind (Hardcore: ein Herz). In der Statistik (Tab) steht zusätzlich „Leben übrig“.
+- **Kurs-Charts an den Wänden:** Kurz nach Börsenstart gab es nur wenige Kurspunkte, die Charts wurden dadurch flach und blockig. Jetzt zeigen sie immer die letzten rund 78 Kurspunkte (etwa ein Handelstag), bei Bedarf mit dem Vortag davor. Gilt für Browser, App und Cardputer.
+- **Solo-Auswahl:** Der Knopf Normal kommt ohne Pfeil-Symbol aus.
+
 ## Version 3.21.1 – Zurück-Knopf im Solo-Dialog (19.10.2026)
 
 - **Fehler behoben:** Ein Mausklick auf **Zurück** in der Solo-Auswahl startete trotzdem das Spiel, weil der Knopf „Solo spielen“ darunter mitgeklickt wurde. Dialoge im Hauptmenü nehmen jetzt nur noch Klicks auf ihre eigenen Knöpfe an.

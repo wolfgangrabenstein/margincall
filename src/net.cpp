@@ -125,18 +125,13 @@ static bool readNumber(Reader& r, float& out, int& term) {
   return true;
 }
 
-static void seriesPush(Market& m, float v, int& stride, int& cnt, float& acc) {
-  acc += v; cnt++;
-  if (cnt < stride) return;
-  if (m.n >= SERIES_MAX) {   // halbieren: je zwei Werte mitteln
-    for (int i = 0; i < SERIES_MAX / 2; i++) m.series[i] = (m.series[2 * i] + m.series[2 * i + 1]) * 0.5f;
-    m.n = SERIES_MAX / 2; stride *= 2;
-  }
-  m.series[m.n++] = acc / cnt; acc = 0; cnt = 0;
-}
 
-static bool parseChart(Stream* s, Market& m) {
-  static const char* KEYS[3] = {"\"regularMarketPrice\":", "\"chartPreviousClose\":", "\"close\":["};
+// 5 Tage werden abgefragt; behalten werden nur die letzten "keep" Werte (Ringpuffer), damit der Verlauf
+// kurz nach Boersenstart nicht nur aus wenigen Punkten besteht
+static bool parseChart(Stream* s, Market& m, int keep) {
+  static const char* KEYS[3] = {"\"regularMarketPrice\":", "\"previousClose\":", "\"close\":["};
+  static float ring[SERIES_MAX];
+  if (keep > SERIES_MAX) keep = SERIES_MAX;
   int match[3] = {0, 0, 0};
   Reader r; r.s = s; r.deadline = millis() + 10000;
   float price = NAN, prev = NAN;
@@ -153,11 +148,14 @@ static bool parseChart(Stream* s, Market& m) {
         if (k == 0) { if (readNumber(r, v, term)) price = v; }
         else if (k == 1) { if (readNumber(r, v, term)) prev = v; }
         else if (!gotSeries) {
-          int stride = 1, cnt = 0; float acc = 0;
+          int total = 0;
           do {
             bool ok = readNumber(r, v, term);
-            if (ok) seriesPush(m, v, stride, cnt, acc);
+            if (ok) ring[total++ % keep] = v;
           } while (term == ',');
+          const int cnt = total < keep ? total : keep, start = total - cnt;
+          for (int i = 0; i < cnt; i++) m.series[i] = ring[(start + i) % keep];
+          m.n = cnt;
           gotSeries = true;
         }
       }
@@ -188,10 +186,10 @@ int marketsFetch(void (*progress)(int, bool)) {
       http.setUserAgent("Mozilla/5.0 (MarginCall Cardputer)");
       String interval = (i == M_OIL) ? "15m" : "5m";
       String url = String("https://query1.finance.yahoo.com/v8/finance/chart/") + markets[i].symbol +
-                   "?range=1d&interval=" + interval;
+                   "?range=5d&interval=" + interval;
       if (http.begin(client, url)) {
         int code = http.GET();
-        if (code == 200) good = parseChart(http.getStreamPtr(), markets[i]);
+        if (code == 200) good = parseChart(http.getStreamPtr(), markets[i], i == M_OIL ? 96 : 78);
         http.end();
       }
     }

@@ -69,18 +69,19 @@ function joinRoom(request, env, code) {
 }
 
 // ---- Live-Kurse fuer die Browser-Version (gleiches Format wie /api/market der App)
-const SYMBOLS = [["%5EDJI", "5m"], ["%5EGSPC", "5m"], ["%5ENDX", "5m"], ["CL%3DF", "15m"]];
+// 5 Tage abfragen und die letzten Punkte behalten (Indizes ~1 Handelstag in 5 Minuten, Oel 24 h in 15 Minuten):
+// so zeigen die Wand-Charts auch kurz nach Boersenstart einen vollen Verlauf statt nur weniger Punkte
+const SYMBOLS = [["%5EDJI", "5m", 78], ["%5EGSPC", "5m", 78], ["%5ENDX", "5m", 78], ["CL%3DF", "15m", 96]];
 const STOCKS = "GS,CAT,HD,JPM,BA,KO,AAPL,AMZN,GOOGL,META,LLY,BRK-B,NVDA,MSFT,AVGO,TSLA,NFLX,AMD,XOM,CVX";
 let marketCache = { t: 0, body: null };
 const yahoo = u => fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (MarginCall)" } }).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
 async function market() {
   if (marketCache.body && Date.now() - marketCache.t < 120_000) return marketCache.body;
-  const markets = await Promise.all(SYMBOLS.map(async ([sym, iv]) => {
+  const markets = await Promise.all(SYMBOLS.map(async ([sym, iv, keep]) => {
     try {
-      const d = (await yahoo("https://query1.finance.yahoo.com/v8/finance/chart/" + sym + "?range=1d&interval=" + iv)).chart.result[0];
-      let s = d.indicators.quote[0].close.filter(x => x !== null).map(x => Math.round(x * 100) / 100);
-      while (s.length > 96) { const h = []; for (let i = 0; i + 1 < s.length; i += 2) h.push(Math.round((s[i] + s[i + 1]) * 50) / 100); s = h; }
-      return { p: d.meta.regularMarketPrice, prev: d.meta.chartPreviousClose, s };
+      const d = (await yahoo("https://query1.finance.yahoo.com/v8/finance/chart/" + sym + "?range=5d&interval=" + iv)).chart.result[0];
+      const s = d.indicators.quote[0].close.filter(x => x !== null).map(x => Math.round(x * 100) / 100).slice(-keep);
+      return { p: d.meta.regularMarketPrice, prev: d.meta.previousClose ?? d.meta.chartPreviousClose, s };
     } catch { return null; }
   }));
   const stocks = {};
