@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS scores (
   ver    TEXT    NOT NULL DEFAULT '',
   day    TEXT    NOT NULL,          -- YYYY-MM-DD (Europe/Vienna)
   ts     INTEGER NOT NULL,          -- Unix-Zeit in Sekunden
-  hc     INTEGER NOT NULL DEFAULT 0 -- 1 = Hardcore (eigene Rangliste)
+  hc     INTEGER NOT NULL DEFAULT 0 -- 0 = Normal, 1 = Hardcore, 2 = Einfach (je eigene Rangliste)
 );
 CREATE INDEX IF NOT EXISTS scores_hc_score ON scores (hc, score DESC);
 CREATE INDEX IF NOT EXISTS scores_hc_day   ON scores (hc, day, score DESC);

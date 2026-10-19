@@ -177,7 +177,7 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             respond(&mut out, 200, "application/json", body.as_bytes())
         }
         "/api/market" => respond(&mut out, 200, "application/json", markets_json().as_bytes()),
-        "/api/highscores" | "/api/highscores-hc" if method == "POST" => {
+        "/api/highscores" | "/api/highscores-hc" | "/api/highscores-easy" if method == "POST" => {
             // Nur vom eigenen Rechner: Mitspieler im WLAN duerfen die Liste nicht veraendern
             let local = out.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
             let len: usize = headers.get("content-length").and_then(|v| v.parse().ok()).unwrap_or(0);
@@ -186,11 +186,10 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             }
             let mut body = vec![0u8; len];
             reader.read_exact(&mut body)?;
-            let list = highscore_add(&body, path == "/api/highscores-hc");
+            let list = highscore_add(&body, hs_mode(path));
             respond(&mut out, 200, "application/json", list.as_bytes())
         }
-        "/api/highscores" => respond(&mut out, 200, "application/json", highscores_load(false).to_string().as_bytes()),
-        "/api/highscores-hc" => respond(&mut out, 200, "application/json", highscores_load(true).to_string().as_bytes()),
+        "/api/highscores" | "/api/highscores-hc" | "/api/highscores-easy" => respond(&mut out, 200, "application/json", highscores_load(hs_mode(path)).to_string().as_bytes()),
         "/api/games" => respond(&mut out, 200, "application/json", games_json().as_bytes()),
         "/api/host" if method == "POST" => {
             // Lobby-Status des eigenen Spiels (nur vom eigenen Rechner); active=false beendet die Ankuendigung
@@ -215,11 +214,20 @@ fn handle(stream: TcpStream) -> io::Result<()> {
 }
 
 // ------------------------------------------------------------------ Highscores (Einzelspieler)
-// Datei im Benutzerordner, damit die Liste App-Updates und Portwechsel ueberlebt; Hardcore hat eine eigene Liste.
+// Datei im Benutzerordner, damit die Liste App-Updates und Portwechsel ueberlebt; Hardcore und Einfach haben eigene Listen.
 const HIGHSCORE_MAX: usize = 10;
 static HS_LOCK: Mutex<()> = Mutex::new(());
 
-fn highscore_file(hc: bool) -> std::path::PathBuf {
+/// 0 = Normal, 1 = Hardcore, 2 = Einfach
+fn hs_mode(path: &str) -> u8 {
+    match path {
+        "/api/highscores-hc" => 1,
+        "/api/highscores-easy" => 2,
+        _ => 0,
+    }
+}
+
+fn highscore_file(mode: u8) -> std::path::PathBuf {
     let base = if cfg!(windows) {
         std::env::var("APPDATA").ok()
     } else if cfg!(target_os = "macos") {
@@ -227,11 +235,15 @@ fn highscore_file(hc: bool) -> std::path::PathBuf {
     } else {
         std::env::var("XDG_DATA_HOME").ok().or_else(|| std::env::var("HOME").ok().map(|h| format!("{h}/.local/share")))
     };
-    std::path::PathBuf::from(base.unwrap_or_else(|| ".".into())).join("MarginCall").join(if hc { "highscores-hardcore.json" } else { "highscores.json" })
+    std::path::PathBuf::from(base.unwrap_or_else(|| ".".into())).join("MarginCall").join(match mode {
+        1 => "highscores-hardcore.json",
+        2 => "highscores-easy.json",
+        _ => "highscores.json",
+    })
 }
 
-fn highscores_load(hc: bool) -> Value {
-    std::fs::read_to_string(highscore_file(hc))
+fn highscores_load(mode: u8) -> Value {
+    std::fs::read_to_string(highscore_file(mode))
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
         .filter(|v| v.is_array())
@@ -239,9 +251,9 @@ fn highscores_load(hc: bool) -> Value {
 }
 
 /// Prueft den neuen Eintrag, sortiert ihn ein, behaelt die besten 10 und speichert.
-fn highscore_add(body: &[u8], hc: bool) -> String {
+fn highscore_add(body: &[u8], mode: u8) -> String {
     let _guard = HS_LOCK.lock().unwrap();
-    let mut list: Vec<Value> = highscores_load(hc).as_array().cloned().unwrap_or_default();
+    let mut list: Vec<Value> = highscores_load(mode).as_array().cloned().unwrap_or_default();
     if let Ok(e) = serde_json::from_slice::<Value>(body) {
         let name: String = e["name"]
             .as_str()
@@ -260,7 +272,7 @@ fn highscore_add(body: &[u8], hc: bool) -> String {
             list.push(json!({ "name": name, "score": score, "level": level, "won": e["won"].as_bool().unwrap_or(false), "deaths": deaths, "date": date }));
             list.sort_by(|a, b| b["score"].as_i64().cmp(&a["score"].as_i64()));
             list.truncate(HIGHSCORE_MAX);
-            let file = highscore_file(hc);
+            let file = highscore_file(mode);
             if let Some(dir) = file.parent() {
                 let _ = std::fs::create_dir_all(dir);
             }

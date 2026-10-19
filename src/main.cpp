@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.21.3"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.22.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -339,7 +339,7 @@ static void genSprites() {
   for (int f = 0; f < 2; f++) {
     tclear(T);
     const float r = f ? 11.5f : 10.5f;
-    const uint32_t bc = RGB(150, 90, 0), spike = RGB(150, 20, 35);
+    const uint32_t bc = RGB(150, 90, 0), spike = f ? RGB(150, 20, 35) : RGB(30, 140, 75);   // Stacheln gruen, im Angriff rot
     for (int k = 0; k < 10; k++) {   // Stacheln rundherum
       const float an = k * 3.14159265f / 5 + (f ? 0.31f : 0), c = cosf(an), sn = sinf(an);
       ttri(16 + c * (r - 1) - sn * 2.2f, 16 + sn * (r - 1) + c * 2.2f, 16 + c * (r - 1) + sn * 2.2f, 16 + sn * (r - 1) - c * 2.2f, 16 + c * (r + 4), 16 + sn * (r + 4), spike);
@@ -1008,7 +1008,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   const TypeInfo& ti = TYPES[e.type];
   if (e.type == E_BUBBLE || e.type == E_BOT) e.gone = true;
   if (byPlayer) {
-    kills++; pnl += hardcore ? ti.pts * 3 / 2 : easy ? ti.pts * 3 / 5 : ti.pts;
+    kills++; pnl += hardcore ? ti.pts * 3 / 2 : ti.pts;
     char b[48];
     switch (e.type) {
       case E_BEAR:   say(island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BAER ERLEGT!")); break;

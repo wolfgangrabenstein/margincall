@@ -1,10 +1,10 @@
 // MARGIN CALL – Online-Rangliste, Online-Multiplayer und Kurse fuer die Browser-Version (Cloudflare Worker + D1)
 //
-//   GET  /scores?scope=all|day&hc=0|1&limit=100   Top-Liste (Gesamt bzw. heute; normal bzw. Hardcore)
-//   POST /scores  {name, score, level, won, deaths, ver, hc}
+//   GET  /scores?scope=all|day&hc=0|1|2&limit=100   Top-Liste (Gesamt bzw. heute; Normal, Hardcore bzw. Einfach)
+//   POST /scores  {name, score, level, won, deaths, ver, hc, mode}   (mode: 0 Normal, 1 Hardcore, 2 Einfach)
 //        -> {id, rank, total, dayRank, dayTotal}
 //
-// Normal und Hardcore sind getrennte Ranglisten (Spalte hc).
+// Normal, Hardcore und Einfach sind getrennte Ranglisten (Spalte hc: 0, 1, 2).
 // Gespeichert werden nur Name, Punkte, Level, Sieg, Tode, Modus, Spielversion und Zeitpunkt –
 // keine IP-Adressen. Der Tag richtet sich nach der Zeitzone Europe/Vienna.
 //
@@ -119,7 +119,7 @@ async function add(env, request) {
   // Plausibilitaet: ein Sieg setzt Level 5 voraus
   const won = e.won === true && level === 5 ? 1 : 0;
   const ver = cleanVer(e.ver);
-  const hc = e.hc === true ? 1 : 0;
+  const hc = e.mode === 2 ? 2 : e.hc === true || e.mode === 1 ? 1 : 0;
 
   if (ip) { recent.set(ip, now); if (recent.size > 5000) recent.clear(); }
   const day = today();
@@ -132,7 +132,7 @@ async function add(env, request) {
     env.DB.prepare("SELECT (SELECT COUNT(*) FROM scores WHERE hc = ?2 AND score > ?1) + 1 AS rank, (SELECT COUNT(*) FROM scores WHERE hc = ?2) AS total").bind(score, hc),
     env.DB.prepare("SELECT (SELECT COUNT(*) FROM scores WHERE hc = ?3 AND day = ?2 AND score > ?1) + 1 AS rank, (SELECT COUNT(*) FROM scores WHERE hc = ?3 AND day = ?2) AS total").bind(score, day, hc),
   ]);
-  return json({ id: row.id, hc: !!hc, rank: all.results[0].rank, total: all.results[0].total, dayRank: dayR.results[0].rank, dayTotal: dayR.results[0].total });
+  return json({ id: row.id, hc: hc === 1, mode: hc, rank: all.results[0].rank, total: all.results[0].total, dayRank: dayR.results[0].rank, dayTotal: dayR.results[0].total });
 }
 
 export default {
@@ -142,7 +142,7 @@ export default {
     if (url.pathname === "/scores" && request.method === "GET") {
       const scope = url.searchParams.get("scope") === "day" ? "day" : "all";
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "100", 10) || 100));
-      return json(await top(env, scope, url.searchParams.get("hc") === "1" ? 1 : 0, limit));
+      return json(await top(env, scope, { "1": 1, "2": 2 }[url.searchParams.get("hc")] || 0, limit));
     }
     if (url.pathname === "/scores" && request.method === "POST") return add(env, request);
     if (url.pathname === "/rooms") return json(await rooms(env, cleanVer(url.searchParams.get("v"))));

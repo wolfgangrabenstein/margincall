@@ -1,6 +1,6 @@
 [package]
 name = "margincall"
-version = "3.21.3"
+version = "3.22.0"
 description = "MARGIN CALL - Boersen-Shooter"
 edition = "2021"
 

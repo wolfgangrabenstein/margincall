@@ -2,6 +2,11 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.22.0 – Separate high score list for Easy (2026-10-19)
+
+- **Easy has its own high score list** – local, in the app and online (all-time and today). In the high score view, **X** switches between normal, hardcore and easy. Since easy is no longer compared with normal, it gives full points again instead of 0.6×.
+- **Crypto bubble:** as long as it hasn't noticed you, it is completely green, spikes included. When it attacks, it pulses with a fluorescent red, spikes and all. On the Cardputer too.
+
 ## Version 3.21.3 – Menacing crypto bubble (2026-10-19)
 
 - **More menacing crypto bubble:** it looked like a bonus, so players ran towards it. The green bubble and gold bitcoin coin stay, but it now has red spikes all around and pulses with a fluorescent red glow when it attacks. On the Cardputer too.

@@ -19,7 +19,7 @@ Kleiner Server für MARGIN CALL: Online-Rangliste, Online-Multiplayer und Live-K
 npx wrangler d1 execute margincall-highscores --remote --file=migrate-rooms.sql
 ```
 
-Mit `hc=1` (GET) bzw. `"hc": true` (POST) geht es um die getrennte Hardcore-Rangliste.
+Mit `hc=1` (GET) bzw. `"mode": 1` / `"hc": true` (POST) geht es um die getrennte Hardcore-Rangliste, mit `hc=2` bzw. `"mode": 2` um die Einfach-Rangliste.
 
 **Bestehende Datenbank von vor Version 3.11 nachrüsten** (einmalig, für die Live-Datenbank bereits erledigt):
 ```

@@ -2,6 +2,11 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.22.0 – eigene Highscore-Liste für Einfach (19.10.2026)
+
+- **Einfach hat eine eigene Highscore-Liste** – lokal, in der App und online (Gesamt und Heute). In der Highscore-Ansicht wechselst du mit **X** zwischen Normal, Hardcore und Einfach. Weil Einfach nicht mehr mit Normal verglichen wird, gibt es dort wieder volle Punkte statt 0,6-facher.
+- **Krypto-Blase:** Solange sie dich nicht bemerkt hat, ist sie ganz grün, auch die Stacheln. Greift sie an, fluoresziert sie im Takt rot, Stacheln inklusive. Auch am Cardputer.
+
 ## Version 3.21.3 – bedrohlichere Krypto-Blase (19.10.2026)
 
 - **Krypto-Blase bedrohlicher:** Sie sah wie ein Bonus aus, und Spieler liefen darauf zu. Grüne Blase und goldene Bitcoin-Münze bleiben, dazu kommen rote Stacheln rundherum, und im Angriff fluoresziert sie im Takt rot auf. Auch am Cardputer.

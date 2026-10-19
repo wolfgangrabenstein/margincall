@@ -91,7 +91,11 @@ def get_markets():
 _hs_lock = threading.Lock()
 
 
-def highscore_file(hc=False):   # Hardcore hat eine eigene Liste
+def hs_mode(path):   # 0 = Normal, 1 = Hardcore, 2 = Einfach
+    return {"/api/highscores-hc": 1, "/api/highscores-easy": 2}.get(path, 0)
+
+
+def highscore_file(hc=0):   # Hardcore und Einfach haben eigene Listen (hc = Modus 0/1/2)
     if sys.platform == "win32":
         base = os.environ.get("APPDATA", ".")
     elif sys.platform == "darwin":
@@ -99,10 +103,10 @@ def highscore_file(hc=False):   # Hardcore hat eine eigene Liste
     else:
         base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
     return os.path.join(os.environ.get("MARGINCALL_DATA_DIR") or os.path.join(base, "MarginCall"),
-                        "highscores-hardcore.json" if hc else "highscores.json")
+                        ("highscores.json", "highscores-hardcore.json", "highscores-easy.json")[int(hc)])
 
 
-def highscores_load(hc=False):
+def highscores_load(hc=0):
     try:
         with open(highscore_file(hc), encoding="utf-8") as f:
             data = json.load(f)
@@ -111,7 +115,7 @@ def highscores_load(hc=False):
         return []
 
 
-def highscore_add(body, hc=False):
+def highscore_add(body, hc=0):
     with _hs_lock:
         lst = highscores_load(hc)
         try:
@@ -330,8 +334,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, f.read(), "text/html; charset=utf-8")
         elif path == "/api/ping":
             self._send(200, b"ok", "text/plain")
-        elif path in ("/api/highscores", "/api/highscores-hc"):
-            self._send(200, json.dumps(highscores_load(path.endswith("-hc"))).encode(), "application/json")
+        elif path in ("/api/highscores", "/api/highscores-hc", "/api/highscores-easy"):
+            self._send(200, json.dumps(highscores_load(hs_mode(path))).encode(), "application/json")
         elif path == "/api/games":
             self._send(200, json.dumps(games_list()).encode(), "application/json")
         elif path == "/api/info":
@@ -345,7 +349,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/highscores", "/api/highscores-hc", "/api/host"):
+        if path not in ("/api/highscores", "/api/highscores-hc", "/api/highscores-easy", "/api/host"):
             self._send(404, b"not found", "text/plain")
             return
         n = int(self.headers.get("Content-Length", "0") or 0)
@@ -366,7 +370,7 @@ class Handler(BaseHTTPRequestHandler):
                 _hosting.update(t=0, info=None)
             self._send(200, b"ok", "text/plain")
             return
-        self._send(200, json.dumps(highscore_add(body, path.endswith("-hc"))).encode(), "application/json")
+        self._send(200, json.dumps(highscore_add(body, hs_mode(path))).encode(), "application/json")
 
     def websocket(self):
         key = self.headers.get("Sec-WebSocket-Key", "")
