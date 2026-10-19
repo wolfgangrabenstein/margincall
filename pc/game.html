@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.22.4";
+const APP_VERSION = "3.22.5";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1409,7 +1409,7 @@ if (URLP.get("cfg")) {
 }
 const appUrl = (base, extra = "") => `${base}/?app=1&home=${HOME_PORT}&cfg=${encodeURIComponent(JSON.stringify(settings))}${extra}`;
 function goHome() { location.href = appUrl(`http://127.0.0.1:${HOME_PORT}`); }
-let quitAsk = false;   // Hauptmenue: Rueckfrage "Spiel wirklich beenden?" nach Q (ENTER beendet, ESC bricht ab)
+let quitAsk = false, quitSel = 1;   // Hauptmenue: Rueckfrage "Spiel wirklich beenden?" nach Q; quitSel: 0 Beenden, 1 Abbrechen (sicherer Standard)
 function backToTitle() {   // Q in der Pause: ins Hauptmenue, ganz beendet wird nur von dort
   if (isMP()) { leaveMP(); return; }
   mpMenu = false; island = false; state = ST.TITLE; musicStart(); document.exitPointerLock?.();
@@ -1878,8 +1878,10 @@ function onKeyPress(k) {
     return;
   }
   if (state === ST.TITLE && quitAsk) {
-    if (k === "enter") { quitAsk = false; quitGame(); }
-    else if (k === "Escape") quitAsk = false;
+    // Auswahl mit Pfeiltasten, ENTER bestaetigt die Auswahl; Q (nochmal) beendet, N/ESC brechen ab
+    if (["ArrowLeft", "ArrowRight", "a", "d", "Tab"].includes(k)) { quitSel = k === "ArrowLeft" || k === "a" ? 0 : k === "ArrowRight" || k === "d" ? 1 : 1 - quitSel; sfx("HIT"); }
+    else if (k === "q" || k === "quit:yes" || ((k === "enter" || k === " ") && quitSel === 0)) { quitAsk = false; quitGame(); }
+    else if (k === "n" || k === "Escape" || k === "quit:no" || k === "enter" || k === " ") quitAsk = false;
     return;
   }
   if (isBound("music", k)) { musicToggle(); say(musicOn ? L("MUSIC ON", "MUSIK AN") : L("MUSIC OFF", "MUSIK AUS"), 1); return; }
@@ -1893,7 +1895,7 @@ function onKeyPress(k) {
       else if (k === "h") openHighscores();
       else if (k === "c") startMenuCredits();
       else if (k === "l") { settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); buildTicker(); sfx("HIT"); }
-      else if (k === "q") quitAsk = true;   // Spiel beenden (mit Rueckfrage)
+      else if (k === "q") { quitAsk = true; quitSel = 1; }   // Spiel beenden (mit Rueckfrage, Abbrechen vorausgewaehlt)
       else if (k === "n") { if (WEB_BUILD) openOnline(); else if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter") soloAsk = true;   // Auswahl Normal / Hardcore
       else if (k === "x") startSolo("hard");
@@ -3881,8 +3883,11 @@ function renderQuitAsk() {
   g.fillStyle = "rgba(0,0,0,.75)"; g.fillRect(0, 0, DW, DH);
   g.fillStyle = "#000"; g.fillRect(250, 180, 460, 150); g.strokeStyle = "#ff7050"; g.lineWidth = 2; g.strokeRect(250, 180, 460, 150);
   text(L("QUIT THE GAME?", "SPIEL WIRKLICH BEENDEN?"), DW / 2, 202, "#ffd232", 26, "center");
-  zoneButton(272, 260, 200, 44, L("[ENTER] QUIT", "[ENTER] BEENDEN"), "#ff7050", "enter", 17);
-  zoneButton(488, 260, 200, 44, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#50ff82", "Escape", 17);
+  [[272, L("[Q] QUIT", "[Q] BEENDEN"), "#ff7050", "quit:yes"], [488, L("[N] CANCEL", "[N] ABBRECHEN"), "#50ff82", "quit:no"]].forEach(([x, label, col, key], i) => {
+    if (i === quitSel) { g.fillStyle = i ? "rgba(80,255,130,.18)" : "rgba(255,112,80,.18)"; g.fillRect(x - 4, 256, 208, 52); g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(x - 4, 256, 208, 52); }
+    zoneButton(x, 260, 200, 44, (i === quitSel ? "▶ " : "") + label, col, key, 17);
+  });
+  text(L("← → select · ENTER confirm", "← → wählen · ENTER bestätigen"), DW / 2, 312, "#8290b0", 12, "center");
 }
 function renderMpMenu() {
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(250, 150, 460, 160);

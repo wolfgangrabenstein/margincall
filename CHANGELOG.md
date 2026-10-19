@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.22.5 – Quit dialog without Esc (2026-10-19)
+
+- **Quit the game?** The dialog no longer needs Esc: ← → (or Tab) selects, **Enter** confirms the selection; the safe **Cancel** is preselected. Pressing **Q** again quits right away, **N** cancels. Esc and mouse clicks still work.
+
 ## Version 3.22.4 – Allowed auto aim, phone keyboard, quit with Q (2026-10-19)
 
 - **Match settings:** allowed auto aim has three levels: **Full**, **Semi only** and **Off** (not allowed at all). Default is semi only.

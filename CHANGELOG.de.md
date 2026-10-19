@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.22.5 – Beenden-Dialog ohne Esc (19.10.2026)
+
+- **Spiel wirklich beenden?** Der Dialog lässt sich jetzt ohne Esc bedienen: Mit ← → (oder Tab) wählst du, **Enter** bestätigt die Auswahl; vorausgewählt ist das sichere **Abbrechen**. Ein zweites **Q** beendet direkt, **N** bricht ab. Esc und Mausklick funktionieren weiterhin.
+
 ## Version 3.22.4 – Auto-Aim-Erlaubnis, Handy-Tastatur, Beenden mit Q (19.10.2026)
 
 - **Match-Einstellungen:** Erlaubtes Auto-Aim hat drei Stufen: **Full**, **Nur Semi** und **Aus** (ganz verboten). Standard ist Nur Semi.
