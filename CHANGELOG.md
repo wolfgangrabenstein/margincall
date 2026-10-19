@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.7 – Aim assist on phones, quitting in the browser (2026-10-19)
+
+- **Aim assist (phones):** New option in the options menu, off by default. When it is on, the view turns smoothly toward the nearest visible enemy in your field of view while you fire, and shots that would just miss snap onto it. The crosshair turns red while a target is locked.
+- **Quitting in the browser:** If the browser does not allow closing the tab (e.g. Firefox on phones), the game goes back to the previous page or shows "Thanks for playing". Before, nothing seemed to happen.
+- **Online screen:** Tapping an empty spot no longer joins the first game in the list by accident.
+
 ## Version 3.19.6 – Phone: tap to fire, own options; keycard earlier in level 1 (2026-10-19)
 
 - **Phone controls:**

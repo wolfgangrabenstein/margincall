@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.7 – Zielhilfe am Handy, Beenden im Browser (19.10.2026)
+
+- **Zielhilfe (Handy):** Neue Option in den Optionen, standardmäßig aus. Ist sie an, dreht sich die Ansicht beim Feuern sanft zum nächsten sichtbaren Gegner im Blickfeld, und Schüsse knapp daneben rasten auf ihn ein. Das Fadenkreuz wird rot, solange ein Ziel erfasst ist.
+- **Beenden im Browser:** Darf der Browser den Tab nicht schließen (etwa Firefox am Handy), geht es zurück zur vorigen Seite oder es erscheint „Danke fürs Spielen“. Vorher passierte scheinbar nichts.
+- **Online-Bildschirm:** Ein Tippen auf eine leere Stelle tritt nicht mehr versehentlich dem ersten Spiel der Liste bei.
+
 ## Version 3.19.6 – Handy: Tippen zum Feuern, eigene Optionen; Keycard in Level 1 früher (19.10.2026)
 
 - **Handy-Steuerung:**
