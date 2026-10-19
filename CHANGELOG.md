@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.21.3 – Menacing crypto bubble (2026-10-19)
+
+- **Crypto bubble redesigned:** with its green-cyan rim and gold coin it used to look like a bonus, so players ran towards it. It is now red, spiky and cracked, with angry eyes and a jagged-toothed mouth; a small ₿ on its forehead shows what it is. When it pulses it glows brighter, about to burst. On the Cardputer too.
+
 ## Version 3.21.2 – Lives in the HUD, full price charts (2026-10-19)
 
 - **Lives visible:** In normal mode, hearts at the top right of the HUD show how many lives are left (hardcore: one heart). The stats overlay (Tab) also shows "Lives left".

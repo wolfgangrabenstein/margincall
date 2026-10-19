@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.21.2"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.21.3"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -335,18 +335,27 @@ static void genSprites() {
     }
     storeSprite(S_SELL0 + f);
   }
-  // --- Krypto-Blase
+  // --- Krypto-Blase: rot, stachelig, wuetend, kurz vorm Platzen (soll nach Gefahr aussehen, nicht nach Bonus)
   for (int f = 0; f < 2; f++) {
     tclear(T);
-    float r = f ? 13.0f : 11.5f;
-    tcirc(16, 16, r, f ? RGB(80, 220, 230) : RGB(60, 210, 130));
-    tcirc(16, 16, r - 1.5f, f ? RGB(30, 120, 140) : RGB(25, 110, 70));
-    tcirc(16, 16, 6.5f, RGB(245, 180, 30));
-    tcirc(16, 16, 5, RGB(255, 210, 70));
-    uint32_t bc = RGB(150, 90, 0);
-    trect(14, 12, 2, 9, bc); trect(14, 12, 4, 1, bc); trect(14, 16, 4, 1, bc); trect(14, 20, 4, 1, bc);
-    trect(18, 13, 1, 3, bc); trect(18, 17, 1, 3, bc); tpx(15, 11, bc); tpx(15, 21, bc);
-    tcirc(9, 9, 2, RGB(255, 255, 255));
+    const float r = f ? 11.5f : 10.5f;
+    const uint32_t dark = RGB(60, 0, 12), spike = RGB(120, 12, 30), white = RGB(250, 250, 240), btc = RGB(255, 175, 30);
+    for (int k = 0; k < 10; k++) {   // Stacheln rundherum
+      const float an = k * 3.14159265f / 5 + (f ? 0.31f : 0), c = cosf(an), sn = sinf(an);
+      ttri(16 + c * (r - 1) - sn * 2.4f, 16 + sn * (r - 1) + c * 2.4f, 16 + c * (r - 1) + sn * 2.4f, 16 + sn * (r - 1) - c * 2.4f, 16 + c * (r + 4.5f), 16 + sn * (r + 4.5f), spike);
+    }
+    tcirc(16, 16, r, f ? RGB(255, 80, 60) : RGB(220, 40, 50));
+    tcirc(16, 16, r - 1.5f, f ? RGB(215, 35, 40) : RGB(160, 18, 38));
+    tcirc(10.5f, 9.5f, 1.6f, RGB(255, 190, 190));   // Glanzpunkt
+    static const int8_t CR[9][2] = {{22, 7}, {23, 8}, {23, 9}, {24, 10}, {7, 21}, {8, 22}, {8, 23}, {25, 19}, {24, 20}};
+    for (auto& p : CR) tpx(p[0], p[1], dark);   // Risse
+    trect(15, 5, 1, 6, btc); trect(15, 5, 3, 1, btc); trect(15, 7, 3, 1, btc); trect(15, 10, 3, 1, btc);   // kleines Bitcoin-Zeichen
+    tpx(18, 6, btc); tpx(18, 8, btc); tpx(18, 9, btc); tpx(16, 4, btc); tpx(16, 11, btc);
+    for (int i = 0; i < 5; i++) { tpx(8 + i, 12 + (i >> 1), dark); tpx(24 - i, 12 + (i >> 1), dark); }   // boese Brauen
+    trect(9, 14, 5, 3, RGB(255, 240, 200)); trect(19, 14, 5, 3, RGB(255, 240, 200));   // Augen
+    trect(12, 15, 2, 2, dark); trect(19, 15, 2, 2, dark);
+    trect(10, 19, 12, 5, dark);   // Maul mit Zackenzaehnen
+    for (int i = 0; i < 4; i++) { ttri(10 + i * 3, 19, 13 + i * 3, 19, 11.5f + i * 3, 21.5f, white); ttri(10 + i * 3, 24, 13 + i * 3, 24, 11.5f + i * 3, 21.8f, white); }
     storeSprite(S_BUB0 + f);
   }
   // --- Hedgefonds-Hai (Boss Level 3)

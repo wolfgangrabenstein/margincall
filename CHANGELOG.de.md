@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.21.3 – bedrohliche Krypto-Blase (19.10.2026)
+
+- **Krypto-Blase neu gestaltet:** Bisher sah sie mit grün-türkisem Rand und goldener Münze wie ein Bonus aus, und Spieler liefen darauf zu. Jetzt ist sie rot, stachelig und rissig, hat wütende Augen und ein Maul mit Zackenzähnen; ein kleines ₿ auf der Stirn verrät, was sie ist. Beim Pulsieren glüht sie heller auf, kurz vorm Platzen. Auch am Cardputer.
+
 ## Version 3.21.2 – Leben im HUD, volle Kursverläufe (19.10.2026)
 
 - **Leben sichtbar:** Im Normalmodus zeigen Herzen rechts oben im HUD, wie viele Leben noch übrig sind (Hardcore: ein Herz). In der Statistik (Tab) steht zusätzlich „Leben übrig“.

@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.21.2";
+const APP_VERSION = "3.21.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -395,14 +395,24 @@ function genSprites() {
     else { trect(23, 15, 7, 3, suit); trect(28, 14, 2, 2, skin); tcirc(29, 12, 3, RGB(255, 140, 0)); tcirc(29, 12, 1.5, RGB(255, 255, 160)); }
     storeSprite(S.SELL0 + f);
   }
-  for (let f = 0; f < 2; f++) {   // Krypto-Blase
+  for (let f = 0; f < 2; f++) {   // Krypto-Blase: rot, stachelig, wuetend, kurz vorm Platzen – soll nach Gefahr aussehen, nicht nach Bonus
     tclear(N);
-    const r = f ? 13 : 11.5, bc = RGB(150, 90, 0);
-    tcirc(16, 16, r, f ? RGB(80, 220, 230) : RGB(60, 210, 130)); tcirc(16, 16, r - 1.5, f ? RGB(30, 120, 140) : RGB(25, 110, 70));
-    tcirc(16, 16, 6.5, RGB(245, 180, 30)); tcirc(16, 16, 5, RGB(255, 210, 70));
-    trect(14, 12, 2, 9, bc); trect(14, 12, 4, 1, bc); trect(14, 16, 4, 1, bc); trect(14, 20, 4, 1, bc);
-    trect(18, 13, 1, 3, bc); trect(18, 17, 1, 3, bc); tpx(15, 11, bc); tpx(15, 21, bc);
-    tcirc(9, 9, 2, RGB(255, 255, 255));
+    const r = f ? 11.5 : 10.5, dark = RGB(60, 0, 12), spike = RGB(120, 12, 30);
+    for (let k = 0; k < 10; k++) {   // Stacheln rundherum
+      const an = k * Math.PI / 5 + (f ? .31 : 0), c = Math.cos(an), sn = Math.sin(an);
+      ttri(16 + c * (r - 1) - sn * 2.4, 16 + sn * (r - 1) + c * 2.4, 16 + c * (r - 1) + sn * 2.4, 16 + sn * (r - 1) - c * 2.4, 16 + c * (r + 4.5), 16 + sn * (r + 4.5), spike);
+    }
+    tcirc(16, 16, r, f ? RGB(255, 80, 60) : RGB(220, 40, 50));
+    tcirc(16, 16, r - 1.5, f ? RGB(215, 35, 40) : RGB(160, 18, 38));
+    tcirc(10.5, 9.5, 1.6, RGB(255, 190, 190));   // Glanzpunkt
+    for (const [x, y] of [[22, 7], [23, 8], [23, 9], [24, 10], [7, 21], [8, 22], [8, 23], [25, 19], [24, 20]]) tpx(x, y, dark);   // Risse
+    const btc = RGB(255, 175, 30);   // kleines Bitcoin-Zeichen auf der Stirn
+    trect(15, 5, 1, 6, btc); trect(15, 5, 3, 1, btc); trect(15, 7, 3, 1, btc); trect(15, 10, 3, 1, btc); tpx(18, 6, btc); tpx(18, 8, btc); tpx(18, 9, btc); tpx(16, 4, btc); tpx(16, 11, btc);
+    for (let i = 0; i < 5; i++) { tpx(8 + i, 12 + (i >> 1), dark); tpx(24 - i, 12 + (i >> 1), dark); }   // boese Brauen
+    trect(9, 14, 5, 3, RGB(255, 240, 200)); trect(19, 14, 5, 3, RGB(255, 240, 200));   // Augen
+    trect(12, 15, 2, 2, dark); trect(19, 15, 2, 2, dark);
+    trect(10, 19, 12, 5, dark);   // Maul mit Zackenzaehnen
+    for (let i = 0; i < 4; i++) { ttri(10 + i * 3, 19, 13 + i * 3, 19, 11.5 + i * 3, 21.5, RGB(250, 250, 240)); ttri(10 + i * 3, 24, 13 + i * 3, 24, 11.5 + i * 3, 21.8, RGB(250, 250, 240)); }
     storeSprite(S.BUB0 + f);
   }
   for (let f = 0; f < 2; f++) {   // Hai
