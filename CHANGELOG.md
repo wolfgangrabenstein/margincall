@@ -2,6 +2,17 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.6 – Phone: tap to fire, own options; keycard earlier in level 1 (2026-10-19)
+
+- **Phone controls:**
+  - **No fire button anymore:** A short tap anywhere fires one shot. Holding your finger still on the right turns into continuous fire, and you can keep swiping to turn while doing so. Swiping right away only turns, without shooting.
+  - **Dodge** is now a golden double arrow at the far right.
+  - **Faster turning** by default, plus a turn sensitivity slider in the options.
+  - **Options for phones:** no key bindings, large rows and an easy-to-hit Back button.
+- **Keycard earlier in the first level:** There it now drops after 3 to 5 enemies instead of 8 to 16, since the first level has only a few enemies.
+- **Language via link:** Opening the browser game from the German GitHub page starts it in German.
+- **GitHub page:** "Play in the browser" and the downloads are now at the very top, with new screenshots.
+
 ## Version 3.19.5 – Separate screen halves, big fire button (2026-10-18)
 
 - **Phone controls:** The left and right halves of the screen are now strictly separate: the left side only controls the stick (a second finger on the left is ignored), the right side only turns. Moving and turning at the same time now works without interference.

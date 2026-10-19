@@ -6,32 +6,32 @@
 
 Ein Retro-Ego-Shooter rund um die Börse: Bullen und Bären kämpfen gegeneinander und gegen dich, die echten Tageskurse von Dow Jones, S&P 500, Nasdaq-100 und Rohöl bestimmen das Kräfteverhältnis, und die KI ALGO-9000 manipuliert den Markt.
 
-Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
-
-## Screenshots
-
-| Titelbild mit Live-Kursen | Level 1: Dow Jones |
-|---|---|
-| ![Titelbild](docs/screenshot-title.png) | ![Spielszene](docs/screenshot-level1.png) |
-
 ## Im Browser spielen
 
-Ganz ohne Installation: **[MARGIN CALL im Browser spielen](https://wolfgangrabenstein.github.io/margincall/)**. Solo und Online-Multiplayer funktionieren auch dort; für Multiplayer im eigenen Netzwerk braucht es die App.
+Ganz ohne Installation: **[MARGIN CALL im Browser spielen](https://wolfgangrabenstein.github.io/margincall/?lang=de)**. Solo und Online-Multiplayer funktionieren auch dort; für Multiplayer im eigenen Netzwerk braucht es die App.
 
 ## Downloads
 
-Aktuelle Version **3.19.5** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.19.6** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.19.5-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.19.5-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.19.5-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.19.5-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.19.6-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.19.6-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.19.6-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.19.6-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 
-### Erster Start
+## Screenshots
+
+| Titelbild mit Live-Kursen | Level 1: Bullen, Bären und fliegende Geldscheine | Online spielen |
+|---|---|---|
+| ![Titelbild](docs/screenshot-title.png) | ![Spielszene](docs/screenshot-level1.png) | ![Online spielen](docs/screenshot-online.png) |
+
+Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
+
+## Erster Start
 
 - **Windows:** SmartScreen meldet eine unbekannte App. Klicke auf „Weitere Informationen“ und dann auf „Trotzdem ausführen“. Fragt die Firewall nach, erlaube den Zugriff im privaten Netzwerk (nötig für den Multiplayer).
 - **macOS:** Die App ist nicht von Apple notarisiert.

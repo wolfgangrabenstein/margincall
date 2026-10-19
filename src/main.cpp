@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.19.5"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.19.6"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -928,7 +928,7 @@ static void loadLevel(int lv) {
     if (TYPES[pend[k]].boss) levelHasBoss = true;
     float x, y; if (randomEnemyCell(TYPES[pend[k]].boss ? 9 : 5, x, y)) spawnEnemy(pend[k], x, y);
   }
-  hasKey = keyDropped = false; keyKills = 0; keyNeed = 8 + rnd() % 9;
+  hasKey = keyDropped = false; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 : 8 + rnd() % 9;   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   static const float dirs[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
   int best = 0, bestLen = -1;

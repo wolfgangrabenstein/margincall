@@ -6,34 +6,34 @@
 
 A retro first-person stock market shooter: bulls and bears fight each other and you. Real daily quotes for the Dow Jones, S&P 500, Nasdaq-100 and crude oil decide which side is stronger, and the AI ALGO-9000 manipulates the market.
 
-Made by Wolfgang Rabenstein · Open source under the [MIT license](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
-
-MARGIN CALL runs as a small standalone app on Windows, macOS and Linux (Tauri), supports LAN multiplayer for 2–4 players (co-op, team, deathmatch) and also exists as firmware for the M5Stack Cardputer ADV. All binaries are built from this repository by GitHub Actions and published as free downloads on the Releases page.
-
-## Screenshots
-
-| Title screen with live quotes | Level 1: Dow Jones |
-|---|---|
-| ![Title screen](docs/screenshot-title.png) | ![Gameplay](docs/screenshot-level1.png) |
-
 ## Play in the browser
 
-No installation needed: **[play MARGIN CALL in the browser](https://wolfgangrabenstein.github.io/margincall/)**. Solo and online multiplayer work there too; LAN multiplayer needs the app.
+No installation needed: **[play MARGIN CALL in the browser](https://wolfgangrabenstein.github.io/margincall/?lang=en)**. Solo and online multiplayer work there too; LAN multiplayer needs the app.
 
 ## Downloads
 
-Current version **3.19.5** – click a file and the download starts right away:
+Current version **3.19.6** – click a file and the download starts right away:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.19.5-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.19.5-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
-| [**MarginCall-3.19.5-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.19.5-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.5/MarginCall-3.19.5-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
+| [**MarginCall-3.19.6-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.19.6-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
+| [**MarginCall-3.19.6-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.19.6-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.19.6/MarginCall-3.19.6-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
 Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md)
 
-### First start
+## Screenshots
+
+| Title screen with live quotes | Level 1: bulls, bears and flying banknotes | Online play |
+|---|---|---|
+| ![Title screen](docs/screenshot-title.png) | ![Gameplay](docs/screenshot-level1.png) | ![Online play](docs/screenshot-online.png) |
+
+Made by Wolfgang Rabenstein · Open source under the [MIT license](LICENSE) · [Code signing policy](CODE_SIGNING_POLICY.md)
+
+MARGIN CALL runs as a small standalone app on Windows, macOS and Linux (Tauri), supports multiplayer for 2–4 players over LAN or online (co-op, team, deathmatch), runs in the browser and also exists as firmware for the M5Stack Cardputer ADV. All binaries are built from this repository by GitHub Actions and published as free downloads on the Releases page.
+
+## First start
 
 - **Windows:** SmartScreen reports an unknown app. Click "More info", then "Run anyway". If the firewall asks, allow access on private networks (needed for multiplayer).
 - **macOS:** The app is not notarized by Apple.

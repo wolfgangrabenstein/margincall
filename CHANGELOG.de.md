@@ -2,6 +2,17 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.6 – Handy: Tippen zum Feuern, eigene Optionen; Keycard in Level 1 früher (19.10.2026)
+
+- **Handy-Steuerung:**
+  - **Kein Feuerknopf mehr:** Kurz irgendwo antippen gibt einen Schuss ab. Rechts den Finger ruhig draufhalten wird zum Dauerfeuer, und dabei kann man weiter wischen und sich drehen. Sofort wischen dreht nur, ohne zu schießen.
+  - **Ausweichen** ist jetzt ein goldener Doppelpfeil ganz rechts.
+  - **Schnelleres Drehen** als Standard, und in den Optionen gibt es einen Regler für die Drehempfindlichkeit.
+  - **Optionen fürs Handy:** ohne Tastenbelegung, mit großen Zeilen und einem gut treffbaren Zurück-Knopf.
+- **Keycard im ersten Level früher:** Dort fällt sie schon nach 3 bis 5 erledigten Gegnern statt nach 8 bis 16, weil es im ersten Level nur wenige Gegner gibt.
+- **Sprache per Link:** Wer das Browserspiel von der deutschen GitHub-Seite aus öffnet, spielt gleich auf Deutsch.
+- **GitHub-Seite:** „Im Browser spielen“ und die Downloads stehen jetzt ganz oben, dazu neue Screenshots.
+
 ## Version 3.19.5 – getrennte Bildschirmhälften, großer Feuerknopf (18.10.2026)
 
 - **Handy-Steuerung:** Linke und rechte Bildschirmhälfte sind jetzt strikt getrennt: Links steuert nur der Stick (ein zweiter Finger links wird ignoriert), rechts wird nur gedreht. Laufen und Drehen gleichzeitig klappt damit ohne Störungen.
