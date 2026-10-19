@@ -2,6 +2,13 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.20.2 – Touch guide with start button (2026-10-19)
+
+- **Phones:**
+  - The touch controls guide on your first game now has a **Let's go** button; the solo game only starts once you tap it.
+  - In the options, **Touch controls ▶** shows the guide again at any time.
+  - The fullscreen button now stays at the **top right** during play as well, so it is no longer hit by accident.
+
 ## Version 3.20.1 – Tidier options, new phone icons (2026-10-19)
 
 - **Options (PC):** Key bindings and mouse settings now live on their own **Controls ▶** sub-page (with its own "Restore default controls"). The main page is much clearer.

@@ -45,7 +45,6 @@
   #touch #tDodge svg { width: 40px; height: 40px; }
   #fsBtn { display: none; position: fixed; z-index: 7; right: calc(10px + env(safe-area-inset-right, 0px)); top: 10px; width: 44px; height: 44px;
     border-radius: 12px; border: 2px solid rgba(255,255,255,.35); background: rgba(11,17,32,.6); color: var(--text); padding: 0; touch-action: manipulation; }
-  body.playing #fsBtn { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   #touch #tPause svg, #fsBtn svg { width: 24px; height: 24px; display: block; margin: auto; }
   #touch #tPause { padding: 0; background: rgba(11,17,32,.6); border-color: rgba(255,255,255,.4); left: calc(14px + env(safe-area-inset-left, 0px)); top: 14px; width: 50px; height: 50px; font-size: 18px; }
   #rotate { display: none; position: fixed; inset: 0; z-index: 6; background: rgba(5,7,13,.94); color: var(--gold);
@@ -80,7 +79,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.20.1";
+const APP_VERSION = "3.20.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -603,7 +602,7 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15, ONLINE: 16, ONLINEASK: 17, BYE: 18 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15, ONLINE: 16, ONLINEASK: 17, BYE: 18, TOUCHHELP: 19 };
 // Browser-Version (GitHub Pages, https): ohne eigenen Server, Kurse und Multiplayer laufen ueber den MARGIN-CALL-Server bei Cloudflare
 const WEB_BUILD = location.protocol === "https:";
 let state = ST.TITLE;
@@ -1502,6 +1501,7 @@ function updateHint() {
 // Optionsmenue
 const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { return L(en, de); } });
 const OPT_MAIN = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindlichkeit und grosse Zeilen
+  optRow("touchHelp", "Touch controls ▶", "Touch-Steuerung ▶"),
   optRow("touchSens", "Turn sensitivity", "Drehempfindlichkeit"), optRow("aimMode", "Auto aim", "Auto-Aim"), optRow("invert", "Invert turning", "Drehen umkehren"),
   optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
   optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
@@ -1522,7 +1522,7 @@ const OPT_KEYS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id }
 let OPT_ROWS = OPT_MAIN, optPage = "main", OPT_Y0 = 0, OPT_DY = 0;
 function setOptPage(p) {
   optPage = p; OPT_ROWS = p === "keys" ? OPT_KEYS : OPT_MAIN; optSel = 0; optCol = 0; optWaiting = false;
-  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = COARSE ? 36 : p === "keys" ? 19 : 32;
+  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = COARSE ? 32 : p === "keys" ? 19 : 32;
 }
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
 function openOptions() { optReturn = state; state = ST.OPTIONS; setOptPage("main"); document.exitPointerLock?.(); }
@@ -1555,6 +1555,7 @@ function optActivate() {
       saveSettings(); applyVolumes(); optMsg = L("Defaults restored", "Standard wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
     }
     case "keys": setOptPage("keys"); sfx("HIT"); break;
+    case "touchHelp": openTouchHelp(ST.OPTIONS); sfx("HIT"); break;
     case "keysBack": setOptPage("main"); sfx("HIT"); break;
     case "keysReset": settings.binds = structuredClone(DEFAULTS.binds); settings.mouseLook = DEFAULTS.mouseLook; settings.sens = DEFAULTS.sens; settings.invert = DEFAULTS.invert;
       saveSettings(); optMsg = L("Default controls restored", "Standard-Steuerung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
@@ -1608,6 +1609,7 @@ function renderOptions() {
     const y0 = OPT_Y0 + i * OPT_DY, y = y0 + Math.max(0, Math.round((OPT_DY - 24) / 2)), sel = i === optSel;
     if (sel) { g.fillStyle = "#123a24"; g.fillRect(40, y0 - 4, DW - 80, OPT_DY - 2); }
     if (OPT_DY > 24) { const back = row.kind === "back" || row.kind === "keysBack"; g.strokeStyle = back ? "#ffd232" : "#1e2846"; g.lineWidth = back ? 2 : 1; g.strokeRect(40, y0 - 4, DW - 80, OPT_DY - 2); }
+    if (row.kind === "touchHelp") text(L("show the guide again", "Anleitung nochmal anzeigen"), 530, y + 1, "#50c8ff", 15);
     if (row.kind === "keys") text(L("key bindings & mouse", "Tastenbelegung & Maus"), 530, y + 1, "#50c8ff", 15);
     text(row.name, 60, y, sel ? "#ffffff" : "#c8c8d7", 17);
     if (row.kind === "bind") {
@@ -1874,6 +1876,9 @@ function onKeyPress(k) {
       else if (k === "h") enterLobby();
       else if (k === "j") { joinText = ""; joinSel = 0; gamesT = 0; foundGames = []; state = ST.JOIN; }
       else if (k === "Escape") state = ST.TITLE;
+      break;
+    case ST.TOUCHHELP:
+      if (k === "enter" || k === "Escape" || k === " ") closeTouchHelp();
       break;
     case ST.PAUSE:
       if (k === "q") backToTitle();
@@ -3749,6 +3754,9 @@ function startSolo(hc) {
   hardcore = hc; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
   state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
 }
+let touchHelpReturn = ST.PLAY;
+function openTouchHelp(ret) { touchHelpReturn = ret; state = ST.TOUCHHELP; keys.clear(); }
+function closeTouchHelp() { state = touchHelpReturn; if (state === ST.PLAY) { fireCd = .4; lockMouse(); } }
 function renderTouchHelp() {   // erklaert die Handy-Steuerung, verschwindet nach ein paar Sekunden oder beim Tippen
   g.globalAlpha = Math.min(1, touchHelpT / .6);
   const box = (x, y, w, h, title, lines, col) => {
@@ -3892,7 +3900,7 @@ function frame(now) {
     case ST.LOBBY: gameTime += dt; renderLobby(); break;
     case ST.PLAY: updateGame(dt); if (state === ST.PLAY) {
       renderPlay(dt); if (mpMenu) renderMpMenu();
-      if (COARSE && !settings.touchHelpSeen) { settings.touchHelpSeen = true; saveSettings(); touchHelpT = 9; }
+      if (COARSE && !settings.touchHelpSeen) { settings.touchHelpSeen = true; saveSettings(); if (isMP()) touchHelpT = 9; else openTouchHelp(ST.PLAY); }
       if (touchHelpT > 0) { touchHelpT -= dt; renderTouchHelp(); }
     } break;
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;
@@ -3904,6 +3912,11 @@ function frame(now) {
       text(L("THANKS FOR PLAYING!", "DANKE FÜRS SPIELEN!"), DW / 2, 176, "#ffd232", 32, "center");
       text(L("You can close this tab now.", "Du kannst diesen Tab jetzt schließen."), DW / 2, 236, "#dcdce6", 18, "center");
       zoneButton(330, 296, 300, 44, L("[ENTER] BACK TO THE GAME", "[ENTER] ZURÜCK INS SPIEL"), "#50ff82", "enter", 16);
+      break;
+    case ST.TOUCHHELP:
+      if (touchHelpReturn === ST.PLAY) renderPlay(0); else chartBackground("#145a2d", "#641919");
+      touchHelpT = 1; renderTouchHelp();
+      zoneButton(DW / 2 - 160, 338, 320, 52, touchHelpReturn === ST.PLAY ? L("▶  LET'S GO", "▶  LOS GEHT'S") : L("◀  BACK", "◀  ZURÜCK"), "#50ff82", "enter", 22);
       break;
     case ST.PAUSE:
       g.fillStyle = "#000"; g.fillRect(230, 160, 500, 130);

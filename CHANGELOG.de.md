@@ -2,6 +2,13 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.20.2 – Touch-Anleitung mit Start-Knopf (19.10.2026)
+
+- **Handy:**
+  - Die Anleitung zur Touch-Steuerung beim ersten Spiel hat jetzt einen Knopf **Los geht's**; das Solo-Spiel startet erst, wenn du darauf tippst.
+  - In den Optionen lässt sich die Anleitung über **Touch-Steuerung ▶** jederzeit nochmal anzeigen.
+  - Der Vollbild-Knopf sitzt auch im Spiel **oben rechts**, damit man ihn nicht mehr versehentlich trifft.
+
 ## Version 3.20.1 – aufgeräumte Optionen, neue Handy-Symbole (19.10.2026)
 
 - **Optionen (PC):** Tastenbelegung und Maus liegen jetzt auf einer eigenen Unterseite **Steuerung ▶** (mit eigenem „Standard-Steuerung wiederherstellen“). Die Hauptseite ist dadurch übersichtlicher.
