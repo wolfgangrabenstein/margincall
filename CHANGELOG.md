@@ -4,7 +4,7 @@
 
 ## Version 3.21.3 – Menacing crypto bubble (2026-10-19)
 
-- **Crypto bubble redesigned:** with its green-cyan rim and gold coin it used to look like a bonus, so players ran towards it. It is now red, spiky and cracked, with angry eyes and a jagged-toothed mouth; a small ₿ on its forehead shows what it is. When it pulses it glows brighter, about to burst. On the Cardputer too.
+- **Crypto bubble reworked:** with its green-cyan rim it looked like a bonus, so players ran towards it. The gold bitcoin coin stays, but the bubble now has a red rim and spikes all around; it glows brighter when it pulses. On the Cardputer too.
 
 ## Version 3.21.2 – Lives in the HUD, full price charts (2026-10-19)
 
