@@ -12,14 +12,14 @@ Ganz ohne Installation: **[MARGIN CALL im Browser spielen](https://wolfgangraben
 
 ## Downloads
 
-Aktuelle Version **3.22.3** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.22.4** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.22.3-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.3/MarginCall-3.22.3-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.22.3-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.3/MarginCall-3.22.3-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.22.3-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.3/MarginCall-3.22.3-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.22.3-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.3/MarginCall-3.22.3-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.22.4-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.4/MarginCall-3.22.4-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.22.4-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.4/MarginCall-3.22.4-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.22.4-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.4/MarginCall-3.22.4-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.22.4-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.22.4/MarginCall-3.22.4-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 
@@ -55,7 +55,7 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 | Pause | Esc oder P |
 | Weiterspielen | Esc oder P im Pausenmenü |
 | Zurück ins Hauptmenü | Q im Pausenmenü |
-| Beenden | Esc im Hauptmenü, dann mit Enter bestätigen |
+| Beenden | Q im Hauptmenü, dann mit Enter bestätigen |
 | Solo spielen: Einfach, Normal oder Hardcore | Enter im Hauptmenü, dann E (Einfach: schwächere Gegner, unbegrenzt Leben), Enter (Normal: 5 Leben) oder X (Hardcore: ein Leben) |
 | Credits | C im Hauptmenü |
 | Sprache (Englisch/Deutsch) | L im Hauptmenü oder Optionen → Sprache; Cardputer: L im Titelbild |

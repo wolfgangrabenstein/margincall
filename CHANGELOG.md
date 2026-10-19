@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.22.4 – Allowed auto aim, phone keyboard, quit with Q (2026-10-19)
+
+- **Match settings:** allowed auto aim has three levels: **Full**, **Semi only** and **Off** (not allowed at all). Default is semi only.
+- **Bug fix – phone keyboard:** word suggestions and autocorrect produced garbled text (e.g. "TTETESTEST" instead of "TEST"). The input field now takes over the on-screen keyboard's text one to one – for nickname, game name, chat, high score name and game code.
+- **Quit with Q:** in the main menu, **Q** now quits the game (with confirmation), matching Q = main menu in the pause menu. Esc stays the key for pause and back.
+
 ## Version 3.22.3 – Fullscreen stays (2026-10-19)
 
 - **Fullscreen in PC browsers:** some browsers still leave fullscreen on Esc themselves, especially while the mouse is captured. The game now remembers that you want fullscreen: Esc opens the pause menu, and when you continue (resume, click into the view, next level) it goes back to fullscreen automatically. Only **F4** really turns fullscreen off.

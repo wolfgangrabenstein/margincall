@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.22.4 – Auto-Aim-Erlaubnis, Handy-Tastatur, Beenden mit Q (19.10.2026)
+
+- **Match-Einstellungen:** Erlaubtes Auto-Aim hat drei Stufen: **Full**, **Nur Semi** und **Aus** (ganz verboten). Standard ist Nur Semi.
+- **Fehler behoben – Handy-Tastatur:** Bei Wortvorschlägen und Autokorrektur entstand Buchstabensalat (z. B. „TTETESTEST“ statt „TEST“). Das Eingabefeld übernimmt jetzt den Text der Bildschirmtastatur eins zu eins – für Nickname, Spielname, Chat, Highscore-Namen und Spiel-Code.
+- **Spiel beenden mit Q:** Im Hauptmenü beendet jetzt **Q** das Spiel (mit Rückfrage), passend zu Q = Hauptmenü im Pausenmenü. Esc bleibt die Taste für Pause und Zurück.
+
 ## Version 3.22.3 – Vollbild bleibt (19.10.2026)
 
 - **Vollbild am PC-Browser:** Manche Browser beenden das Vollbild bei Esc trotzdem selbst, vor allem wenn die Maus eingefangen ist. Das Spiel merkt sich jetzt, dass du Vollbild willst: Esc öffnet die Pause, und beim Weiterspielen (Weiter, Klick ins Bild, nächstes Level) geht es automatisch wieder ins Vollbild. Nur **F4** schaltet das Vollbild wirklich ab.

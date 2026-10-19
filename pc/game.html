@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.22.3";
+const APP_VERSION = "3.22.4";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -645,7 +645,7 @@ const isMP = () => mode !== "solo";
 const isHost = () => !net.connected || net.id === net.hostId;
 const isClient = () => net.connected && net.id !== net.hostId;
 let players = [], me = null;
-let lobbyFullAim = false;   // Match-Einstellung des Hosts: Full-Auto-Aim im Multiplayer erlaubt (Semi ist immer erlaubt)
+let lobbyAim = "semi";   // Match-Einstellung des Hosts: erlaubtes Auto-Aim im Multiplayer ("full", "semi" = nur Semi, "off")
 let matchSetOpen = false;    // Fenster "Match-Einstellungen" in der Lobby
 let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [], netMsg = "", netMsgT = 0;
 let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePrev = 0, lastSent = 0, clientSeq = -1;
@@ -1084,7 +1084,11 @@ function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit
 let aimHoldT = 0, aimLocked = false;
 const AIM = { semi: { steer: .22, snap: .08, range: 7 }, full: { steer: .45, snap: .14, range: 14 } };
 const aimModeSet = () => EZ() && COARSE && !settings.aimTouched ? "full" : settings.aimMode;   // eingestellte Stufe
-const aimModeNow = () => { const m = aimModeSet(); return isMP() && m === "full" && !lobbyFullAim ? "semi" : m; };   // wirksame Stufe
+const aimModeNow = () => {   // wirksame Stufe: im Multiplayer hoechstens das, was der Host erlaubt
+  const m = aimModeSet();
+  if (!isMP() || m === "off") return m;
+  return lobbyAim === "off" ? "off" : lobbyAim === "semi" && m === "full" ? "semi" : m;
+};
 const aimCfg = () => AIM[aimModeNow()] || null;
 const aimAssistOn = () => !!aimCfg();
 function aimTarget(maxAng, maxDist = 14) {
@@ -1306,13 +1310,13 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyFullAim = !!m.fa;
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi";
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), fa: lobbyFullAim });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
@@ -1405,7 +1409,7 @@ if (URLP.get("cfg")) {
 }
 const appUrl = (base, extra = "") => `${base}/?app=1&home=${HOME_PORT}&cfg=${encodeURIComponent(JSON.stringify(settings))}${extra}`;
 function goHome() { location.href = appUrl(`http://127.0.0.1:${HOME_PORT}`); }
-let quitAsk = false;   // Hauptmenue: Rueckfrage "Spiel wirklich beenden?" (ENTER beendet, ESC bricht ab)
+let quitAsk = false;   // Hauptmenue: Rueckfrage "Spiel wirklich beenden?" nach Q (ENTER beendet, ESC bricht ab)
 function backToTitle() {   // Q in der Pause: ins Hauptmenue, ganz beendet wird nur von dort
   if (isMP()) { leaveMP(); return; }
   mpMenu = false; island = false; state = ST.TITLE; musicStart(); document.exitPointerLock?.();
@@ -1668,7 +1672,7 @@ function renderOptions() {
     } else if (row.kind === "aimMode") {
       const m = aimModeSet() || "off";
       text(m === "off" ? L("OFF", "AUS") : m.toUpperCase(), 530, y, m === "off" ? "#ff7050" : m === "semi" ? "#ffd232" : "#50ff82", 17);
-      text(m !== aimModeNow() ? L("multiplayer: semi (host allows no full)", "Multiplayer: Semi (Host erlaubt kein Full)") : m === "semi" ? L("narrow view, nearby enemies", "enges Sichtfeld, nahe Gegner") : m === "full" ? L("wide view, far enemies too", "weites Sichtfeld, auch ferne Gegner") : "", 640, y + 2, "#6b7896", 13);
+      text(m !== aimModeNow() ? (aimModeNow() === "off" ? L("multiplayer: off (host allows no auto aim)", "Multiplayer: aus (Host erlaubt kein Auto-Aim)") : L("multiplayer: semi (host allows no full)", "Multiplayer: Semi (Host erlaubt kein Full)")) : m === "semi" ? L("narrow view, nearby enemies", "enges Sichtfeld, nahe Gegner") : m === "full" ? L("wide view, far enemies too", "weites Sichtfeld, auch ferne Gegner") : "", 640, y + 2, "#6b7896", 13);
     } else if (row.kind === "lang") {
       text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
     } else if (row.kind === "sens" || row.kind === "touchSens") {
@@ -1822,28 +1826,35 @@ const kbd = document.getElementById("kbd");
 const wantText = () => !!edit || chatTyping || codeAsk || state === ST.NAMEENTRY;
 function syncKbd() {
   if (!COARSE) return;
-  if (wantText()) { if (document.activeElement !== kbd) { kbd.value = " "; kbd.focus(); } }
+  if (wantText()) { if (document.activeElement !== kbd) { const t = kbdTarget(); kbd.value = t ? t[0]() : ""; kbd.focus(); } }
   else if (document.activeElement === kbd) kbd.blur();
 }
-kbd.value = " ";
+// Zieltext des aktiven Eingabefelds: [lesen, schreiben(bereinigt)]
+function kbdTarget() {
+  if (edit) return [() => edit.value, v => { edit.value = v.replace(/[^\p{L}\p{N} ._\-!?&]/gu, "").slice(0, edit.max); }];
+  if (chatTyping) return [() => chatText, v => { chatText = v.replace(/[\u0000-\u001f]/g, "").slice(0, 80); }];
+  if (codeAsk) return [() => codeText, v => { codeText = [...v.toUpperCase()].filter(c => CODE_CHARS.includes(c)).join("").slice(0, 5); }];
+  if (state === ST.NAMEENTRY) return [() => hsName, v => { hsName = v.toUpperCase().replace(/[^\p{L}\p{N} ._-]/gu, "").slice(0, 15); }];
+  return null;
+}
+kbd.value = "";
 kbd.addEventListener("input", () => {
-  const v = kbd.value;
-  if (v.length < 1) { rawKey = "Backspace"; onKeyPress("Backspace"); }
-  else for (const ch of v.slice(1)) { rawKey = ch; onKeyPress(ch === " " ? " " : ch.toLowerCase()); }
-  kbd.value = " ";
+  const t = kbdTarget(); if (!t) return;
+  t[1](kbd.value);
+  if (kbd.value !== t[0]() && !kbd.isComposing) kbd.value = t[0]();   // ungueltige Zeichen sofort wieder entfernen
 });
 kbd.addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); onKeyPress("enter"); }
   else if (e.key === "Escape") onKeyPress("Escape");
-  else if (e.key === "Backspace" && kbd.value.length <= 1) { e.preventDefault(); rawKey = "Backspace"; onKeyPress("Backspace"); }
   syncKbd();
+  const t = kbdTarget(); if (t && e.key === "Enter") kbd.value = t[0]();   // z. B. Chat nach dem Senden leer
 });
 // F4: Vollbild an/aus. In der App schaltet das Fenster selbst um (Adresse wird von der App abgefangen).
 function toggleFullscreen() { setFullscreen(!fsOn); }
 function onKeyPress(k) {
   audioUnlock();
   if (k === "F4" && !(state === ST.OPTIONS && optWaiting)) { toggleFullscreen(); return; }
-  if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "Escape") quitGame(); return; }
+  if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "q") quitGame(); return; }
   if (edit) { editKey(k); return; }
   if (state === ST.OPTIONS) { optKey(k); return; }
   if (state === ST.JOIN) { joinKey(k); return; }
@@ -1882,14 +1893,14 @@ function onKeyPress(k) {
       else if (k === "h") openHighscores();
       else if (k === "c") startMenuCredits();
       else if (k === "l") { settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); buildTicker(); sfx("HIT"); }
-      else if (k === "Escape") quitAsk = true;
+      else if (k === "q") quitAsk = true;   // Spiel beenden (mit Rueckfrage)
       else if (k === "n") { if (WEB_BUILD) openOnline(); else if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter") soloAsk = true;   // Auswahl Normal / Hardcore
       else if (k === "x") startSolo("hard");
       break;
     case ST.LOBBY:
       if (matchSetOpen) {
-        if (k === "a" && isHost() && net.connected) { lobbyFullAim = !lobbyFullAim; sfx("HIT"); hostSendLobby(); }
+        if (k === "a" && isHost() && net.connected) { lobbyAim = { full: "semi", semi: "off", off: "full" }[lobbyAim]; sfx("HIT"); hostSendLobby(); }
         else if (k === "Escape" || k === "enter" || k === "s") { matchSetOpen = false; sfx("HIT"); }
         break;
       }
@@ -2981,7 +2992,7 @@ function renderTitle() {
   g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(280, 352, 400, 60);
   zoneButton(280, 352, 400, 60, L("▶  [ENTER] PLAY SOLO", "▶  [ENTER] SOLO SPIELEN"), "#ffd232", "enter", 26);
   [["[N] MULTIPLAYER", "#50c8ff", "n"], ["[H] HIGHSCORES", "#ffd232", "h"], [L("[O] OPTIONS", "[O] OPTIONEN"), "#50ff82", "o"],
-   ["[C] CREDITS", "#c890ff", "c"], [L("[ESC] QUIT", "[ESC] BEENDEN"), "#ff7050", "Escape"]]
+   ["[C] CREDITS", "#c890ff", "c"], [L("[Q] QUIT", "[Q] BEENDEN"), "#ff7050", "q"]]
     .forEach(([lb, col, key], i) => zoneButton(30 + i * 182, 452, 172, 44, lb, col, key, 16));
   zoneButton(14, 34, 150, 30, settings.lang === "de" ? "[L] ENGLISH" : "[L] DEUTSCH", "#50c8ff", "l", 14);
   if (!COARSE) zoneButton(DW - 194, 34, 180, 30, fsOn ? L("⛶ [F4] EXIT FULLSCREEN", "⛶ [F4] VOLLBILD AUS") : L("⛶ [F4] FULLSCREEN", "⛶ [F4] VOLLBILD"), "#ffd232", "F4", 14);
@@ -3091,11 +3102,11 @@ function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Kno
   g.fillStyle = "#07090f"; g.fillRect(200, 130, 560, 280); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(200, 130, 560, 280);
   text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, 148, "#50c8ff", 26, "center");
   text(host ? L("Applies to everyone in this game.", "Gilt für alle in diesem Spiel.") : L("Only the host can change these.", "Nur der Host kann das ändern."), DW / 2, 186, "#8290b0", 14, "center");
-  text(L("Full auto aim", "Full-Auto-Aim"), 240, 228, "#e6e6f0", 18);
-  const val = lobbyFullAim ? L("ALLOWED", "ERLAUBT") : L("OFF", "AUS"), col = lobbyFullAim ? "#50ff82" : "#ff7050";
+  text(L("Allowed auto aim", "Erlaubtes Auto-Aim"), 240, 228, "#e6e6f0", 18);
+  const val = { full: "FULL", semi: L("SEMI ONLY", "NUR SEMI"), off: L("OFF", "AUS") }[lobbyAim], col = { full: "#50ff82", semi: "#ffd232", off: "#ff7050" }[lobbyAim];
   if (host) zoneButton(520, 220, 200, 34, `[A] ${val}`, col, "a", 16); else text(val, 620, 228, col, 18, "center");
-  [L("Semi auto aim is always allowed in multiplayer.", "Semi-Auto-Aim ist im Multiplayer immer erlaubt."),
-   L("If allowed, players who chose full in their options get full.", "Ist Full erlaubt, bekommt es, wer es in den Optionen gewählt hat.")]
+  [L("Full: everyone gets the level chosen in their options.", "Full: jeder bekommt die Stufe aus seinen Optionen."),
+   L("Semi only: full is reduced to semi. Off: no auto aim at all.", "Nur Semi: Full wird zu Semi. Aus: gar kein Auto-Aim.")]
     .forEach((l, i) => text(l, DW / 2, 278 + i * 20, "#a0a0b4", 13, "center"));
   zoneButton(380, 352, 200, 38, L("[ESC] DONE", "[ESC] FERTIG"), "#50c8ff", "Escape", 16);
 }
@@ -3949,7 +3960,7 @@ function frame(now) {
     text(IN_APP ? L("THE HOST ENDED THE GAME", "DER HOST HAT DAS SPIEL BEENDET") : L("GAME SERVER STOPPED", "SPIEL-SERVER BEENDET"), DW / 2, 190, "#ff5050", 36, "center");
     text(L("The connection is gone. Music and game are paused.", "Die Verbindung ist weg. Musik und Spiel sind angehalten."), DW / 2, 248, "#dcdce6", 18, "center");
     clickZones = [];
-    if (IN_APP) { zoneButton(230, 278, 280, 40, L("[H] BACK TO MY GAME", "[H] ZURÜCK ZU MEINEM SPIEL"), "#50ff82", "h", 16); zoneButton(530, 278, 200, 40, L("[ESC] QUIT", "[ESC] BEENDEN"), "#ff7050", "Escape", 16); }
+    if (IN_APP) { zoneButton(230, 278, 280, 40, L("[H] BACK TO MY GAME", "[H] ZURÜCK ZU MEINEM SPIEL"), "#50ff82", "h", 16); zoneButton(530, 278, 200, 40, L("[Q] QUIT", "[Q] BEENDEN"), "#ff7050", "q", 16); }
     else text(L("Restart MARGIN CALL or close this tab.", "Starte MARGIN CALL neu oder schließe diesen Tab."), DW / 2, 282, "#ffffff", 18, "center");
     last = now; requestAnimationFrame(frame); return;
   }
