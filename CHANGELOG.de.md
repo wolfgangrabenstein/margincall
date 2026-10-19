@@ -2,6 +2,11 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.23.0 – Friendly Fire in den Match-Einstellungen (19.10.2026)
+
+- **Friendly Fire (neu, Taste F in den Match-Einstellungen):** Standardmäßig **aus** – Teamkollegen im Team- und Koop-Modus können sich nicht verletzen. Schaltet der Host es **an**, treffen auch Schüsse auf eigene Leute; ein Teamkill bringt weder Frag noch Punkte. Im Deathmatch ändert sich nichts.
+- **Auto-Aim** zielt nie auf Teamkollegen, auch nicht bei eingeschaltetem Friendly Fire.
+
 ## Version 3.22.5 – Beenden-Dialog ohne Esc (19.10.2026)
 
 - **Spiel wirklich beenden?** Der Dialog lässt sich jetzt ohne Esc bedienen: Mit ← → (oder Tab) wählst du, **Enter** bestätigt die Auswahl; vorausgewählt ist das sichere **Abbrechen**. Ein zweites **Q** beendet direkt, **N** bricht ab. Esc und Mausklick funktionieren weiterhin.

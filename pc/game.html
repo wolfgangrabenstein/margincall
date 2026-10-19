@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.22.5";
+const APP_VERSION = "3.23.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -645,6 +645,7 @@ const isMP = () => mode !== "solo";
 const isHost = () => !net.connected || net.id === net.hostId;
 const isClient = () => net.connected && net.id !== net.hostId;
 let players = [], me = null;
+let lobbyFF = false;     // Match-Einstellung des Hosts: Friendly Fire (Teamkollegen in Team und Koop treffbar)
 let lobbyAim = "semi";   // Match-Einstellung des Hosts: erlaubtes Auto-Aim im Multiplayer ("full", "semi" = nur Semi, "off")
 let matchSetOpen = false;    // Fenster "Match-Einstellungen" in der Lobby
 let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [], netMsg = "", netMsgT = 0;
@@ -956,7 +957,8 @@ function damagePlayer(pl, d, why, attacker = null) {
   }
   pl.dead = true; pl.deaths = (pl.deaths || 0) + 1; pl.respawnT = mode === "coop" ? 6 : 3;
   sfxTo(pl, "CRASH");
-  if (attacker && attacker.isPlayer) {
+  if (attacker && attacker.isPlayer && !isOpponent(attacker, pl)) sayAll(`TEAMKILL: ${attacker.name} → ${pl.name}`, 2);   // Friendly Fire: keine Belohnung
+  else if (attacker && attacker.isPlayer) {
     attacker.frags = (attacker.frags || 0) + 1; addScore(attacker, 500);
     sayAll(`${attacker.name} ${L("LIQUIDATED", "LIQUIDIERT")} ${pl.name}`, 2);
   } else sayTo(pl, L("BANKRUPT! RESTARTING SOON …", "INSOLVENZ! NEUSTART GLEICH …"), 3);
@@ -1057,7 +1059,8 @@ function castRay(ox, oy, dx, dy) {
   }
   return 64;
 }
-const canHitPlayer = (shooter, pl) => pl !== shooter && !pl.dead && (mode === "dm" || (mode === "team" && pl.team !== shooter.team));
+const isOpponent = (a, b) => mode === "dm" || (mode === "team" && a.team !== b.team);   // Gegner, nicht Teamkollege
+const canHitPlayer = (shooter, pl) => pl !== shooter && !pl.dead && (isOpponent(shooter, pl) || (lobbyFF && (mode === "team" || mode === "coop")));
 function doShot(pl, ox, oy, dx, dy) {   // nur auf dem Host
   if (pl.dead) return;
   if (pl.ammo <= 0) { sayTo(pl, L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! CASH SAMMELN"), 1.2); sfxTo(pl, "DECLINED"); return; }
@@ -1101,7 +1104,7 @@ function aimTarget(maxAng, maxDist = 14) {
   if (isClient()) {   // Mitspieler kennen die Gegner nur aus dem letzten Snapshot des Hosts
     if (snapCur) for (const [type, x, y, fl] of snapCur.en) if ((fl & 1) && !(mode === "team" && TYPES[type].f === teamFaction(me))) consider(x, y, { x, y });
   } else for (const e of enemies) if (e.alive && !e.gone && !(mode === "team" && e.f === teamFaction(me))) consider(e.x, e.y, e);
-  for (const o of players) if (o !== me && canHitPlayer(me, o)) consider(o.x, o.y, o);
+  for (const o of players) if (o !== me && !o.dead && isOpponent(me, o)) consider(o.x, o.y, o);
   return best;
 }
 function shoot() {
@@ -1310,13 +1313,13 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi";
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true;
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
@@ -1903,6 +1906,7 @@ function onKeyPress(k) {
     case ST.LOBBY:
       if (matchSetOpen) {
         if (k === "a" && isHost() && net.connected) { lobbyAim = { full: "semi", semi: "off", off: "full" }[lobbyAim]; sfx("HIT"); hostSendLobby(); }
+        else if (k === "f" && isHost() && net.connected) { lobbyFF = !lobbyFF; sfx("HIT"); hostSendLobby(); }
         else if (k === "Escape" || k === "enter" || k === "s") { matchSetOpen = false; sfx("HIT"); }
         break;
       }
@@ -3101,16 +3105,20 @@ function renderLobby() {
 function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Knoepfe sind anklickbar
   clickZones = [];
   g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
-  g.fillStyle = "#07090f"; g.fillRect(200, 130, 560, 280); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(200, 130, 560, 280);
-  text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, 148, "#50c8ff", 26, "center");
-  text(host ? L("Applies to everyone in this game.", "Gilt für alle in diesem Spiel.") : L("Only the host can change these.", "Nur der Host kann das ändern."), DW / 2, 186, "#8290b0", 14, "center");
-  text(L("Allowed auto aim", "Erlaubtes Auto-Aim"), 240, 228, "#e6e6f0", 18);
+  g.fillStyle = "#07090f"; g.fillRect(190, 110, 580, 330); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(190, 110, 580, 330);
+  text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, 126, "#50c8ff", 26, "center");
+  text(host ? L("Applies to everyone in this game.", "Gilt für alle in diesem Spiel.") : L("Only the host can change these.", "Nur der Host kann das ändern."), DW / 2, 162, "#8290b0", 14, "center");
+  text(L("Allowed auto aim", "Erlaubtes Auto-Aim"), 230, 202, "#e6e6f0", 18);
   const val = { full: "FULL", semi: L("SEMI ONLY", "NUR SEMI"), off: L("OFF", "AUS") }[lobbyAim], col = { full: "#50ff82", semi: "#ffd232", off: "#ff7050" }[lobbyAim];
-  if (host) zoneButton(520, 220, 200, 34, `[A] ${val}`, col, "a", 16); else text(val, 620, 228, col, 18, "center");
+  if (host) zoneButton(530, 194, 210, 34, `[A] ${val}`, col, "a", 16); else text(val, 635, 202, col, 18, "center");
   [L("Full: everyone gets the level chosen in their options.", "Full: jeder bekommt die Stufe aus seinen Optionen."),
    L("Semi only: full is reduced to semi. Off: no auto aim at all.", "Nur Semi: Full wird zu Semi. Aus: gar kein Auto-Aim.")]
-    .forEach((l, i) => text(l, DW / 2, 278 + i * 20, "#a0a0b4", 13, "center"));
-  zoneButton(380, 352, 200, 38, L("[ESC] DONE", "[ESC] FERTIG"), "#50c8ff", "Escape", 16);
+    .forEach((l, i) => text(l, DW / 2, 238 + i * 18, "#a0a0b4", 13, "center"));
+  text("Friendly Fire", 230, 290, "#e6e6f0", 18);
+  const ffVal = lobbyFF ? L("ON", "AN") : L("OFF", "AUS"), ffCol = lobbyFF ? "#ff7050" : "#50ff82";
+  if (host) zoneButton(530, 282, 210, 34, `[F] ${ffVal}`, ffCol, "f", 16); else text(ffVal, 635, 290, ffCol, 18, "center");
+  text(L("On: teammates (team/co-op) can be hit – team kills give nothing.", "An: Teamkollegen (Team/Koop) treffbar – Teamkills bringen nichts."), DW / 2, 326, "#a0a0b4", 13, "center");
+  zoneButton(380, 382, 200, 38, L("[ESC] DONE", "[ESC] FERTIG"), "#50c8ff", "Escape", 16);
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);

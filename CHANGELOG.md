@@ -2,6 +2,11 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.23.0 – Friendly fire in the match settings (2026-10-19)
+
+- **Friendly fire (new, key F in the match settings):** **off** by default – teammates in team and co-op mode cannot hurt each other. If the host turns it **on**, shots hit your own people too; a team kill gives neither a frag nor points. Nothing changes in deathmatch.
+- **Auto aim** never targets teammates, even with friendly fire on.
+
 ## Version 3.22.5 – Quit dialog without Esc (2026-10-19)
 
 - **Quit the game?** The dialog no longer needs Esc: ← → (or Tab) selects, **Enter** confirms the selection; the safe **Cancel** is preselected. Pressing **Q** again quits right away, **N** cancels. Esc and mouse clicks still work.
