@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.21.1 – Back button in the solo dialog (2026-10-19)
+
+- **Bug fix:** Clicking **Back** in the solo choice still started the game, because the "Play solo" button underneath was clicked as well. Main menu dialogs now only accept clicks on their own buttons.
+
 ## Version 3.21.0 – Easy mode, 5 lives in normal mode (2026-10-19)
 
 - **New Easy mode** (key E in the solo choice, on the Cardputer on the title screen):

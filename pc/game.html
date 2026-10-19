@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.21.0";
+const APP_VERSION = "3.21.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1690,7 +1690,7 @@ screen.addEventListener("mousedown", e => {
   }
   {
     const [x, y] = canvasPos(e);
-    const z = clickZones.find(z => x >= z.x && x < z.x + z.w && y >= z.y && y < z.y + z.h);
+    const z = clickZones.findLast(z => x >= z.x && x < z.x + z.w && y >= z.y && y < z.y + z.h);
     if (z && e.button === 0) { onKeyPress(z.key); return; }
     if (state === ST.TITLE) {
       const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
@@ -3924,7 +3924,9 @@ function frame(now) {
   }
   if (isHost() && net.connected && isMP() && state !== ST.PLAY && state !== ST.LOBBY && performance.now() - lastSent > (net.online ? 500 : 200)) { lastSent = performance.now(); hostSendSnapshot(); }
   switch (state) {
-    case ST.TITLE: gameTime += dt; renderTitle(); if (soloAsk) renderSoloAsk(); else if (quitAsk) renderQuitAsk(); break;
+    case ST.TITLE: gameTime += dt; renderTitle();
+      if (soloAsk) { clickZones = []; renderSoloAsk(); } else if (quitAsk) { clickZones = []; renderQuitAsk(); }   // Dialog: nur seine eigenen Knoepfe sind anklickbar
+      break;
     case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
     case ST.NAMEENTRY: gameTime += dt; renderNameEntry(); break;
     case ST.HIGHSCORES: gameTime += dt; renderHighscores(); break;

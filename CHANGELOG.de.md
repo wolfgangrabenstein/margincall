@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.21.1 – Zurück-Knopf im Solo-Dialog (19.10.2026)
+
+- **Fehler behoben:** Ein Mausklick auf **Zurück** in der Solo-Auswahl startete trotzdem das Spiel, weil der Knopf „Solo spielen“ darunter mitgeklickt wurde. Dialoge im Hauptmenü nehmen jetzt nur noch Klicks auf ihre eigenen Knöpfe an.
+
 ## Version 3.21.0 – Spielmodus Einfach, 5 Leben im Normalmodus (19.10.2026)
 
 - **Neuer Modus Einfach** (Taste E in der Solo-Auswahl, am Cardputer im Titelbild):
