@@ -1480,7 +1480,13 @@ function setFullscreen(on) {
   if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { fsOn = false; netNotice(L("FULLSCREEN NOT AVAILABLE", "VOLLBILD NICHT MÖGLICH")); });
   if (!on && document.fullscreenElement) document.exitFullscreen?.();
 }
-document.addEventListener("fullscreenchange", () => { if (!IN_APP) fsOn = !!document.fullscreenElement; });
+document.addEventListener("fullscreenchange", () => {
+  if (!IN_APP) fsOn = !!document.fullscreenElement;
+  // PC: Esc soll nur pausieren, das Vollbild endet allein mit F4. Chromium-Browser (Chrome, Edge, Opera) erlauben dafuer
+  // die Tastatursperre fuer Esc im Vollbild; andere Browser beenden das Vollbild mit Esc weiterhin selbst.
+  if (COARSE || !navigator.keyboard) return;
+  try { if (document.fullscreenElement) navigator.keyboard.lock?.(["Escape"])?.catch?.(() => { }); else navigator.keyboard.unlock?.(); } catch (e) { }
+});
 // Maussteuerung direkt einfangen (geht nur direkt nach einer Taste oder einem Klick des Spielers)
 function lockMouse() {
   if (COARSE || !settings.mouseLook || document.pointerLockElement === screen) return;

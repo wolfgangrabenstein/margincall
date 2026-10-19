@@ -186,10 +186,10 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             }
             let mut body = vec![0u8; len];
             reader.read_exact(&mut body)?;
-            let list = highscore_add(&body, hs_mode(path));
+            let list = highscore_add(&body, hs_mode(&path));
             respond(&mut out, 200, "application/json", list.as_bytes())
         }
-        "/api/highscores" | "/api/highscores-hc" | "/api/highscores-easy" => respond(&mut out, 200, "application/json", highscores_load(hs_mode(path)).to_string().as_bytes()),
+        "/api/highscores" | "/api/highscores-hc" | "/api/highscores-easy" => respond(&mut out, 200, "application/json", highscores_load(hs_mode(&path)).to_string().as_bytes()),
         "/api/games" => respond(&mut out, 200, "application/json", games_json().as_bytes()),
         "/api/host" if method == "POST" => {
             // Lobby-Status des eigenen Spiels (nur vom eigenen Rechner); active=false beendet die Ankuendigung

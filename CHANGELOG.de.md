@@ -6,6 +6,7 @@
 
 - **Einfach hat eine eigene Highscore-Liste** – lokal, in der App und online (Gesamt und Heute). In der Highscore-Ansicht wechselst du mit **X** zwischen Normal, Hardcore und Einfach. Weil Einfach nicht mehr mit Normal verglichen wird, gibt es dort wieder volle Punkte statt 0,6-facher.
 - **Krypto-Blase:** Solange sie dich nicht bemerkt hat, ist sie ganz grün, auch die Stacheln. Greift sie an, fluoresziert sie im Takt rot, Stacheln inklusive. Auch am Cardputer.
+- **Esc im Vollbild (PC-Browser):** Esc öffnet nur noch das Pausenmenü, das Vollbild bleibt und endet nur mit F4. Das klappt in Chrome, Edge und Opera; Firefox beendet das Vollbild mit Esc weiterhin selbst, das lässt der Browser nicht anders zu.
 
 ## Version 3.21.3 – bedrohlichere Krypto-Blase (19.10.2026)
 

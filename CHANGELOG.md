@@ -6,6 +6,7 @@
 
 - **Easy has its own high score list** – local, in the app and online (all-time and today). In the high score view, **X** switches between normal, hardcore and easy. Since easy is no longer compared with normal, it gives full points again instead of 0.6×.
 - **Crypto bubble:** as long as it hasn't noticed you, it is completely green, spikes included. When it attacks, it pulses with a fluorescent red, spikes and all. On the Cardputer too.
+- **Esc in fullscreen (PC browser):** Esc now only opens the pause menu; fullscreen stays and only ends with F4. This works in Chrome, Edge and Opera; Firefox still leaves fullscreen on Esc itself, the browser does not allow otherwise.
 
 ## Version 3.21.3 – Menacing crypto bubble (2026-10-19)
 
