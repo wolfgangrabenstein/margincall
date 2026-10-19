@@ -31,7 +31,7 @@
     image-rendering: pixelated; background: #000; border: 2px solid var(--line); border-radius: 6px;
     cursor: crosshair;
   }
-  #hint { color: var(--muted); font-size: 12px; margin-top: 8px; text-align: center; }
+  #hint { color: var(--muted); font-size: 12px; margin-top: 8px; text-align: center; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   /* Smartphone: Steuerung nur waehrend des Spiels ueber dem Bild (linke Haelfte = Stick, rechte Haelfte = Drehen) */
   #touch { display: none; position: fixed; inset: 0; z-index: 5; touch-action: none; user-select: none; -webkit-user-select: none; }
   body.playing #touch { display: block; }
@@ -44,9 +44,10 @@
     background: rgba(11,17,32,.55); border-color: rgba(255,210,58,.7); display: flex; align-items: center; justify-content: center; }
   #touch #tDodge svg { width: 40px; height: 40px; }
   #fsBtn { display: none; position: fixed; z-index: 7; right: calc(10px + env(safe-area-inset-right, 0px)); top: 10px; width: 44px; height: 44px;
-    border-radius: 10px; border: 2px solid rgba(255,255,255,.35); background: rgba(11,17,32,.6); color: var(--text); font: 700 20px var(--font-ui); touch-action: manipulation; }
+    border-radius: 12px; border: 2px solid rgba(255,255,255,.35); background: rgba(11,17,32,.6); color: var(--text); padding: 0; touch-action: manipulation; }
   body.playing #fsBtn { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
-  #touch #tPause { left: calc(14px + env(safe-area-inset-left, 0px)); top: 14px; width: 50px; height: 50px; font-size: 18px; }
+  #touch #tPause svg, #fsBtn svg { width: 24px; height: 24px; display: block; margin: auto; }
+  #touch #tPause { padding: 0; background: rgba(11,17,32,.6); border-color: rgba(255,255,255,.4); left: calc(14px + env(safe-area-inset-left, 0px)); top: 14px; width: 50px; height: 50px; font-size: 18px; }
   #rotate { display: none; position: fixed; inset: 0; z-index: 6; background: rgba(5,7,13,.94); color: var(--gold);
     font: 700 20px var(--font-ui); align-items: center; justify-content: center; text-align: center; padding: 24px; }
   #kbd { position: fixed; left: -200px; top: 0; width: 10px; height: 10px; opacity: 0; }
@@ -64,10 +65,10 @@
 <div id="hint"></div>
 <div id="touch">
   <div id="stickBase"><div id="stickKnob"></div></div>
-  <button id="tDodge" aria-label="Dash"><svg viewBox="0 0 40 40" fill="none" stroke="#ffd23a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l11 11-11 11"/><path d="M21 9l11 11-11 11"/></svg></button><button id="tPause">II</button>
+  <button id="tDodge" aria-label="Dash"><svg viewBox="0 0 40 40" fill="none" stroke="#ffd23a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l11 11-11 11"/><path d="M21 9l11 11-11 11"/></svg></button><button id="tPause" aria-label="Pause"><svg viewBox="0 0 24 24" fill="#e8ecf6"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg></button>
 </div>
 <div id="rotate">↻</div>
-<button id="fsBtn" aria-label="Fullscreen">⛶</button>
+<button id="fsBtn" aria-label="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="#e8ecf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 <input id="kbd" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-hidden="true">
 <script>
 "use strict";
@@ -79,7 +80,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.20.0";
+const APP_VERSION = "3.20.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1493,30 +1494,38 @@ const bindText = a => settings.binds[a].filter(Boolean).map(bindLabel).join("/")
 function updateHint() {
   document.getElementById("hint").textContent =
     L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindText("pause")} pause · ` +
-      `${bindText("music")} music · double-tap a direction = dodge · H highscores · O options · T chat (multiplayer) · Tab stats · F4 fullscreen · L language (main menu)`,
+      `${bindText("music")} music · 2× direction dodge · H highscores · O options · T chat · Tab stats · F4 fullscreen · L language`,
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-      `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · L Sprache (Hauptmenü)`);
+      `${bindText("music")} Musik · 2× Richtung Ausweichen · H Highscores · O Optionen · T Chat · Tab Statistik · F4 Vollbild · L Sprache`);
 }
 
 // Optionsmenue
 const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { return L(en, de); } });
-const OPT_ROWS = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindlichkeit und grosse Zeilen
+const OPT_MAIN = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindlichkeit und grosse Zeilen
   optRow("touchSens", "Turn sensitivity", "Drehempfindlichkeit"), optRow("aimMode", "Auto aim", "Auto-Aim"), optRow("invert", "Invert turning", "Drehen umkehren"),
   optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
   optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard", "Online-Rangliste")] : []),
   optRow("onlineMP", "Online multiplayer", "Online-Multiplayer"), optRow("lang", "Language", "Sprache"),
-  optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")] : [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id })),
-  optRow("mouseLook", "Mouse look", "Maussteuerung"), optRow("sens", "Mouse sensitivity", "Mausempfindlichkeit"), optRow("invert", "Invert mouse", "Maus invertieren"),
+  optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")] : [
+  optRow("keys", "Controls ▶", "Steuerung ▶"),
   optRow("aimMode", "Auto aim (e.g. for trackpads)", "Auto-Aim (z. B. fürs Trackpad)"),
   optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
   optRow("onlineMP", "Online multiplayer (Cloudflare)", "Online-Multiplayer (Cloudflare)"),
   optRow("lang", "Language", "Sprache"),
-  optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "Back", "Zurück")];
+  optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")];
+// Unterseite "Steuerung" (nur PC): Tastenbelegung und Maus
+const OPT_KEYS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id })),
+  optRow("mouseLook", "Mouse look", "Maussteuerung"), optRow("sens", "Mouse sensitivity", "Mausempfindlichkeit"), optRow("invert", "Invert mouse", "Maus invertieren"),
+  optRow("keysReset", "Restore default controls", "Standard-Steuerung wiederherstellen"), optRow("keysBack", "◀  Back", "◀  Zurück")];
+let OPT_ROWS = OPT_MAIN, optPage = "main", OPT_Y0 = 0, OPT_DY = 0;
+function setOptPage(p) {
+  optPage = p; OPT_ROWS = p === "keys" ? OPT_KEYS : OPT_MAIN; optSel = 0; optCol = 0; optWaiting = false;
+  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = COARSE ? 36 : p === "keys" ? 19 : 32;
+}
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = COARSE ? 66 : 78, OPT_DY = COARSE ? 36 : 17;
-function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
+function openOptions() { optReturn = state; state = ST.OPTIONS; setOptPage("main"); document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
   const row = OPT_ROWS[optSel];
@@ -1540,7 +1549,15 @@ function optActivate() {
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
     case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[settings.aimMode] || "off"; saveSettings(); break;
     case "touchSens": settings.touchSens = (settings.touchSens || 6) % 10 + 1; saveSettings(); break;
-    case "reset": settings = { ...structuredClone(DEFAULTS), lang: settings.lang, aimMode: COARSE ? "semi" : "off" }; saveSettings(); applyVolumes(); optMsg = L("Defaults restored", "Standardbelegung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
+    case "reset": {   // nur Steuerung, Ton und Anzeige zuruecksetzen; Namen, Zustimmungen und Highscores bleiben erhalten
+      const keep = {}; for (const k of ["lang", "nickname", "playerName", "gameName", "avatar", "liveData", "onlineScores", "onlineMP", "touchHelpSeen"]) if (settings[k] !== undefined) keep[k] = settings[k];
+      settings = { ...structuredClone(DEFAULTS), ...keep, aimMode: COARSE ? "semi" : "off" };
+      saveSettings(); applyVolumes(); optMsg = L("Defaults restored", "Standard wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
+    }
+    case "keys": setOptPage("keys"); sfx("HIT"); break;
+    case "keysBack": setOptPage("main"); sfx("HIT"); break;
+    case "keysReset": settings.binds = structuredClone(DEFAULTS.binds); settings.mouseLook = DEFAULTS.mouseLook; settings.sens = DEFAULTS.sens; settings.invert = DEFAULTS.invert;
+      saveSettings(); optMsg = L("Default controls restored", "Standard-Steuerung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
     case "back": closeOptions(); break;
   }
 }
@@ -1563,7 +1580,7 @@ function optKey(k) {
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
-  else if (k === "Escape" || k === "o") closeOptions();
+  else if (k === "Escape" || k === "o") { if (optPage === "keys") setOptPage("main"); else closeOptions(); }
 }
 function canvasPos(e) {
   const r = screen.getBoundingClientRect();
@@ -1585,12 +1602,13 @@ function optClick(x, y) {
 }
 function renderOptions() {
   g.fillStyle = "#060a14"; g.fillRect(0, 0, DW, DH);
-  text(L("OPTIONS", "OPTIONEN"), DW / 2, 18, "#ffd232", 40, "center");
-  if (!COARSE) { text(L("ACTION", "AKTION"), 60, 60, "#6b7896", 14); text(L("KEY 1", "BELEGUNG 1"), 530, 60, "#6b7896", 14); text(L("KEY 2", "BELEGUNG 2"), 750, 60, "#6b7896", 14); }
+  text(optPage === "keys" ? L("OPTIONS › CONTROLS", "OPTIONEN › STEUERUNG") : L("OPTIONS", "OPTIONEN"), DW / 2, 18, "#ffd232", 40, "center");
+  if (optPage === "keys") { text(L("ACTION", "AKTION"), 60, 60, "#6b7896", 14); text(L("KEY 1", "BELEGUNG 1"), 530, 60, "#6b7896", 14); text(L("KEY 2", "BELEGUNG 2"), 750, 60, "#6b7896", 14); }
   OPT_ROWS.forEach((row, i) => {
-    const y0 = OPT_Y0 + i * OPT_DY, y = y0 + (COARSE ? 6 : 0), sel = i === optSel;
+    const y0 = OPT_Y0 + i * OPT_DY, y = y0 + Math.max(0, Math.round((OPT_DY - 24) / 2)), sel = i === optSel;
     if (sel) { g.fillStyle = "#123a24"; g.fillRect(40, y0 - 4, DW - 80, OPT_DY - 2); }
-    if (COARSE) { g.strokeStyle = row.kind === "back" ? "#ffd232" : "#1e2846"; g.lineWidth = row.kind === "back" ? 2 : 1; g.strokeRect(40, y0 - 4, DW - 80, OPT_DY - 2); }
+    if (OPT_DY > 24) { const back = row.kind === "back" || row.kind === "keysBack"; g.strokeStyle = back ? "#ffd232" : "#1e2846"; g.lineWidth = back ? 2 : 1; g.strokeRect(40, y0 - 4, DW - 80, OPT_DY - 2); }
+    if (row.kind === "keys") text(L("key bindings & mouse", "Tastenbelegung & Maus"), 530, y + 1, "#50c8ff", 15);
     text(row.name, 60, y, sel ? "#ffffff" : "#c8c8d7", 17);
     if (row.kind === "bind") {
       for (let c = 0; c < 2; c++) {
@@ -1617,6 +1635,7 @@ function renderOptions() {
     }
   });
   const help = COARSE ? L("Tap a row to change it · tap a box to set a slider", "Zeile antippen zum Ändern · auf ein Kästchen tippen für den Regler")
+    : optPage === "main" ? L("↑↓ select · ←→ change value · ENTER/click change · ESC back", "↑↓ wählen · ←→ Wert ändern · ENTER/Klick ändern · ESC zurück")
     : optWaiting ? L("Press a new key or mouse button · ESC cancels", "Neue Taste oder Maustaste drücken · ESC bricht ab")
     : L("↑↓ select · ←→ column/value · ENTER/click change · DEL clear · ESC back", "↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · ESC zurück");
   text(help, DW / 2, DH - 32, "#8290b0", 15, "center");
@@ -1679,6 +1698,7 @@ function touchDodge() {
   dodgeX = dirX * f - dirY * sd; dodgeY = dirY * f + dirX * sd;
   dodgeT = DODGE_TIME; dodgeCd = DODGE_TIME + DODGE_COOLDOWN; sfx("DODGE");
 }
+const FS_IN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#e8ecf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>', FS_OUT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#e8ecf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
 function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. wieder zurueck (wo der Browser das erlaubt)
   if (IN_APP) return;
   const ori = window.screen.orientation;   // window.screen: "screen" ist im Spiel die Zeichenflaeche
@@ -1693,7 +1713,8 @@ function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. w
   if (!IN_APP && document.fullscreenEnabled) document.body.classList.add("canfs");   // iPhone-Safari kann kein Vollbild fuer Webseiten
   fsBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); audioUnlock(); mobileFullscreen(); });
   document.addEventListener("fullscreenchange", () => {
-    fsBtn.textContent = document.fullscreenElement ? "✕" : "⛶";
+    fsBtn.innerHTML = document.fullscreenElement ? FS_OUT_SVG : FS_IN_SVG;
+    if (!document.fullscreenElement && COARSE && state === ST.PLAY && !isMP() && !me.dead) openPause();   // Vollbild verlassen: Solo-Spiel pausiert
     if (!document.fullscreenElement) try { window.screen.orientation?.unlock?.(); } catch (e) { }   // auch beim Verlassen per Zurueck-Taste
   });
 }
@@ -3749,7 +3770,7 @@ function renderSoloAsk() {
   text(L("PLAY SOLO", "SOLO SPIELEN"), DW / 2, 128, "#ffd232", 30, "center");
   zoneButton(180, 180, 290, 64, L("▶  [ENTER] NORMAL", "▶  [ENTER] NORMAL"), "#50ff82", "enter", 22);
   zoneButton(490, 180, 290, 64, "☠  [X] HARDCORE", "#ff5050", "x", 22);
-  [L("All 5 levels.", "Alle 5 Level."), L("Broke? A new loan", "Pleite? Mit neuem Kredit"), L("gets you back in the game.", "geht es weiter.")].forEach((l, i) => text(l, 325, 256 + i * 20, "#c8c8d7", 14, "center"));
+  [L("Broke? A new loan", "Pleite? Mit neuem Kredit"), L("gets you back in the game.", "geht es weiter.")].forEach((l, i) => text(l, 325, 256 + i * 20, "#c8c8d7", 14, "center"));
   [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies, 1.5× points", "weniger Nachschub, 1,5-fache Punkte"), L("– and only ONE life.", "– und nur EIN Leben.")].forEach((l, i) => text(l, 635, 256 + i * 20, "#ffb0a0", 14, "center"));
   zoneButton(380, 362, 200, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
 }

@@ -2,6 +2,16 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.20.1 – aufgeräumte Optionen, neue Handy-Symbole (19.10.2026)
+
+- **Optionen (PC):** Tastenbelegung und Maus liegen jetzt auf einer eigenen Unterseite **Steuerung ▶** (mit eigenem „Standard-Steuerung wiederherstellen“). Die Hauptseite ist dadurch übersichtlicher.
+- **Standard wiederherstellen** setzt nur noch Steuerung, Ton und Anzeige zurück; Namen, Zustimmungen und der lokale Highscore bleiben erhalten.
+- **Tastenkürzel-Zeile (PC):** kürzer und einheitlich („2× Richtung Ausweichen“, „L Sprache“), ohne Zeilenumbruch.
+- **Solo-Auswahl:** Der Hinweis „Alle 5 Level“ entfällt.
+- **Handy:**
+  - Moderne Symbole für **Pause** und **Vollbild** (Vollbild betreten/verlassen als Ecken-Symbol), damit man sie nicht mit den Optionen verwechselt.
+  - Wer im Solo-Spiel das Vollbild verlässt, landet automatisch in der **Pause**.
+
 ## Version 3.20.0 – neues Hauptmenü, Credits, Touch-Anleitung (19.10.2026)
 
 - **Hauptmenü:**

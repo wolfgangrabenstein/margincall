@@ -2,6 +2,16 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.20.1 – Tidier options, new phone icons (2026-10-19)
+
+- **Options (PC):** Key bindings and mouse settings now live on their own **Controls ▶** sub-page (with its own "Restore default controls"). The main page is much clearer.
+- **Restore defaults** now only resets controls, sound and display; names, consents and the local high score are kept.
+- **Key hint line (PC):** shorter and consistent ("2× direction dodge", "L language"), no line break.
+- **Solo choice:** the "All 5 levels" note is gone.
+- **Phones:**
+  - Modern **pause** and **fullscreen** icons (corner icons for entering/leaving fullscreen), so they are no longer mistaken for the options.
+  - Leaving fullscreen during a solo game now **pauses** the game automatically.
+
 ## Version 3.20.0 – New main menu, credits, touch tutorial (2026-10-19)
 
 - **Main menu:**
