@@ -2,6 +2,15 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.20.0 – New main menu, credits, touch tutorial (2026-10-19)
+
+- **Main menu:**
+  - One big **Play solo** button; then you choose **Normal** or **Hardcore**, each with a short explanation (Hardcore: much tougher enemies, fewer supplies, 1.5× points and only one life). The separate Hardcore button is gone; X still starts Hardcore directly.
+  - New **Credits** button (key C): the credits from the end of the game, then back to the menu.
+  - **Fullscreen** is now a clear button at the top right, **language** a button at the top left; the **L** key switches the language in the main menu.
+- **Phones:** On your first game a short overlay explains the touch controls (stick on the left, swipe and tap on the right, dodge, pause); it disappears after a few seconds or when you tap. The key hints below the game screen are hidden on phones.
+- **Key hint line (PC):** "Q in pause" is gone; it now says "L language" instead.
+
 ## Version 3.19.8 – Auto aim in three levels (2026-10-19)
 
 - **Auto aim: Off, Semi or Full.**

@@ -79,7 +79,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.8";
+const APP_VERSION = "3.20.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1477,6 +1477,8 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
 const keys = new Set();
 let mouseTurn = 0;
 const COARSE = matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints > 0 && matchMedia("(hover: none)").matches);   // Smartphone oder Tablet
+if (COARSE) document.getElementById("hint").style.display = "none";   // Tastenkuerzel braucht es am Handy nicht
+let touchHelpT = 0;   // Anleitung der Touch-Steuerung beim ersten Spiel
 const down = a => settings.binds[a].some(k => k && keys.has(k));
 const isBound = (a, k) => settings.binds[a].includes(k);
 const keyName = e => e.code === "Space" ? " " : e.code === "Enter" || e.code === "NumpadEnter" ? "enter" : e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -1491,9 +1493,9 @@ const bindText = a => settings.binds[a].filter(Boolean).map(bindLabel).join("/")
 function updateHint() {
   document.getElementById("hint").textContent =
     L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindText("pause")} pause · ` +
-      `${bindText("music")} music · double-tap a direction = dodge · H highscores · O options · T chat (multiplayer) · Tab stats · F4 fullscreen · Q in pause = main menu`,
+      `${bindText("music")} music · double-tap a direction = dodge · H highscores · O options · T chat (multiplayer) · Tab stats · F4 fullscreen · L language (main menu)`,
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
-      `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · Q in der Pause = Hauptmenü`);
+      `${bindText("music")} Musik · 2× Richtung = Ausweichen · H Highscores · O Optionen · T Chat (Multiplayer) · Tab Statistik · F4 Vollbild · L Sprache (Hauptmenü)`);
 }
 
 // Optionsmenue
@@ -1633,7 +1635,7 @@ addEventListener("keyup", e => keys.delete(keyName(e)));
 addEventListener("blur", () => keys.clear());
 screen.addEventListener("contextmenu", e => e.preventDefault());
 // Schaltflaechen im Titelbild (Koordinaten im 960x540-Raster)
-const TITLE_BTNS = [{ x: 50, y: 455, w: 200, h: 44, key: "n" }, { x: 265, y: 455, w: 200, h: 44, key: "h" }, { x: 480, y: 455, w: 200, h: 44, key: "o" }, { x: 695, y: 455, w: 200, h: 44, key: "Escape" }];
+const TITLE_BTNS = [];   // Knoepfe im Titelbild sind jetzt Klickflaechen (zoneButton)
 screen.addEventListener("mousedown", e => {
   e.preventDefault();
   audioUnlock();
@@ -1722,6 +1724,7 @@ function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. w
   layer.addEventListener("pointerdown", e => {
     if (e.target !== layer) return;
     e.preventDefault(); audioUnlock();
+    if (touchHelpT > 0 && touchHelpT < 7.8) touchHelpT = .5;   // Anleitung beim Tippen ausblenden
     // linke und rechte Haelfte sind strikt getrennt: links nur der Stick (ein Finger), rechts Drehen und Feuern
     if (e.clientX < innerWidth / 2) {
       if (stickId !== null) return;   // zweiter Finger links: ignorieren
@@ -1788,6 +1791,12 @@ function onKeyPress(k) {
     else if (isBound("pause", k) || k === "Escape") { if (k !== "Escape" || pauseAge() > .4) { mpMenu = false; lockMouse(); } }
     return;
   }
+  if (state === ST.TITLE && soloAsk) {   // Auswahl Normal / Hardcore
+    if (k === "enter" || k === "1") { soloAsk = false; startSolo(false); }
+    else if (k === "x" || k === "2") { soloAsk = false; startSolo(true); }
+    else if (k === "Escape") soloAsk = false;
+    return;
+  }
   if (state === ST.TITLE && quitAsk) {
     if (k === "enter") { quitAsk = false; quitGame(); }
     else if (k === "Escape") quitAsk = false;
@@ -1802,12 +1811,12 @@ function onKeyPress(k) {
     case ST.TITLE:
       if (k === "o") openOptions();
       else if (k === "h") openHighscores();
+      else if (k === "c") startMenuCredits();
+      else if (k === "l") { settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); buildTicker(); sfx("HIT"); }
       else if (k === "Escape") quitAsk = true;
       else if (k === "n") { if (WEB_BUILD) openOnline(); else if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
-      else if (k === "enter" || k === "x") {   // X = Hardcore
-        hardcore = k === "x"; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
-        state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
-      }
+      else if (k === "enter") soloAsk = true;   // Auswahl Normal / Hardcore
+      else if (k === "x") startSolo(true);
       break;
     case ST.LOBBY:
       if (k === "Escape") { leaveMP(); break; }
@@ -1863,7 +1872,7 @@ function onKeyPress(k) {
       else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
     case ST.CREDITS:
-      if (k === "enter" || k === "Escape" || k === " ") startIsland();
+      if (k === "enter" || k === "Escape" || k === " ") creditsDone();
       break;
     case ST.OUTRO:
       if (k === "enter" || k === "Escape" || k === " ") state = ST.WIN;
@@ -2669,8 +2678,9 @@ const creditLines = () => [
   [L("Live quotes", "Live-Kurse"), 16, "#8290b0"], ["Yahoo Finance", 20, "#e6e6f0"], ["", 8],
   [L("Tech", "Technik"), 16, "#8290b0"], ["Tauri · Rust · Cloudflare · M5Stack Cardputer", 20, "#e6e6f0"], ["", 18],
   [L("No bulls or bears were seriously harmed.", "Kein Bulle und kein Bär wurde ernsthaft verletzt."), 16, "#a0a0b4"], [L("Not investment advice.", "Keine Anlageberatung."), 16, "#a0a0b4"], ["", 26],
-  [L("The market is free again.", "Der Markt ist wieder frei."), 22, "#50ff82"], [L("But where to put all that money now …?", "Aber wohin jetzt mit dem ganzen Geld …?"), 22, "#50ff82"], ["", 14],
-  [L("OFF TO TAX HAVEN!", "AB INS STEUERPARADIES!"), 34, "#ffd232"],
+  ...(creditsMenu ? [[L("THANKS FOR PLAYING!", "DANKE FÜRS SPIELEN!"), 34, "#ffd232"]] : [
+    [L("The market is free again.", "Der Markt ist wieder frei."), 22, "#50ff82"], [L("But where to put all that money now …?", "Aber wohin jetzt mit dem ganzen Geld …?"), 22, "#50ff82"], ["", 14],
+    [L("OFF TO TAX HAVEN!", "AB INS STEUERPARADIES!"), 34, "#ffd232"]]),
 ];
 function renderCredits() {
   chartBackground("#145a2d", "#282828");
@@ -2882,20 +2892,15 @@ function renderTitle() {
   text(`${L("Quotes as of", "Kursstand")}: ${when}  ·  ${mStat()}`, DW / 2, 312, "#8290b0", 15, "center");
   // Hauptknopf: Einzelspieler starten (pulsiert leicht)
   const pulse = .5 + .5 * Math.sin(gameTime * 4);
-  g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(170, 378, 360, 56);
-  zoneButton(170, 378, 360, 56, L("▶  [ENTER] PLAY SOLO", "▶  [ENTER] SOLO SPIELEN"), "#ffd232", "enter", 24);
-  zoneButton(550, 378, 240, 56, "☠  [X] HARDCORE", "#ff5050", "x", 22);
-  button(TITLE_BTNS[0], "[N] MULTIPLAYER", "#50c8ff");
-  button(TITLE_BTNS[1], "[H] HIGHSCORES", "#ffd232");
-  button(TITLE_BTNS[2], L("[O] OPTIONS", "[O] OPTIONEN"), "#50ff82");
-  button(TITLE_BTNS[3], L("[ESC] QUIT", "[ESC] BEENDEN"), "#ff7050");
+  g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(280, 352, 400, 60);
+  zoneButton(280, 352, 400, 60, L("▶  [ENTER] PLAY SOLO", "▶  [ENTER] SOLO SPIELEN"), "#ffd232", "enter", 26);
+  [["[N] MULTIPLAYER", "#50c8ff", "n"], ["[H] HIGHSCORES", "#ffd232", "h"], [L("[O] OPTIONS", "[O] OPTIONEN"), "#50ff82", "o"],
+   ["[C] CREDITS", "#c890ff", "c"], [L("[ESC] QUIT", "[ESC] BEENDEN"), "#ff7050", "Escape"]]
+    .forEach(([lb, col, key], i) => zoneButton(30 + i * 182, 452, 172, 44, lb, col, key, 16));
+  zoneButton(14, 34, 150, 30, settings.lang === "de" ? "[L] ENGLISH" : "[L] DEUTSCH", "#50c8ff", "l", 14);
+  if (!COARSE) zoneButton(DW - 194, 34, 180, 30, fsOn ? L("⛶ [F4] EXIT FULLSCREEN", "⛶ [F4] VOLLBILD AUS") : L("⛶ [F4] FULLSCREEN", "⛶ [F4] VOLLBILD"), "#ffd232", "F4", 14);
   if (netMsgT > 0) text(netMsg, DW / 2, 428, "#ff7050", 16, "center");
   text(CREDITS, DW - 14, 518, "#6b7896", 13, "right");
-  // Vollbild-Hinweis unten links (anklickbar)
-  const fsLabel = L(`[F4] FULLSCREEN ${fsOn ? "OFF" : "ON"}`, `[F4] VOLLBILD ${fsOn ? "AUS" : "AN"}`);
-  g.font = FONT(13); const fsW = g.measureText(fsLabel).width;
-  text(fsLabel, 14, 518, hovered(10, 512, fsW + 8, 22) ? "#ffffff" : "#8290b0", 13);
-  zone(10, 512, fsW + 8, 22, "F4");
 }
 function renderLobby() {
   chartBackground("#123a26", "#3a1414");
@@ -3718,6 +3723,39 @@ function joinKey(k) {
   }
   if (k.length === 1 && /[0-9a-z.:\-]/.test(k) && joinText.length < 40) joinText += k;
 }
+let soloAsk = false;
+function startSolo(hc) {
+  hardcore = hc; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
+  state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
+}
+function renderTouchHelp() {   // erklaert die Handy-Steuerung, verschwindet nach ein paar Sekunden oder beim Tippen
+  g.globalAlpha = Math.min(1, touchHelpT / .6);
+  const box = (x, y, w, h, title, lines, col) => {
+    g.fillStyle = "rgba(0,0,0,.78)"; g.fillRect(x, y, w, h); g.strokeStyle = col; g.lineWidth = 2; g.strokeRect(x, y, w, h);
+    text(title, x + w / 2, y + 10, col, 20, "center");
+    lines.forEach((l, i) => text(l, x + w / 2, y + 42 + i * 22, "#e6e6f0", 15, "center"));
+  };
+  box(40, 120, 400, 140, L("◀ LEFT HALF: MOVE", "◀ LINKE HÄLFTE: LAUFEN"), [L("Put your thumb down anywhere", "Daumen irgendwo aufsetzen"), L("and push = walk & strafe", "und schieben = laufen & seitwärts"), L("Tap = one shot", "Antippen = ein Schuss")], "#50c8ff");
+  box(520, 120, 400, 140, L("RIGHT HALF: AIM & FIRE ▶", "RECHTE HÄLFTE: ZIELEN & FEUERN ▶"), [L("Swipe = turn", "Wischen = drehen"), L("Tap = shot · hold = continuous fire", "Tippen = Schuss · halten = Dauerfeuer"), L("(you can keep turning while holding)", "(beim Halten weiter drehbar)")], "#ffd232");
+  g.fillStyle = "rgba(0,0,0,.78)"; g.fillRect(650, 280, 196, 28); g.fillRect(56, 68, 120, 26); g.fillRect(250, 290, 460, 26);
+  text(L("dash  » ▶", "Ausweichen  » ▶"), 836, 285, "#ffd232", 16, "right");
+  text(L("◀ II = pause", "◀ II = Pause"), 64, 73, "#e6e6f0", 15);
+  text(L("Auto aim and turn speed: Options", "Auto-Aim und Drehtempo: Optionen"), DW / 2, 296, "#c8c8d7", 14, "center");
+  g.globalAlpha = 1;
+}
+function renderSoloAsk() {
+  g.fillStyle = "rgba(0,0,0,.75)"; g.fillRect(0, 0, DW, DH);
+  g.fillStyle = "#07090f"; g.fillRect(150, 110, 660, 320); g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(150, 110, 660, 320);
+  text(L("PLAY SOLO", "SOLO SPIELEN"), DW / 2, 128, "#ffd232", 30, "center");
+  zoneButton(180, 180, 290, 64, L("▶  [ENTER] NORMAL", "▶  [ENTER] NORMAL"), "#50ff82", "enter", 22);
+  zoneButton(490, 180, 290, 64, "☠  [X] HARDCORE", "#ff5050", "x", 22);
+  [L("All 5 levels.", "Alle 5 Level."), L("Broke? A new loan", "Pleite? Mit neuem Kredit"), L("gets you back in the game.", "geht es weiter.")].forEach((l, i) => text(l, 325, 256 + i * 20, "#c8c8d7", 14, "center"));
+  [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies, 1.5× points", "weniger Nachschub, 1,5-fache Punkte"), L("– and only ONE life.", "– und nur EIN Leben.")].forEach((l, i) => text(l, 635, 256 + i * 20, "#ffb0a0", 14, "center"));
+  zoneButton(380, 362, 200, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+}
+let creditsMenu = false;   // Abspann aus dem Hauptmenue: danach zurueck ins Menue statt in die Steueroase
+function startMenuCredits() { creditsMenu = true; creditsT = 0; state = ST.CREDITS; musicStart(); }
+function creditsDone() { if (creditsMenu) { creditsMenu = false; state = ST.TITLE; musicStart(); } else startIsland(); }
 function renderQuitAsk() {
   g.fillStyle = "rgba(0,0,0,.75)"; g.fillRect(0, 0, DW, DH);
   g.fillStyle = "#000"; g.fillRect(250, 180, 460, 150); g.strokeStyle = "#ff7050"; g.lineWidth = 2; g.strokeRect(250, 180, 460, 150);
@@ -3826,12 +3864,16 @@ function frame(now) {
   }
   if (isHost() && net.connected && isMP() && state !== ST.PLAY && state !== ST.LOBBY && performance.now() - lastSent > (net.online ? 500 : 200)) { lastSent = performance.now(); hostSendSnapshot(); }
   switch (state) {
-    case ST.TITLE: gameTime += dt; renderTitle(); if (quitAsk) renderQuitAsk(); break;
+    case ST.TITLE: gameTime += dt; renderTitle(); if (soloAsk) renderSoloAsk(); else if (quitAsk) renderQuitAsk(); break;
     case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
     case ST.NAMEENTRY: gameTime += dt; renderNameEntry(); break;
     case ST.HIGHSCORES: gameTime += dt; renderHighscores(); break;
     case ST.LOBBY: gameTime += dt; renderLobby(); break;
-    case ST.PLAY: updateGame(dt); if (state === ST.PLAY) { renderPlay(dt); if (mpMenu) renderMpMenu(); } break;
+    case ST.PLAY: updateGame(dt); if (state === ST.PLAY) {
+      renderPlay(dt); if (mpMenu) renderMpMenu();
+      if (COARSE && !settings.touchHelpSeen) { settings.touchHelpSeen = true; saveSettings(); touchHelpT = 9; }
+      if (touchHelpT > 0) { touchHelpT -= dt; renderTouchHelp(); }
+    } break;
     case ST.MPMENU: gameTime += dt; renderMpChoice(); break;
     case ST.JOIN: gameTime += dt; renderJoin(); break;
     case ST.ONLINE: gameTime += dt; renderOnline(); break;
@@ -3859,7 +3901,7 @@ function frame(now) {
       if (HC()) renderEnd("GAME OVER", L("Hardcore: bankruptcy is final – your run is over", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei"), "#ff3c3c", false);
       else renderEnd(L("BANKRUPT", "INSOLVENZ"), L(`Bankruptcy no. ${me.deaths} – penalty −$${deathPenalty.toLocaleString(LOC())} (25 % of P&L)`, `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString(LOC())} (25 % des P&L)`), "#ff3c3c", false);
       break;
-    case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) startIsland(); break;
+    case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) creditsDone(); break;
     case ST.OUTRO: gameTime += dt; outroT += dt; renderOutro(dt); if (outroT > OUTRO_LEN) state = ST.WIN; break;
     case ST.WIN: gameTime += dt;
       if (islandDone) { renderEnd(L("TAX HAVEN", "STEUEROASE"), `${isleResult}  ·  Gold ${isleCoins}/${ISLE_COINS}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString(LOC())}` : ""}`, "#ffd232", true); break; }

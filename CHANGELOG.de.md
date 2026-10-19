@@ -2,6 +2,15 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.20.0 – neues Hauptmenü, Credits, Touch-Anleitung (19.10.2026)
+
+- **Hauptmenü:**
+  - Ein großer Knopf **Solo spielen**; danach wählst du **Normal** oder **Hardcore**, jeweils mit kurzer Erklärung (Hardcore: viel stärkere Gegner, weniger Nachschub, 1,5-fache Punkte und nur ein Leben). Der eigene Hardcore-Knopf entfällt; X startet Hardcore weiterhin direkt.
+  - Neuer Knopf **Credits** (Taste C): der Abspann wie nach dem Sieg, danach geht es zurück ins Menü.
+  - **Vollbild** ist jetzt ein deutlicher Knopf oben rechts, **Sprache** ein Knopf oben links; die Taste **L** wechselt im Hauptmenü die Sprache.
+- **Handy:** Beim ersten Spiel erklärt eine kurze Einblendung die Touch-Steuerung (Stick links, rechts wischen und tippen, Ausweichen, Pause); sie verschwindet nach ein paar Sekunden oder beim Tippen. Die Tastenkürzel unter dem Bild entfallen am Handy.
+- **Tastenkürzel-Zeile (PC):** „Q in der Pause“ entfällt, dafür steht dort „L Sprache“.
+
 ## Version 3.19.8 – Auto-Aim in drei Stufen (19.10.2026)
 
 - **Auto-Aim: Aus, Semi oder Full.**
