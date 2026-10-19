@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.22.2";
+const APP_VERSION = "3.22.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1480,8 +1480,9 @@ function chatKey(k) {
   if (rawKey.length === 1 && chatText.length < 80) chatText += rawKey;
 }
 // Vollbild gezielt setzen (App: ganzes Fenster; Browser: Seite)
+let fsWanted = false;   // PC-Browser: Vollbild per F4 gewuenscht; nur F4 beendet diesen Wunsch
 function setFullscreen(on) {
-  fsOn = on; settings.fullscreen = on; saveSettings();
+  fsOn = on; fsWanted = on; settings.fullscreen = on; saveSettings();
   if (IN_APP) { location.href = `http://margincall.fullscreen-${on ? "on" : "off"}/`; return; }
   if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { fsOn = false; netNotice(L("FULLSCREEN NOT AVAILABLE", "VOLLBILD NICHT MÖGLICH")); });
   if (!on && document.fullscreenElement) document.exitFullscreen?.();
@@ -1494,7 +1495,13 @@ document.addEventListener("fullscreenchange", () => {
   try { if (document.fullscreenElement) navigator.keyboard.lock?.(["Escape"])?.catch?.(() => { }); else navigator.keyboard.unlock?.(); } catch (e) { }
 });
 // Maussteuerung direkt einfangen (geht nur direkt nach einer Taste oder einem Klick des Spielers)
+// Hat der Browser das Vollbild selbst beendet (Esc), kommt es beim Weiterspielen zurueck – nur F4 schaltet es ab
+function restoreFullscreen() {
+  if (IN_APP || COARSE || !fsWanted || document.fullscreenElement) return;
+  try { document.documentElement.requestFullscreen?.().catch(() => { }); } catch (e) { }
+}
 function lockMouse() {
+  restoreFullscreen();
   if (COARSE || !settings.mouseLook || document.pointerLockElement === screen) return;
   try { const p = screen.requestPointerLock?.(); if (p && p.catch) p.catch(() => { }); } catch (e) { }
 }

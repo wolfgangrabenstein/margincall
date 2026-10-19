@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.22.3 – Vollbild bleibt (19.10.2026)
+
+- **Vollbild am PC-Browser:** Manche Browser beenden das Vollbild bei Esc trotzdem selbst, vor allem wenn die Maus eingefangen ist. Das Spiel merkt sich jetzt, dass du Vollbild willst: Esc öffnet die Pause, und beim Weiterspielen (Weiter, Klick ins Bild, nächstes Level) geht es automatisch wieder ins Vollbild. Nur **F4** schaltet das Vollbild wirklich ab.
+
 ## Version 3.22.2 – Match-Einstellungen in der Lobby (19.10.2026)
 
 - **Match-Einstellungen:** Unten in der Multiplayer-Lobby gibt es den neuen Knopf **⚙ [S] Match-Einstellungen**. Er öffnet ein Fenster, in dem der Host **Full-Auto-Aim** erlauben oder ausschalten kann (Taste A); Mitspieler sehen dort die aktuellen Einstellungen. Der bisherige Knopf neben dem Spielmodus entfällt.

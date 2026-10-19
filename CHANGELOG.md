@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.22.3 – Fullscreen stays (2026-10-19)
+
+- **Fullscreen in PC browsers:** some browsers still leave fullscreen on Esc themselves, especially while the mouse is captured. The game now remembers that you want fullscreen: Esc opens the pause menu, and when you continue (resume, click into the view, next level) it goes back to fullscreen automatically. Only **F4** really turns fullscreen off.
+
 ## Version 3.22.2 – Match settings in the lobby (2026-10-19)
 
 - **Match settings:** the multiplayer lobby has a new **⚙ [S] Match settings** button at the bottom. It opens a window where the host can allow or switch off **full auto aim** (key A); other players see the current settings there. The previous button next to the game mode is gone.
