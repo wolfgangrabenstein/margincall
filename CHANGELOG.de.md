@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.22.2 – Match-Einstellungen in der Lobby (19.10.2026)
+
+- **Match-Einstellungen:** Unten in der Multiplayer-Lobby gibt es den neuen Knopf **⚙ [S] Match-Einstellungen**. Er öffnet ein Fenster, in dem der Host **Full-Auto-Aim** erlauben oder ausschalten kann (Taste A); Mitspieler sehen dort die aktuellen Einstellungen. Der bisherige Knopf neben dem Spielmodus entfällt.
+
 ## Version 3.22.1 – Lobby-Chat, Handy-Tastatur, Auto-Aim im Multiplayer (19.10.2026)
 
 - **Fehler behoben – Lobby-Chat:** Nachrichten in der Multiplayer-Lobby wurden nicht mehr verschickt. Jetzt kommen sie wieder bei allen an (lokal und online).

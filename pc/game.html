@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.22.1";
+const APP_VERSION = "3.22.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -645,7 +645,8 @@ const isMP = () => mode !== "solo";
 const isHost = () => !net.connected || net.id === net.hostId;
 const isClient = () => net.connected && net.id !== net.hostId;
 let players = [], me = null;
-let lobbyFullAim = false;   // Lobby-Option des Hosts: Full-Auto-Aim im Multiplayer erlaubt (Semi ist immer erlaubt)
+let lobbyFullAim = false;   // Match-Einstellung des Hosts: Full-Auto-Aim im Multiplayer erlaubt (Semi ist immer erlaubt)
+let matchSetOpen = false;    // Fenster "Match-Einstellungen" in der Lobby
 let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [], netMsg = "", netMsgT = 0;
 let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePrev = 0, lastSent = 0, clientSeq = -1;
 
@@ -1252,6 +1253,7 @@ function netConnect(url) {   // ohne url: LAN ueber den eigenen Server; mit url:
 }
 function netDisconnect() { if (net.ws) { const ws = net.ws; net.ws = null; ws.close(); } net.connected = false; }
 function leaveMP() {
+  matchSetOpen = false;
   if (IN_APP && !isLocalOrigin()) { goHome(); return; }
   netDisconnect(); mpMenu = false;
   mode = "solo"; players = [me = makePlayer(0, true)];
@@ -1879,6 +1881,12 @@ function onKeyPress(k) {
       else if (k === "x") startSolo("hard");
       break;
     case ST.LOBBY:
+      if (matchSetOpen) {
+        if (k === "a" && isHost() && net.connected) { lobbyFullAim = !lobbyFullAim; sfx("HIT"); hostSendLobby(); }
+        else if (k === "Escape" || k === "enter" || k === "s") { matchSetOpen = false; sfx("HIT"); }
+        break;
+      }
+      if (k === "s" && net.connected) { matchSetOpen = true; sfx("HIT"); break; }
       if (k === "Escape") { leaveMP(); break; }
       if (k === "o") { openOptions(); break; }
       if (isBound("chat", k) || k === "t") { chatTyping = true; chatText = ""; break; }
@@ -1896,7 +1904,6 @@ function onKeyPress(k) {
       }
       if (isHost() && net.connected) {
         if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? 2 : 1)) % 3; sfx("HIT"); hostSendLobby(); }
-        if (k === "a") { lobbyFullAim = !lobbyFullAim; sfx("HIT"); hostSendLobby(); }
         if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = L("NOT ALL PLAYERS ARE READY YET", "NOCH NICHT ALLE MITSPIELER SIND BEREIT"); lobbyNoteT = 2.5; sfx("DECLINED"); } }
       }
       break;
@@ -3005,10 +3012,6 @@ function renderLobby() {
     team: L("Team Bull vs. Team Bear – your animals fight along. If the market rises, Team Bull hits harder.", "Team Bulle gegen Team Bär – eure Tiere kämpfen mit. Steigt der Markt, trifft Team Bulle härter."),
     dm: L("Free for all, with market creatures adding chaos. Kill = 500 P&L.", "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L.") }[MODES[modeIdx][0]];
   text(desc, 110, 152, "#a0a0b4", 15);
-  // Lobby-Option: Full-Auto-Aim (Semi ist im Multiplayer immer erlaubt); nur der Host kann umschalten
-  const faTxt = `${host ? "[A] " : ""}${L("FULL AUTO AIM", "FULL-AUTO-AIM")}: ${lobbyFullAim ? L("ALLOWED", "ERLAUBT") : L("OFF", "AUS")}`;
-  if (host) zoneButton(440, 114, 236, 30, faTxt, lobbyFullAim ? "#50ff82" : "#8290b0", "a", 13);
-  else text(faTxt, 440, 122, lobbyFullAim ? "#50ff82" : "#8290b0", 13);
   // ---- Spielerliste (links)
   text(`${L("PLAYERS", "SPIELER")} (${list.length}/4)`, 110, 186, "#6b7896", 14);
   const isTeam = MODES[modeIdx][0] === "team";
@@ -3061,17 +3064,33 @@ function renderLobby() {
   }
   if (host) {
     const ready = allReady();
-    zoneButton(250, 442, 220, 36, ready ? L("▶ START GAME", "▶ SPIEL STARTEN") : L("WAITING FOR READY …", "WARTE AUF BEREIT …"), ready ? "#ffffff" : "#6b7896", "enter", 16);
+    zoneButton(150, 442, 210, 36, ready ? L("▶ START GAME", "▶ SPIEL STARTEN") : L("WAITING FOR READY …", "WARTE AUF BEREIT …"), ready ? "#ffffff" : "#6b7896", "enter", 15);
   } else {
     const r = me.ready;
-    zoneButton(250, 442, 220, 36, r ? L("✔ READY ([E] UNDO)", "✔ BEREIT ([E] ZURÜCK)") : L("[E] READY", "[E] BEREIT"), r ? "#50ff82" : "#ffd232", "e", 16);
+    zoneButton(150, 442, 210, 36, r ? L("✔ READY ([E] UNDO)", "✔ BEREIT ([E] ZURÜCK)") : L("[E] READY", "[E] BEREIT"), r ? "#50ff82" : "#ffd232", "e", 15);
   }
-  zoneButton(490, 442, 220, 36, L("[ESC] LEAVE", "[ESC] VERLASSEN"), "#ff7050", "Escape", 16);
+  zoneButton(375, 442, 210, 36, L("⚙ [S] MATCH SETTINGS", "⚙ [S] MATCH-EINSTELLUNGEN"), "#50c8ff", "s", 13);
+  zoneButton(600, 442, 210, 36, L("[ESC] LEAVE", "[ESC] VERLASSEN"), "#ff7050", "Escape", 15);
+  if (matchSetOpen) renderMatchSettings(host);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
   text(net.online ? (net.pub ? L(`Others find your game under ONLINE PLAY – or join with code ${net.code}`, `Mitspieler finden dein Spiel unter ONLINE SPIELEN – oder treten mit Code ${net.code} bei`)
       : L(`Private game: others join under ONLINE PLAY with code ${net.code}`, `Privates Spiel: Mitspieler treten unter ONLINE SPIELEN mit Code ${net.code} bei`))
     : isLocalOrigin() ? L(`Others find you under [N] MULTIPLAYER → [J] JOIN (or address ${myAddr || "…"})`, `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`)
     : `${L("Connected to", "Verbunden mit")} ${location.host}`, DW / 2, 492, "#6b7896", 13, "center");
+}
+function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Knoepfe sind anklickbar
+  clickZones = [];
+  g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
+  g.fillStyle = "#07090f"; g.fillRect(200, 130, 560, 280); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(200, 130, 560, 280);
+  text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, 148, "#50c8ff", 26, "center");
+  text(host ? L("Applies to everyone in this game.", "Gilt für alle in diesem Spiel.") : L("Only the host can change these.", "Nur der Host kann das ändern."), DW / 2, 186, "#8290b0", 14, "center");
+  text(L("Full auto aim", "Full-Auto-Aim"), 240, 228, "#e6e6f0", 18);
+  const val = lobbyFullAim ? L("ALLOWED", "ERLAUBT") : L("OFF", "AUS"), col = lobbyFullAim ? "#50ff82" : "#ff7050";
+  if (host) zoneButton(520, 220, 200, 34, `[A] ${val}`, col, "a", 16); else text(val, 620, 228, col, 18, "center");
+  [L("Semi auto aim is always allowed in multiplayer.", "Semi-Auto-Aim ist im Multiplayer immer erlaubt."),
+   L("If allowed, players who chose full in their options get full.", "Ist Full erlaubt, bekommt es, wer es in den Optionen gewählt hat.")]
+    .forEach((l, i) => text(l, DW / 2, 278 + i * 20, "#a0a0b4", 13, "center"));
+  zoneButton(380, 352, 200, 38, L("[ESC] DONE", "[ESC] FERTIG"), "#50c8ff", "Escape", 16);
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
@@ -3909,6 +3928,7 @@ function frame(now) {
   g.imageSmoothingEnabled = false;
   netMsgT -= dt;
   clickZones = [];   // Klickflaechen werden beim Zeichnen jedes Bildes neu registriert
+  if (matchSetOpen && state !== ST.LOBBY) matchSetOpen = false;   // Spiel gestartet oder Lobby verlassen
   if (COARSE) {
     const playing = state === ST.PLAY && !mpMenu && !chatTyping && !(me && me.dead);
     if (document.body.classList.toggle("playing", playing) !== playing) { }

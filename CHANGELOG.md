@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.22.2 – Match settings in the lobby (2026-10-19)
+
+- **Match settings:** the multiplayer lobby has a new **⚙ [S] Match settings** button at the bottom. It opens a window where the host can allow or switch off **full auto aim** (key A); other players see the current settings there. The previous button next to the game mode is gone.
+
 ## Version 3.22.1 – Lobby chat, phone keyboard, auto aim in multiplayer (2026-10-19)
 
 - **Bug fix – lobby chat:** messages in the multiplayer lobby were no longer sent. They now reach everyone again (local and online).
