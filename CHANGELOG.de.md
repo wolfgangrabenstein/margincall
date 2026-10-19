@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.20.3 – keine Schüsse mehr durch Wände (19.10.2026)
+
+- **Fehler behoben:** Gegner konnten knapp an Wandecken vorbei durch die Wand schießen (und Nahkampf-Gegner um Ecken herum treffen). Sichtlinie und Flugbahn werden jetzt Feld für Feld exakt geprüft, auch beim eigenen Geldschein. Gilt für PC, Browser und Cardputer.
+- **Musik** startet standardmäßig mit **30 %** Lautstärke (bestehende Einstellungen bleiben).
+- **Handy:** In der Touch-Anleitung sind die Knöpfe für **Pause** und **Ausweichen** jetzt sichtbar, damit die Hinweise auf etwas zeigen.
+
 ## Version 3.20.2 – Touch-Anleitung mit Start-Knopf (19.10.2026)
 
 - **Handy:**

@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.20.2"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.20.3"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -808,19 +808,30 @@ static bool fireOrigin(const Enemy& e, float tx, float ty, float& ox, float& oy,
   static const float ks[5] = {0, -0.5f, 0.5f, -1, 1};
   for (float k : ks) {
     ox = e.x + qx * r * k; oy = e.y + qy * r * k;
-    if (!solidCell((int)floorf(ox), (int)floorf(oy)) && lineOfSight(ox, oy, tx, ty)) { oang = atan2f(ty - oy, tx - ox); return true; }
+    if (!solidCell((int)floorf(ox), (int)floorf(oy)) && lineOfSight(e.x, e.y, ox, oy) && lineOfSight(ox, oy, tx, ty)) { oang = atan2f(ty - oy, tx - ox); return true; }
   }
   return false;
 }
-static bool lineOfSight(float x0, float y0, float x1, float y1) {
-  float dx = x1 - x0, dy = y1 - y0, d = sqrtf(dx * dx + dy * dy);
-  int steps = (int)(d * 5) + 1;
-  for (int i = 1; i < steps; i++) {
-    float t = (float)i / steps;
-    if (solidCell((int)(x0 + dx * t), (int)(y0 + dy * t))) return false;
+// Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
+static bool segBlocked(float x0, float y0, float x1, float y1) {
+  int cx = (int)floorf(x0), cy = (int)floorf(y0);
+  const int ex = (int)floorf(x1), ey = (int)floorf(y1);
+  const float dx = x1 - x0, dy = y1 - y0;
+  const int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
+  const float ddx = dx != 0 ? fabsf(1 / dx) : 1e30f, ddy = dy != 0 ? fabsf(1 / dy) : 1e30f;
+  float tx = dx != 0 ? (dx > 0 ? cx + 1 - x0 : x0 - cx) * ddx : 1e30f, ty = dy != 0 ? (dy > 0 ? cy + 1 - y0 : y0 - cy) * ddy : 1e30f;
+  for (int n = 0; n < 256 && (cx != ex || cy != ey); n++) {
+    if (fabsf(tx - ty) < 1e-6f) {
+      if (tx > 1) break;
+      if (solidCell(cx + sx, cy) || solidCell(cx, cy + sy)) return true;
+      cx += sx; cy += sy; tx += ddx; ty += ddy;
+    } else if (tx < ty) { if (tx > 1) break; cx += sx; tx += ddx; }
+    else { if (ty > 1) break; cy += sy; ty += ddy; }
+    if (solidCell(cx, cy)) return true;
   }
-  return true;
+  return false;
 }
+static bool lineOfSight(float x0, float y0, float x1, float y1) { return !segBlocked(x0, y0, x1, y1); }
 
 // freie Zelle, weit weg und ausser Sicht des Spielers
 static bool findHiddenCell(float& ox, float& oy, float minDist) {
@@ -1082,8 +1093,8 @@ static void shoot() {
 }
 static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teilschritten, damit er duenne Gegner nicht ueberspringt
   for (int k = 0; k < 2 && p.active; k++) {
-    p.x += p.dx * dt * 0.5f; p.y += p.dy * dt * 0.5f;
-    if (solidCell((int)floorf(p.x), (int)floorf(p.y))) { p.active = false; break; }
+    const float ox = p.x, oy = p.y; p.x += p.dx * dt * 0.5f; p.y += p.dy * dt * 0.5f;
+    if (segBlocked(ox, oy, p.x, p.y)) { p.active = false; break; }
     for (int i = 0; i < nEnemies; i++) {
       Enemy& e = enemies[i];
       if (!e.alive) continue;
@@ -1113,6 +1124,7 @@ static void chooseTarget(Enemy& e, int self) {
 }
 
 static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char* why) {
+  if (tgt == -1 ? segBlocked(e.x, e.y, px, py) : segBlocked(e.x, e.y, enemies[tgt].x, enemies[tgt].y)) return;   // nicht um Ecken herum
   if (tgt == -1) damagePlayer((int)(dmgPlayer * e.str), why);
   else { hurtEnemy(enemies[tgt], (int)ceilf(dmgEnemy * e.str), false); sfxNear(e.faction == F_BULL ? SFX_ID_BULL : SFX_ID_ROAR, e.x, e.y, 6); }
 }
@@ -1916,9 +1928,13 @@ static void updateGame(float dt) {
   for (auto& p : projs) {
     if (!p.active) continue;
     if (p.faction == F_SHOT) { stepShot(p, dt); continue; }
-    p.x += p.dx * dt; p.y += p.dy * dt;
-    if (solidCell((int)p.x, (int)p.y)) { p.active = false; continue; }
-    if (dist2Player(p.x, p.y) < 0.12f) {
+    for (int k = 0; k < 2 && p.active; k++) {   // in Teilschritten; Wand auf der Teilstrecke stoppt den Schuss
+      const float ox = p.x, oy = p.y; p.x += p.dx * dt * 0.5f; p.y += p.dy * dt * 0.5f;
+      if (segBlocked(ox, oy, p.x, p.y)) p.active = false;
+      else if (dist2Player(p.x, p.y) < 0.12f) break;
+    }
+    if (!p.active) continue;
+    if (dist2Player(p.x, p.y) < 0.12f && !segBlocked(p.x, p.y, px, py)) {
       p.active = false;
       damagePlayer(p.dmg, p.spr == S_LASER ? L("ALGO ORDER EXECUTED!", "ALGO-ORDER AUSGEFUEHRT!") : p.spr == S_PROJ_OIL ? L("OIL BARREL! ENERGY CRISIS", "OELFASS! ENERGIEKRISE") : "MARGIN CALL!");
       if (p.spr == S_PROJ_OIL) slowT = 2;

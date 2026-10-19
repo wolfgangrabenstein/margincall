@@ -35,6 +35,8 @@
   /* Smartphone: Steuerung nur waehrend des Spiels ueber dem Bild (linke Haelfte = Stick, rechte Haelfte = Drehen) */
   #touch { display: none; position: fixed; inset: 0; z-index: 5; touch-action: none; user-select: none; -webkit-user-select: none; }
   body.playing #touch { display: block; }
+  body.touchhelp #touch { display: block; pointer-events: none; }
+  body.touchhelp #touch * { pointer-events: none; }
   #stickBase { display: none; position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%;
     border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.07); pointer-events: none; }
   #stickKnob { position: absolute; left: 35px; top: 35px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.38); }
@@ -79,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.20.2";
+const APP_VERSION = "3.20.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -762,18 +764,32 @@ function spawnEnemy(type, x, y) {
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
   return e;
 }
-function lineOfSight(x0, y0, x1, y1) {
-  const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy), steps = Math.floor(d * 5) + 1;
-  for (let i = 1; i < steps; i++) { const t = i / steps; if (solidCell(Math.floor(x0 + dx * t), Math.floor(y0 + dy * t))) return false; }
-  return true;
+// Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
+function segBlocked(x0, y0, x1, y1) {
+  let cx = Math.floor(x0), cy = Math.floor(y0);
+  const ex = Math.floor(x1), ey = Math.floor(y1), dx = x1 - x0, dy = y1 - y0;
+  const sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
+  const ddx = dx ? Math.abs(1 / dx) : Infinity, ddy = dy ? Math.abs(1 / dy) : Infinity;
+  let tx = dx ? (dx > 0 ? cx + 1 - x0 : x0 - cx) * ddx : Infinity, ty = dy ? (dy > 0 ? cy + 1 - y0 : y0 - cy) * ddy : Infinity;
+  for (let n = 0; n < 256 && (cx !== ex || cy !== ey); n++) {
+    if (Math.abs(tx - ty) < 1e-9) {
+      if (tx > 1) break;
+      if (solidCell(cx + sx, cy) || solidCell(cx, cy + sy)) return true;
+      cx += sx; cy += sy; tx += ddx; ty += ddy;
+    } else if (tx < ty) { if (tx > 1) break; cx += sx; tx += ddx; }
+    else { if (ty > 1) break; cy += sy; ty += ddy; }
+    if (solidCell(cx, cy)) return true;
+  }
+  return false;
 }
+function lineOfSight(x0, y0, x1, y1) { return !segBlocked(x0, y0, x1, y1); }
 // Schussposition fuer Fernkaempfer: Mitte oder Rand des Gegners (so breit wie seine Trefferzone), von der aus das
 // Ziel frei sichtbar ist. Sonst trifft man breite Bosse halb hinter einer Kante, waehrend deren Schuesse dort haengen bleiben.
 function fireOrigin(e, tx, ty) {
   const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, qx = -dy / d, qy = dx / d, r = .32 * TYPES[e.type].scale;
   for (const k of [0, -.5, .5, -1, 1]) {
     const ox = e.x + qx * r * k, oy = e.y + qy * r * k;
-    if (!solidCell(Math.floor(ox), Math.floor(oy)) && lineOfSight(ox, oy, tx, ty)) return [ox, oy, Math.atan2(ty - oy, tx - ox)];
+    if (!solidCell(Math.floor(ox), Math.floor(oy)) && lineOfSight(e.x, e.y, ox, oy) && lineOfSight(ox, oy, tx, ty)) return [ox, oy, Math.atan2(ty - oy, tx - ox)];
   }
   return null;
 }
@@ -1047,8 +1063,8 @@ function doShot(pl, ox, oy, dx, dy) {   // nur auf dem Host
 function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit er duenne Gegner nicht ueberspringt
   const pl = p.owner;
   for (let k = 0; k < 2 && p.active; k++) {
-    p.x += p.dx * dt / 2; p.y += p.dy * dt / 2;
-    if (solidCell(Math.floor(p.x), Math.floor(p.y))) { p.active = false; break; }
+    const ox = p.x, oy = p.y; p.x += p.dx * dt / 2; p.y += p.dy * dt / 2;
+    if (segBlocked(ox, oy, p.x, p.y)) { p.active = false; break; }
     for (const e of enemies) {
       if (!e.alive || (mode === "team" && e.f === teamFaction(pl))) continue;   // eigene Tiere nicht treffbar
       const r = .32 * TYPES[e.type].scale + .05;
@@ -1113,7 +1129,7 @@ function chooseTarget(e) {
 }
 function meleeHit(e, dmgP, dmgE, why) {
   const t = e.target;
-  if (!t) return;
+  if (!t || segBlocked(e.x, e.y, t.x, t.y)) return;
   if (t.isPlayer) damagePlayer(t, Math.floor(dmgP * e.str), why);
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
@@ -1349,7 +1365,7 @@ const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
     strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], scores: ["Tab", null] },
-  mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en", musicVol: 7, sfxVol: 7,   // Lautstaerke 0-10
+  mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en", musicVol: 3, sfxVol: 7,   // Lautstaerke 0-10
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
 let settings = structuredClone(DEFAULTS);
@@ -2065,10 +2081,14 @@ function updateGame(dt) {
   for (const p of projs) {
     if (!p.active) continue;
     if (p.owner) { stepShot(p, dt); continue; }
-    p.x += p.dx * dt; p.y += p.dy * dt;
-    if (solidCell(Math.floor(p.x), Math.floor(p.y))) { p.active = false; continue; }
+    for (let k = 0; k < 2 && p.active; k++) {
+      const ox = p.x, oy = p.y; p.x += p.dx * dt / 2; p.y += p.dy * dt / 2;
+      if (segBlocked(ox, oy, p.x, p.y)) p.active = false;
+      else if (players.some(pl => !pl.dead && (pl.x - p.x) ** 2 + (pl.y - p.y) ** 2 < .12)) break;
+    }
+    if (!p.active) continue;
     for (const pl of players) {
-      if (pl.dead || (pl.x - p.x) ** 2 + (pl.y - p.y) ** 2 >= .12) continue;
+      if (pl.dead || (pl.x - p.x) ** 2 + (pl.y - p.y) ** 2 >= .12 || segBlocked(p.x, p.y, pl.x, pl.y)) continue;
       if (mode === "team" && (p.f === F.BULL || p.f === F.BEAR) && p.f === teamFaction(pl)) continue;
       p.active = false;
       damagePlayer(pl, p.dmg, p.spr === S.LASER ? L("ALGO ORDER EXECUTED!", "ALGO-ORDER AUSGEFÜHRT!") : p.spr === S.PROJ_OIL ? L("OIL BARREL! ENERGY CRISIS", "ÖLFASS! ENERGIEKRISE") : "MARGIN CALL!");
@@ -3856,6 +3876,7 @@ function frame(now) {
   if (COARSE) {
     const playing = state === ST.PLAY && !mpMenu && !chatTyping && !(me && me.dead);
     if (document.body.classList.toggle("playing", playing) !== playing) { }
+    document.body.classList.toggle("touchhelp", state === ST.TOUCHHELP);
     if (!playing) { touchMv.x = touchMv.y = 0; touchFire = false; }
     document.getElementById("rotate").textContent = L("↻  Turn your phone sideways", "↻  Dreh dein Handy quer");
   }

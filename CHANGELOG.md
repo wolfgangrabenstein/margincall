@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.20.3 – No more shots through walls (2026-10-19)
+
+- **Bug fix:** Enemies could shoot through walls when passing close to a corner (and melee enemies could hit around corners). Line of sight and projectile paths are now checked exactly cell by cell, including your own banknotes. Applies to PC, browser and Cardputer.
+- **Music** now starts at **30 %** volume by default (existing settings are kept).
+- **Phones:** The touch guide now shows the **pause** and **dash** buttons, so the hints point at something.
+
 ## Version 3.20.2 – Touch guide with start button (2026-10-19)
 
 - **Phones:**
