@@ -335,7 +335,7 @@ static void genSprites() {
     }
     storeSprite(S_SELL0 + f);
   }
-  // --- Krypto-Blase: Bitcoin-Muenze in einer stacheligen roten Blase (Gefahr, kein Bonus)
+  // --- Krypto-Blase: Bitcoin-Muenze in einer stacheligen Blase, gruen und rot fluoreszierend (Gefahr, kein Bonus)
   for (int f = 0; f < 2; f++) {
     tclear(T);
     const float r = f ? 11.5f : 10.5f;
@@ -344,13 +344,13 @@ static void genSprites() {
       const float an = k * 3.14159265f / 5 + (f ? 0.31f : 0), c = cosf(an), sn = sinf(an);
       ttri(16 + c * (r - 1) - sn * 2.2f, 16 + sn * (r - 1) + c * 2.2f, 16 + c * (r - 1) + sn * 2.2f, 16 + sn * (r - 1) - c * 2.2f, 16 + c * (r + 4), 16 + sn * (r + 4), spike);
     }
-    tcirc(16, 16, r, f ? RGB(255, 90, 70) : RGB(225, 45, 55));
-    tcirc(16, 16, r - 1.5f, f ? RGB(150, 25, 40) : RGB(110, 15, 30));
+    tcirc(16, 16, r, f ? RGB(255, 90, 70) : RGB(60, 210, 130));   // gruen, pulsiert rot
+    tcirc(16, 16, r - 1.5f, f ? RGB(150, 25, 40) : RGB(25, 110, 70));
     tcirc(16, 16, 6.5f, RGB(245, 180, 30));
     tcirc(16, 16, 5, RGB(255, 210, 70));
     trect(14, 12, 2, 9, bc); trect(14, 12, 4, 1, bc); trect(14, 16, 4, 1, bc); trect(14, 20, 4, 1, bc);
     trect(18, 13, 1, 3, bc); trect(18, 17, 1, 3, bc); tpx(15, 11, bc); tpx(15, 21, bc);
-    tcirc(10, 10, 1.6f, RGB(255, 200, 200));
+    tcirc(10, 10, 1.6f, f ? RGB(255, 200, 200) : RGB(255, 255, 255));
     storeSprite(S_BUB0 + f);
   }
   // --- Hedgefonds-Hai (Boss Level 3)

@@ -2,9 +2,9 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
-## Version 3.21.3 – bedrohliche Krypto-Blase (19.10.2026)
+## Version 3.21.3 – bedrohlichere Krypto-Blase (19.10.2026)
 
-- **Krypto-Blase überarbeitet:** Mit grün-türkisem Rand sah sie wie ein Bonus aus, und Spieler liefen darauf zu. Die goldene Bitcoin-Münze bleibt, die Blase hat jetzt aber einen roten Rand und Stacheln rundherum; beim Pulsieren glüht sie heller auf. Auch am Cardputer.
+- **Krypto-Blase bedrohlicher:** Sie sah wie ein Bonus aus, und Spieler liefen darauf zu. Grüne Blase und goldene Bitcoin-Münze bleiben, dazu kommen rote Stacheln rundherum, und im Angriff fluoresziert sie im Takt rot auf. Auch am Cardputer.
 
 ## Version 3.21.2 – Leben im HUD, volle Kursverläufe (19.10.2026)
 
