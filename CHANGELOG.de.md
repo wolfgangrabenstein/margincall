@@ -2,6 +2,17 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.21.0 – Spielmodus Einfach, 5 Leben im Normalmodus (19.10.2026)
+
+- **Neuer Modus Einfach** (Taste E in der Solo-Auswahl, am Cardputer im Titelbild):
+  - Unbegrenzt Leben, schwächere Gegner (weniger Energie, weniger Schaden, feuern langsamer, langsamere Schüsse), dafür 0,6-fache Punkte.
+  - In Level 2 brauchst du für die Tresorkarte 1 bis 3 Abschüsse weniger.
+  - Am Handy ist Auto-Aim hier standardmäßig auf **Full** (am PC mit Maus bleibt deine Einstellung). Stellst du Auto-Aim in den Optionen selbst ein, gilt deine Wahl.
+- **Normal hat jetzt 5 Leben:** Nach der fünften Insolvenz ist der Lauf vorbei. Die verbleibenden Leben stehen in der Statuszeile und auf dem Insolvenz-Bildschirm.
+- **Level 1 (Normal und Hardcore):** Für die Tresorkarte sind 1 bis 2 Abschüsse mehr nötig.
+- **Keine Treffer durch Wände, in allen Levels:** Auch Nahkampf (Hai, Ölteppich, Pirat), platzende Krypto-Blasen und eigene Geldscheine gegen große Gegner prüfen jetzt die Sichtlinie. Geprüft mit je rund 4000 Zufallsstrecken in allen fünf Levels.
+- **Cardputer:** Musik startet standardmäßig mit 30 % Lautstärke; Einfach, 5 Leben und die neuen Kartenzahlen gibt es auch hier.
+
 ## Version 3.20.3 – keine Schüsse mehr durch Wände (19.10.2026)
 
 - **Fehler behoben:** Gegner konnten knapp an Wandecken vorbei durch die Wand schießen (und Nahkampf-Gegner um Ecken herum treffen). Sichtlinie und Flugbahn werden jetzt Feld für Feld exakt geprüft, auch beim eigenen Geldschein. Gilt für PC, Browser und Cardputer.

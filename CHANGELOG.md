@@ -2,6 +2,17 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.21.0 – Easy mode, 5 lives in normal mode (2026-10-19)
+
+- **New Easy mode** (key E in the solo choice, on the Cardputer on the title screen):
+  - Unlimited lives, weaker enemies (less health, less damage, slower fire, slower shots), but 0.6× points.
+  - In level 2 you need 1 to 3 fewer kills for the vault keycard.
+  - On phones auto aim defaults to **Full** here (on PC with a mouse your setting stays). If you set auto aim yourself in the options, your choice applies.
+- **Normal now has 5 lives:** after the fifth bankruptcy the run is over. Remaining lives are shown in the status line and on the bankruptcy screen.
+- **Level 1 (normal and hardcore):** the vault keycard needs 1 to 2 more kills.
+- **No hits through walls, in every level:** melee (shark, oil slick, pirate), popping crypto bubbles and your own banknotes against large enemies now check line of sight as well. Tested with about 4000 random lines in each of the five levels.
+- **Cardputer:** music starts at 30 % volume by default; Easy, 5 lives and the new keycard counts are available here too.
+
 ## Version 3.20.3 – No more shots through walls (2026-10-19)
 
 - **Bug fix:** Enemies could shoot through walls when passing close to a corner (and melee enemies could hit around corners). Line of sight and projectile paths are now checked exactly cell by cell, including your own banknotes. Applies to PC, browser and Cardputer.

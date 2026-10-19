@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.20.3"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.21.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -687,7 +687,8 @@ static int replayIdx;
 static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
 static float realChg, manipChg, manipT, dumpAt;
-static bool hardcore;
+static bool hardcore, easy;   // Einfach: unbegrenzt Leben; Normal: 5 Leben; Hardcore: 1 Leben
+static constexpr int SOLO_LIVES = 5;
 // Bonus-Level Steueroase nach dem Sieg (Code weiter unten)
 static bool island, islandDone, isleAll;
 static void endIsland(const char* msg, bool all);
@@ -793,7 +794,7 @@ static int spawnEnemy(uint8_t type, float x, float y) {
   e.x = x; e.y = y; e.type = type; e.faction = TYPES[type].faction;
   e.alive = true; e.target = -2; e.pir = -1;
   e.str = type == E_BULL ? animalStrength(true) : (type == E_BEAR ? animalStrength(false) : 1.0f);
-  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.8f : 1.0f));
+  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.8f : easy ? 0.7f : 1.0f));
   e.cd = 1.0f + frand(); e.anim = frand() * 6; e.think = frand() * 0.4f;
   e.spawnCd = 6;
   float a = frand() * 6.283f; e.mdx = cosf(a); e.mdy = sinf(a);
@@ -939,7 +940,7 @@ static void loadLevel(int lv) {
     if (TYPES[pend[k]].boss) levelHasBoss = true;
     float x, y; if (randomEnemyCell(TYPES[pend[k]].boss ? 9 : 5, x, y)) spawnEnemy(pend[k], x, y);
   }
-  hasKey = keyDropped = false; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 : 8 + rnd() % 9;   // im ersten Level gibt es wenige Gegner
+  hasKey = keyDropped = false; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 + (easy ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (easy && lv == 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   static const float dirs[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
   int best = 0, bestLen = -1;
@@ -976,7 +977,7 @@ static bool moveEntity(float& x, float& y, float mx, float my, float r) {
 static int hurtAmt;   // Staerke des letzten Treffers (fuer roten Blitz und Schadenszahl)
 static void damagePlayer(int d, const char* why) {
   if (state != ST_PLAY) return;
-  if (hardcore) d = (int)roundf(d * 1.65f);
+  if (hardcore) d = (int)roundf(d * 1.65f); else if (easy) d = (int)roundf(d * 0.7f);
   hp -= d; hurtT = 0.35f; hurtAmt = d; sfxPlay(SFX_ID_PHONE);
   if (why) say(why, 1.2f);
   if (hp <= 0) {
@@ -987,7 +988,7 @@ static void damagePlayer(int d, const char* why) {
 }
 
 static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8_t faction, uint8_t spr) {
-  if (hardcore) spd *= 1.3f;
+  if (hardcore) spd *= 1.3f; else if (easy) spd *= 0.85f;
   for (auto& p : projs) if (!p.active) { p = {x, y, cosf(ang) * spd, sinf(ang) * spd, true, dmg, faction, spr}; return; }
 }
 
@@ -1003,7 +1004,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   const TypeInfo& ti = TYPES[e.type];
   if (e.type == E_BUBBLE || e.type == E_BOT) e.gone = true;
   if (byPlayer) {
-    kills++; pnl += hardcore ? ti.pts * 3 / 2 : ti.pts;
+    kills++; pnl += hardcore ? ti.pts * 3 / 2 : easy ? ti.pts * 3 / 5 : ti.pts;
     char b[48];
     switch (e.type) {
       case E_BEAR:   say(island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BAER ERLEGT!")); break;
@@ -1099,7 +1100,7 @@ static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teils
       Enemy& e = enemies[i];
       if (!e.alive) continue;
       float r = 0.32f * TYPES[e.type].scale + 0.05f, dx = e.x - p.x, dy = e.y - p.y;
-      if (dx * dx + dy * dy < r * r) { hurtEnemy(e, p.dmg, true); p.active = false; break; }
+      if (dx * dx + dy * dy < r * r && !segBlocked(p.x, p.y, e.x, e.y)) { hurtEnemy(e, p.dmg, true); p.active = false; break; }
     }
   }
 }
@@ -1131,7 +1132,7 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 
 static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.45f : 1.0f); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   const float spdMul = crashT > 0 ? 1.4f : 1.0f;
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
@@ -1160,7 +1161,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         break;
       case E_SHARK:
         if (d > 3.0f || !los) moveEntity(e.x, e.y, nx * 1.2f * dt, ny * 1.2f * dt, 0.35f);
-        if (d < 0.9f && e.cd <= 0) { e.cd = 1.0f; damagePlayer(20, L("HOSTILE TAKEOVER!", "FEINDLICHE UEBERNAHME!")); }
+        if (d < 0.9f && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.0f; damagePlayer(20, L("HOSTILE TAKEOVER!", "FEINDLICHE UEBERNAHME!")); }
         if (los && e.cd <= 0) {
           e.cd = 1.3f; e.attackAnim = 0.4f;
           for (int k = -1; k <= 1; k++) spawnProj(fx, fy, fa + k * 0.18f, 4.0f, 10, F_NEUTRAL, S_PROJ);
@@ -1178,7 +1179,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         return;
       case E_SLICK:
         if (d > 0.7f) moveEntity(e.x, e.y, nx * 0.9f * dt * spdMul, ny * 0.9f * dt * spdMul, 0.25f);
-        else if (e.cd <= 0) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
+        else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
         return;
       case E_BOT: {
         float w = sinf(e.anim * 3) * 0.6f;
@@ -1258,7 +1259,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
     case E_BUBBLE: {
       float w = sinf(e.anim * 5) * 0.8f;
       moveEntity(e.x, e.y, (nx - ny * w) * 2.2f * dt * spdMul, (ny + nx * w) * 2.2f * dt * spdMul, 0.25f);
-      if (d < 0.65f) {
+      if (d < 0.65f && !segBlocked(e.x, e.y, tx, ty)) {
         e.alive = false; e.gone = true; sfxNear(SFX_ID_POP, e.x, e.y, 10);
         if (e.target == -1) damagePlayer(20, L("CRYPTO CRASH! -20%", "KRYPTO-CRASH! -20%"));
         else hurtEnemy(enemies[e.target], 4, false);
@@ -1436,7 +1437,7 @@ static void pirateAI(Enemy& e, float dt) {
     }
   }
   if (d > 0.75f) go(px, py, v);
-  else if (e.cd <= 0 && fabsf(gameTime - pirHitAt) > (hardcore ? 0.35f : 0.5f)) { pirHitAt = gameTime; e.cd = 1.2f; e.attackAnim = 0.3f; damagePlayer((int)(11 * e.str), L("CUTLASS SLASH!", "SAEBELHIEB!")); }
+  else if (e.cd <= 0 && fabsf(gameTime - pirHitAt) > (hardcore ? 0.35f : 0.5f) && !segBlocked(e.x, e.y, px, py)) { pirHitAt = gameTime; e.cd = 1.2f; e.attackAnim = 0.3f; damagePlayer((int)(11 * e.str), L("CUTLASS SLASH!", "SAEBELHIEB!")); }
 }
 static void startIsland() {
   island = true; islandDone = false; isleAll = false; isleT = ISLE_TIME; isleCoins = 0; isleSpawnT = 5; isleCashT = 10;
@@ -2285,7 +2286,7 @@ static void renderTitle() {
   canvas.setTextColor(c565(160, 160, 180));
   canvas.drawString(L("E/S A/D W/R SPACE  P PAUSE  M MUSIC", "E/S A/D W/R SPACE  P PAUSE  M MUSIK"), 14, 109);
   int phase = ((int)(gameTime * 2)) % 4;
-  if (phase == 1 || phase == 3) centerText(L("[ENTER] TRADE  [X] HARDCORE", "[ENTER] HANDEL  [X] HARDCORE"), 121, 1, c565(255, 255, 255));
+  if (phase == 1 || phase == 3) centerText(L("[E]ASY [ENTER] NORMAL [X] HARDCORE", "[E]INFACH [ENTER] NORMAL [X] HARDCORE"), 121, 1, c565(255, 255, 255));
   else if (phase == 2) centerText(L("[L] DEUTSCH", "[L] ENGLISH"), 121, 1, c565(120, 200, 255));
   else centerText("MADE BY WOLFGANG RABENSTEIN  V" FW_VERSION, 121, 1, c565(110, 120, 150));
 }
@@ -2447,9 +2448,10 @@ void loop() {
       gameTime += dt;
       if (!fetchedAtBoot && netConnected()) { fetchedAtBoot = true; fetchMarketsNow(); buildTicker(); }
       renderTitle();
-      if (enterHit || hit('x')) {   // X = Hardcore
-        hardcore = !enterHit; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
+      if (enterHit || hit('x') || hit('e')) {   // E = Einfach, Enter = Normal, X = Hardcore
+        hardcore = !enterHit && hit('x'); easy = !enterHit && !hardcore; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
         if (hardcore) say(L("HARDCORE: ONE DEATH AND IT'S OVER", "HARDCORE: EIN TOD UND ES IST VORBEI"), 3.0f);
+        else if (!easy) say(L("NORMAL: 5 LIVES", "NORMAL: 5 LEBEN"), 2.5f);
       }
       else if (hit('w')) startWifiScan();
       else if (hit('l')) {   // Sprache umschalten und merken
@@ -2500,11 +2502,14 @@ void loop() {
       break;
     case ST_DEAD:
       gameTime += dt;
-      if (hardcore) {   // Hardcore: Insolvenz ist endgueltig
-        renderEndScreen("GAME OVER", L("HARDCORE: THE RUN IS OVER", "HARDCORE: DER LAUF IST VORBEI"), c565(255, 60, 60), false);
+      if (hardcore || (!easy && deaths >= SOLO_LIVES)) {   // Hardcore bzw. alle Leben weg: der Lauf ist vorbei
+        renderEndScreen("GAME OVER", hardcore ? L("HARDCORE: THE RUN IS OVER", "HARDCORE: DER LAUF IST VORBEI") : L("ALL 5 LIVES USED UP", "ALLE 5 LEBEN VERBRAUCHT"), c565(255, 60, 60), false);
         if (enterHit) { state = ST_TITLE; musicStart(); }
       } else {
-        renderEndScreen(L("BANKRUPT", "INSOLVENZ"), L("YOUR PORTFOLIO HIT ZERO", "DEIN DEPOT IST AUF NULL"), c565(255, 60, 60), false);
+        static char sub[40];
+        if (easy) snprintf(sub, sizeof(sub), "%s", L("YOUR PORTFOLIO HIT ZERO", "DEIN DEPOT IST AUF NULL"));
+        else snprintf(sub, sizeof(sub), L("BANKRUPT - %d %s LEFT", "PLEITE - NOCH %d %s"), SOLO_LIVES - deaths, SOLO_LIVES - deaths == 1 ? L("LIFE", "LEBEN") : L("LIVES", "LEBEN"));
+        renderEndScreen(L("BANKRUPT", "INSOLVENZ"), sub, c565(255, 60, 60), false);
         if (enterHit) { hp = 100; ammo = max(ammo, 30); pnl = pnl / 2; loadLevel(level); state = ST_PLAY; fireCd = 0.4f; }
       }
       break;

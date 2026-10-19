@@ -219,7 +219,7 @@ void audioInit() {
   for (int n = 0; n < 128; n++) noteInc[n] = (uint32_t)(440.0 * pow(2.0, (n - 69) / 12.0) * 4294967296.0 / MUSIC_RATE);
   memset(echoLine, 1, sizeof(echoLine));
   M5Cardputer.Speaker.setVolume(150);
-  M5Cardputer.Speaker.setChannelVolume(CH_MUSIC, 130);
+  M5Cardputer.Speaker.setChannelVolume(CH_MUSIC, 56);   // Musik 30 % des frueheren Pegels
 }
 
 void musicStart(int songIdx) {

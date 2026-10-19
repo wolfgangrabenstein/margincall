@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.20.3";
+const APP_VERSION = "3.21.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -759,7 +759,7 @@ function spawnEnemy(type, x, y) {
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
   const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
-  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.8 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.8 : 1)), str, alive: true, awake: false, gone: false,
+  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.8 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.8 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
   return e;
@@ -880,7 +880,7 @@ function loadLevel(lv) {
   const reach = reachableCells();
   placeVault(reach);
   for (const t of spawns) { const c = randomEnemyCell(reach, TYPES[t].boss ? 9 : 5); if (c) spawnEnemy(t, c[0], c[1]); }
-  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 : 8 + rnd() % 9;   // im ersten Level gibt es wenige Gegner
+  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   if (mode === "dm" || mode === "team") {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
@@ -926,13 +926,13 @@ function moveEntity(o, mx, my, r) {
 
 function addScore(pl, pts) {
   if (!pl) return;
-  pts = Math.round(pts * (HC() ? 1.5 : 1));
+  pts = Math.round(pts * (HC() ? 1.5 : EZ() ? .6 : 1));
   pl.score += pts;
   if (mode === "team") teamScore[pl.team] += pts;
 }
 function damagePlayer(pl, d, why, attacker = null) {
   if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
-  if (HC()) d *= 1.65;
+  if (HC()) d *= 1.65; else if (EZ()) d *= .7;
   pl.hp -= Math.round(d);
   if (pl.local) hurtFeedback(d); else emit(["hurt", pl.id, Math.round(d)]);
   sfxTo(pl, "PHONE");
@@ -965,7 +965,7 @@ function respawnPlayer(pl) {
 }
 function spawnProj(x, y, ang, spd, dmg, f, spr) {
   if (projs.length > 60) return;
-  if (HC()) spd *= 1.3;
+  if (HC()) spd *= 1.3; else if (EZ()) spd *= .85;
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
@@ -1068,7 +1068,7 @@ function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit
     for (const e of enemies) {
       if (!e.alive || (mode === "team" && e.f === teamFaction(pl))) continue;   // eigene Tiere nicht treffbar
       const r = .32 * TYPES[e.type].scale + .05;
-      if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < r * r) { hurtEnemy(e, Math.round(2 * teamDmgMul(pl)), pl); p.active = false; break; }
+      if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < r * r && !segBlocked(p.x, p.y, e.x, e.y)) { hurtEnemy(e, Math.round(2 * teamDmgMul(pl)), pl); p.active = false; break; }
     }
     if (!p.active) break;
     for (const o of players) if (canHitPlayer(pl, o) && (o.x - p.x) ** 2 + (o.y - p.y) ** 2 < .09) { damagePlayer(o, 12 * teamDmgMul(pl), L("HIT!", "TREFFER!"), pl); sfxTo(pl, "HIT"); p.active = false; break; }
@@ -1077,7 +1077,8 @@ function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit
 // Zielhilfe am Handy (Optionen, Standard aus): naechster sichtbarer Gegner innerhalb eines Blickwinkels
 let aimHoldT = 0, aimLocked = false;
 const AIM = { semi: { steer: .22, snap: .08, range: 7 }, full: { steer: .45, snap: .14, range: 14 } };
-const aimCfg = () => AIM[settings.aimMode] || null;
+const aimModeNow = () => EZ() && COARSE && !settings.aimTouched ? "full" : settings.aimMode;
+const aimCfg = () => AIM[aimModeNow()] || null;
 const aimAssistOn = () => !!aimCfg();
 function aimTarget(maxAng, maxDist = 14) {
   let best = null, bestA = maxAng;
@@ -1134,7 +1135,7 @@ function meleeHit(e, dmgP, dmgE, why) {
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
 function updateEnemy(e, dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
   const spd = crashT > 0 ? 1.4 : 1, animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
@@ -1153,7 +1154,7 @@ function updateEnemy(e, dt) {
     switch (e.type) {
       case E.SHARK:
         if (d > 3 || !los) moveEntity(e, nx * 1.2 * dt, ny * 1.2 * dt, .35);
-        if (d < .9 && e.cd <= 0) { e.cd = 1; damagePlayer(t, 20, L("HOSTILE TAKEOVER!", "FEINDLICHE ÜBERNAHME!")); }
+        if (d < .9 && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1; damagePlayer(t, 20, L("HOSTILE TAKEOVER!", "FEINDLICHE ÜBERNAHME!")); }
         if (los && e.cd <= 0) { e.cd = 1.3; e.attackAnim = .4; for (let k = -1; k <= 1; k++) spawnProj(fo[0], fo[1], fo[2] + k * .18, 4, 10, F.NEUTRAL, S.PROJ); sfxNear("ZAP", e.x, e.y, 12); }
         return;
       case E.BARON:
@@ -1162,7 +1163,7 @@ function updateEnemy(e, dt) {
         return;
       case E.SLICK:
         if (d > .7) moveEntity(e, nx * .9 * dt * spd, ny * .9 * dt * spd, .25);
-        else if (e.cd <= 0) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
+        else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
         return;
       case E.BOT: {
         const w = Math.sin(e.anim * 3) * .6;
@@ -1214,7 +1215,7 @@ function updateEnemy(e, dt) {
     case E.BUBBLE: {
       const w = Math.sin(e.anim * 5) * .8;
       moveEntity(e, (nx - ny * w) * 2.2 * dt * spd, (ny + nx * w) * 2.2 * dt * spd, .25);
-      if (d < .65) {
+      if (d < .65 && !segBlocked(e.x, e.y, tx, ty)) {
         e.alive = false; e.gone = true; sfxNear("POP", e.x, e.y, 10);
         if (t.isPlayer) damagePlayer(t, 20, L("CRYPTO CRASH! −20 %", "KRYPTO-CRASH! −20 %")); else hurtEnemy(t, 4, null);
       }
@@ -1416,8 +1417,12 @@ function quitGame() {
   netNotice(L("YOU CAN CLOSE THIS TAB NOW", "DU KANNST DIESEN TAB JETZT SCHLIESSEN")); state = ST.TITLE;
 }
 // Hardcore (nur Solo): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – und ein Tod beendet den Lauf
-let hardcore = false;
+let hardcore = false, easy = false;   // Solo-Modus: Einfach (unbegrenzt Leben), Normal (5 Leben), Hardcore (1 Leben)
 const HC = () => hardcore && !isMP();
+const EZ = () => easy && !isMP();
+const SOLO_LIVES = 5;
+const livesLeft = () => Math.max(0, SOLO_LIVES - ((me && me.deaths) || 0));
+const outOfLives = () => !isMP() && !HC() && !EZ() && livesLeft() <= 0;
 let cheated = false, cheatChg = 0, hsNote = "";
 const hx = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const CX = { 2420334519: ["p"], 4213436061: ["g"], 2774362824: ["f"], 2824693482: ["c"], 1222718734: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
@@ -1563,7 +1568,7 @@ function optActivate() {
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
-    case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[settings.aimMode] || "off"; saveSettings(); break;
+    case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[aimModeNow()] || "off"; settings.aimTouched = true; saveSettings(); break;
     case "touchSens": settings.touchSens = (settings.touchSens || 6) % 10 + 1; saveSettings(); break;
     case "reset": {   // nur Steuerung, Ton und Anzeige zuruecksetzen; Namen, Zustimmungen und Highscores bleiben erhalten
       const keep = {}; for (const k of ["lang", "nickname", "playerName", "gameName", "avatar", "liveData", "onlineScores", "onlineMP", "touchHelpSeen"]) if (settings[k] !== undefined) keep[k] = settings[k];
@@ -1593,7 +1598,7 @@ function optKey(k) {
     else if (row.kind === "touchSens") { settings.touchSens = clamp((settings.touchSens || 6) + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
     else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
-    else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(settings.aimMode) + (d > 0 ? 1 : 2)) % 3]; saveSettings(); }
+    else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(aimModeNow()) + (d > 0 ? 1 : 2)) % 3]; settings.aimTouched = true; saveSettings(); }
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1638,7 +1643,7 @@ function renderOptions() {
       const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "aimMode") {
-      const m = settings.aimMode || "off";
+      const m = aimModeNow() || "off";
       text(m === "off" ? L("OFF", "AUS") : m.toUpperCase(), 530, y, m === "off" ? "#ff7050" : m === "semi" ? "#ffd232" : "#50ff82", 17);
       text(m === "semi" ? L("narrow view, nearby enemies", "enges Sichtfeld, nahe Gegner") : m === "full" ? L("wide view, far enemies too", "weites Sichtfeld, auch ferne Gegner") : "", 640, y + 2, "#6b7896", 13);
     } else if (row.kind === "lang") {
@@ -1831,8 +1836,9 @@ function onKeyPress(k) {
     return;
   }
   if (state === ST.TITLE && soloAsk) {   // Auswahl Normal / Hardcore
-    if (k === "enter" || k === "1") { soloAsk = false; startSolo(false); }
-    else if (k === "x" || k === "2") { soloAsk = false; startSolo(true); }
+    if (k === "e" || k === "1") { soloAsk = false; startSolo("easy"); }
+    else if (k === "enter" || k === "2") { soloAsk = false; startSolo("normal"); }
+    else if (k === "x" || k === "3") { soloAsk = false; startSolo("hard"); }
     else if (k === "Escape") soloAsk = false;
     return;
   }
@@ -1855,7 +1861,7 @@ function onKeyPress(k) {
       else if (k === "Escape") quitAsk = true;
       else if (k === "n") { if (WEB_BUILD) openOnline(); else if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter") soloAsk = true;   // Auswahl Normal / Hardcore
-      else if (k === "x") startSolo(true);
+      else if (k === "x") startSolo("hard");
       break;
     case ST.LOBBY:
       if (k === "Escape") { leaveMP(); break; }
@@ -1909,7 +1915,7 @@ function onKeyPress(k) {
       if (k === "Escape") leaveMP();
       break;
     case ST.DEAD:
-      if (HC()) { if (k === "enter" || k === "h") finishRun(false); }   // Hardcore: kein neuer Kredit
+      if (HC() || outOfLives()) { if (k === "enter" || k === "h") finishRun(false); }   // Hardcore bzw. alle Leben weg: kein neuer Kredit
       else if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
       else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
@@ -2440,7 +2446,7 @@ function pirateAI(e, dt) {
     }
   }
   if (d > .75) go(pl.x, pl.y, v);
-  else if (e.cd <= 0 && Math.abs(gameTime - pirHitAt) > (HC() ? .35 : .5)) { pirHitAt = gameTime; e.cd = 1.2; e.attackAnim = .3; damagePlayer(pl, Math.floor(11 * e.str), L("CUTLASS SLASH!", "SÄBELHIEB!")); }
+  else if (e.cd <= 0 && Math.abs(gameTime - pirHitAt) > (HC() ? .35 : .5) && !segBlocked(e.x, e.y, pl.x, pl.y)) { pirHitAt = gameTime; e.cd = 1.2; e.attackAnim = .3; damagePlayer(pl, Math.floor(11 * e.str), L("CUTLASS SLASH!", "SÄBELHIEB!")); }
 }
 function updateIsland(dt) {
   isleT -= dt;
@@ -2848,7 +2854,7 @@ function renderHUD() {
     const m = levelMarket();
     const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
     if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
-    else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
+    else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : isMP() ? "" : "  ·  ♥ " + livesLeft()}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   for (const p of hurtPops) {   // Schaden faellt wie ein Kurssturz durchs Bild
@@ -3065,7 +3071,7 @@ function renderEnd(title, sub, col, bull) {
     text(L(`Liquidated by you: ${me.kills}   ·   Deaths: ${me.deaths}   ·   Market cleanup: ${marketKills}`, `Von dir liquidiert: ${me.kills}   ·   Tode: ${me.deaths}   ·   Marktbereinigung: ${marketKills}`), DW / 2, 255, "#c8c8d2", 18, "center");
   }
   if (!isMP() && state === ST.DEAD) {
-    if (HC()) zoneButton(320, 378, 320, 40, L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN"), "#ffd232", "enter", 18);
+    if (HC() || outOfLives()) zoneButton(320, 378, 320, 40, L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN"), "#ffd232", "enter", 18);
     else {
       zoneButton(180, 378, 290, 40, L("[ENTER] NEW LOAN", "[ENTER] NEUER KREDIT"), "#50ff82", "enter", 16);
       zoneButton(490, 378, 290, 40, L("[H] GIVE UP & HIGHSCORE", "[H] AUFGEBEN & HIGHSCORE"), "#ffd232", "h", 16);
@@ -3770,9 +3776,10 @@ function joinKey(k) {
   if (k.length === 1 && /[0-9a-z.:\-]/.test(k) && joinText.length < 40) joinText += k;
 }
 let soloAsk = false;
-function startSolo(hc) {
-  hardcore = hc; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
+function startSolo(diff) {   // "easy", "normal" oder "hard"
+  hardcore = diff === "hard"; easy = diff === "easy"; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
   state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
+  else if (!easy) say(L(`NORMAL: ${SOLO_LIVES} LIVES`, `NORMAL: ${SOLO_LIVES} LEBEN`), 2.5);
 }
 let touchHelpReturn = ST.PLAY;
 function openTouchHelp(ret) { touchHelpReturn = ret; state = ST.TOUCHHELP; keys.clear(); }
@@ -3796,10 +3803,13 @@ function renderSoloAsk() {
   g.fillStyle = "rgba(0,0,0,.75)"; g.fillRect(0, 0, DW, DH);
   g.fillStyle = "#07090f"; g.fillRect(150, 110, 660, 320); g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(150, 110, 660, 320);
   text(L("PLAY SOLO", "SOLO SPIELEN"), DW / 2, 128, "#ffd232", 30, "center");
-  zoneButton(180, 180, 290, 64, L("▶  [ENTER] NORMAL", "▶  [ENTER] NORMAL"), "#50ff82", "enter", 22);
-  zoneButton(490, 180, 290, 64, "☠  [X] HARDCORE", "#ff5050", "x", 22);
-  [L("Broke? A new loan", "Pleite? Mit neuem Kredit"), L("gets you back in the game.", "geht es weiter.")].forEach((l, i) => text(l, 325, 256 + i * 20, "#c8c8d7", 14, "center"));
-  [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies, 1.5× points", "weniger Nachschub, 1,5-fache Punkte"), L("– and only ONE life.", "– und nur EIN Leben.")].forEach((l, i) => text(l, 635, 256 + i * 20, "#ffb0a0", 14, "center"));
+  const col = (x, label, c, key, lines, lc) => {
+    zoneButton(x, 178, 200, 60, label, c, key, 18);
+    lines.forEach((l, i) => text(l, x + 100, 252 + i * 20, lc, 14, "center"));
+  };
+  col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives,", "unbegrenzt Leben,"), L("0.6× points", "0,6-fache Punkte")], "#b4dcf0");
+  col(380, "▶  [ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives –`, `${SOLO_LIVES} Leben –`), L("broke? A new loan", "pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
+  col(590, "☠  [X] HARDCORE", "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
   zoneButton(380, 362, 200, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
 }
 let creditsMenu = false;   // Abspann aus dem Hauptmenue: danach zurueck ins Menue statt in die Steueroase
@@ -3954,7 +3964,8 @@ function frame(now) {
       renderRoundEnd(); break;
     case ST.DEAD: gameTime += dt;
       if (HC()) renderEnd("GAME OVER", L("Hardcore: bankruptcy is final – your run is over", "Hardcore: Die Insolvenz ist endgültig – dein Lauf ist vorbei"), "#ff3c3c", false);
-      else renderEnd(L("BANKRUPT", "INSOLVENZ"), L(`Bankruptcy no. ${me.deaths} – penalty −$${deathPenalty.toLocaleString(LOC())} (25 % of P&L)`, `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString(LOC())} (25 % des P&L)`), "#ff3c3c", false);
+      else if (outOfLives()) renderEnd("GAME OVER", L(`All ${SOLO_LIVES} lives used up – your run is over`, `Alle ${SOLO_LIVES} Leben verbraucht – dein Lauf ist vorbei`), "#ff3c3c", false);
+      else renderEnd(L("BANKRUPT", "INSOLVENZ"), L(`Bankruptcy no. ${me.deaths} – penalty −$${deathPenalty.toLocaleString(LOC())}${EZ() ? "" : ` · ${livesLeft()} ${livesLeft() === 1 ? "life" : "lives"} left`}`, `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString(LOC())}${EZ() ? "" : ` · noch ${livesLeft()} ${livesLeft() === 1 ? "Leben" : "Leben"}`}`), "#ff3c3c", false);
       break;
     case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) creditsDone(); break;
     case ST.OUTRO: gameTime += dt; outroT += dt; renderOutro(dt); if (outroT > OUTRO_LEN) state = ST.WIN; break;
