@@ -2,6 +2,14 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.22.1 – Lobby chat, phone keyboard, auto aim in multiplayer (2026-10-19)
+
+- **Bug fix – lobby chat:** messages in the multiplayer lobby were no longer sent. They now reach everyone again (local and online).
+- **Bug fix – phone keyboard:** for the nickname, game name and chat no text appeared on phones even though you typed. The on-screen keyboard now passes the characters on correctly.
+- **Auto aim in multiplayer:**
+  - Semi now also works for joining players (so far the aim assist only found enemies for the host).
+  - New host lobby option **[A] Full auto aim: allowed/off**. If full is allowed, everyone who chose full in the options gets it; otherwise they get semi. The options then show "multiplayer: semi (host allows no full)".
+
 ## Version 3.22.0 – Separate high score list for Easy (2026-10-19)
 
 - **Easy has its own high score list** – local, in the app and online (all-time and today). In the high score view, **X** switches between normal, hardcore and easy. Since easy is no longer compared with normal, it gives full points again instead of 0.6×.

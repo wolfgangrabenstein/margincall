@@ -2,6 +2,14 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.22.1 – Lobby-Chat, Handy-Tastatur, Auto-Aim im Multiplayer (19.10.2026)
+
+- **Fehler behoben – Lobby-Chat:** Nachrichten in der Multiplayer-Lobby wurden nicht mehr verschickt. Jetzt kommen sie wieder bei allen an (lokal und online).
+- **Fehler behoben – Handy-Tastatur:** Beim Nickname, beim Spielnamen und im Chat erschien am Handy kein Text, obwohl man tippte. Die Bildschirmtastatur gibt die Zeichen jetzt richtig weiter.
+- **Auto-Aim im Multiplayer:**
+  - Semi funktioniert jetzt auch für Mitspieler (bisher fand die Zielhilfe nur beim Host Gegner).
+  - Neue Lobby-Option des Hosts **[A] Full-Auto-Aim: erlaubt/aus**. Ist Full erlaubt, nutzen es alle, die in den Optionen Full eingestellt haben; sonst gilt für sie Semi. Die Optionen zeigen dann den Hinweis „Multiplayer: Semi (Host erlaubt kein Full)“.
+
 ## Version 3.22.0 – eigene Highscore-Liste für Einfach (19.10.2026)
 
 - **Einfach hat eine eigene Highscore-Liste** – lokal, in der App und online (Gesamt und Heute). In der Highscore-Ansicht wechselst du mit **X** zwischen Normal, Hardcore und Einfach. Weil Einfach nicht mehr mit Normal verglichen wird, gibt es dort wieder volle Punkte statt 0,6-facher.

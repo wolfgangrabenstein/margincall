@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.22.0";
+const APP_VERSION = "3.22.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -645,6 +645,7 @@ const isMP = () => mode !== "solo";
 const isHost = () => !net.connected || net.id === net.hostId;
 const isClient = () => net.connected && net.id !== net.hostId;
 let players = [], me = null;
+let lobbyFullAim = false;   // Lobby-Option des Hosts: Full-Auto-Aim im Multiplayer erlaubt (Semi ist immer erlaubt)
 let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [], netMsg = "", netMsgT = 0;
 let outEvents = [], snapPrev = null, snapCur = null, snapTimeCur = 0, snapTimePrev = 0, lastSent = 0, clientSeq = -1;
 
@@ -1081,7 +1082,8 @@ function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit
 // Zielhilfe am Handy (Optionen, Standard aus): naechster sichtbarer Gegner innerhalb eines Blickwinkels
 let aimHoldT = 0, aimLocked = false;
 const AIM = { semi: { steer: .22, snap: .08, range: 7 }, full: { steer: .45, snap: .14, range: 14 } };
-const aimModeNow = () => EZ() && COARSE && !settings.aimTouched ? "full" : settings.aimMode;
+const aimModeSet = () => EZ() && COARSE && !settings.aimTouched ? "full" : settings.aimMode;   // eingestellte Stufe
+const aimModeNow = () => { const m = aimModeSet(); return isMP() && m === "full" && !lobbyFullAim ? "semi" : m; };   // wirksame Stufe
 const aimCfg = () => AIM[aimModeNow()] || null;
 const aimAssistOn = () => !!aimCfg();
 function aimTarget(maxAng, maxDist = 14) {
@@ -1091,7 +1093,9 @@ function aimTarget(maxAng, maxDist = 14) {
     const a = Math.abs(Math.atan2(dirX * dy - dirY * dx, dirX * dx + dirY * dy));
     if (a < bestA && lineOfSight(px, py, x, y)) { bestA = a; best = o; }
   };
-  for (const e of enemies) if (e.alive && !e.gone && !(mode === "team" && e.f === teamFaction(me))) consider(e.x, e.y, e);
+  if (isClient()) {   // Mitspieler kennen die Gegner nur aus dem letzten Snapshot des Hosts
+    if (snapCur) for (const [type, x, y, fl] of snapCur.en) if ((fl & 1) && !(mode === "team" && TYPES[type].f === teamFaction(me))) consider(x, y, { x, y });
+  } else for (const e of enemies) if (e.alive && !e.gone && !(mode === "team" && e.f === teamFaction(me))) consider(e.x, e.y, e);
   for (const o of players) if (o !== me && canHitPlayer(me, o)) consider(o.x, o.y, o);
   return best;
 }
@@ -1300,13 +1304,13 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || "";
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyFullAim = !!m.fa;
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName() });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), fa: lobbyFullAim });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
@@ -1466,7 +1470,7 @@ function chatKey(k) {
   if (k === "enter") {
     const t = chatText.trim();
     if (t.startsWith("/") && (mode === "solo" || mode === "coop") && state === ST.PLAY) { if (isClient()) netSend({ t: "chat", text: t.slice(0, 80) }); else cx(me, t); }
-    else if (t && isMP()) { if (isHost()) addChat(me.id, me.name, chatText); else netSend({ t: "chat", text: chatText.slice(0, 80) }); }
+    else if (t && (isMP() || state === ST.LOBBY) && net.connected) { if (isHost()) addChat(me.id, me.name, chatText); else netSend({ t: "chat", text: chatText.slice(0, 80) }); }
     chatText = ""; chatTyping = false; return;
   }
   if (k === "Escape") { chatText = ""; chatTyping = false; return; }
@@ -1578,7 +1582,7 @@ function optActivate() {
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
-    case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[aimModeNow()] || "off"; settings.aimTouched = true; saveSettings(); break;
+    case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[aimModeSet()] || "off"; settings.aimTouched = true; saveSettings(); break;
     case "touchSens": settings.touchSens = (settings.touchSens || 6) % 10 + 1; saveSettings(); break;
     case "reset": {   // nur Steuerung, Ton und Anzeige zuruecksetzen; Namen, Zustimmungen und Highscores bleiben erhalten
       const keep = {}; for (const k of ["lang", "nickname", "playerName", "gameName", "avatar", "liveData", "onlineScores", "onlineMP", "touchHelpSeen"]) if (settings[k] !== undefined) keep[k] = settings[k];
@@ -1608,7 +1612,7 @@ function optKey(k) {
     else if (row.kind === "touchSens") { settings.touchSens = clamp((settings.touchSens || 6) + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
     else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
-    else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(aimModeNow()) + (d > 0 ? 1 : 2)) % 3]; settings.aimTouched = true; saveSettings(); }
+    else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(aimModeSet()) + (d > 0 ? 1 : 2)) % 3]; settings.aimTouched = true; saveSettings(); }
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1653,9 +1657,9 @@ function renderOptions() {
       const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "aimMode") {
-      const m = aimModeNow() || "off";
+      const m = aimModeSet() || "off";
       text(m === "off" ? L("OFF", "AUS") : m.toUpperCase(), 530, y, m === "off" ? "#ff7050" : m === "semi" ? "#ffd232" : "#50ff82", 17);
-      text(m === "semi" ? L("narrow view, nearby enemies", "enges Sichtfeld, nahe Gegner") : m === "full" ? L("wide view, far enemies too", "weites Sichtfeld, auch ferne Gegner") : "", 640, y + 2, "#6b7896", 13);
+      text(m !== aimModeNow() ? L("multiplayer: semi (host allows no full)", "Multiplayer: Semi (Host erlaubt kein Full)") : m === "semi" ? L("narrow view, nearby enemies", "enges Sichtfeld, nahe Gegner") : m === "full" ? L("wide view, far enemies too", "weites Sichtfeld, auch ferne Gegner") : "", 640, y + 2, "#6b7896", 13);
     } else if (row.kind === "lang") {
       text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
     } else if (row.kind === "sens" || row.kind === "touchSens") {
@@ -1815,13 +1819,14 @@ function syncKbd() {
 kbd.value = " ";
 kbd.addEventListener("input", () => {
   const v = kbd.value;
-  if (v.length < 1) onKeyPress("Backspace"); else for (const ch of v.slice(1)) onKeyPress(ch === " " ? " " : ch.toLowerCase());
+  if (v.length < 1) { rawKey = "Backspace"; onKeyPress("Backspace"); }
+  else for (const ch of v.slice(1)) { rawKey = ch; onKeyPress(ch === " " ? " " : ch.toLowerCase()); }
   kbd.value = " ";
 });
 kbd.addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); onKeyPress("enter"); }
   else if (e.key === "Escape") onKeyPress("Escape");
-  else if (e.key === "Backspace" && kbd.value.length <= 1) { e.preventDefault(); onKeyPress("Backspace"); }
+  else if (e.key === "Backspace" && kbd.value.length <= 1) { e.preventDefault(); rawKey = "Backspace"; onKeyPress("Backspace"); }
   syncKbd();
 });
 // F4: Vollbild an/aus. In der App schaltet das Fenster selbst um (Adresse wird von der App abgefangen).
@@ -1891,6 +1896,7 @@ function onKeyPress(k) {
       }
       if (isHost() && net.connected) {
         if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? 2 : 1)) % 3; sfx("HIT"); hostSendLobby(); }
+        if (k === "a") { lobbyFullAim = !lobbyFullAim; sfx("HIT"); hostSendLobby(); }
         if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = L("NOT ALL PLAYERS ARE READY YET", "NOCH NICHT ALLE MITSPIELER SIND BEREIT"); lobbyNoteT = 2.5; sfx("DECLINED"); } }
       }
       break;
@@ -2999,6 +3005,10 @@ function renderLobby() {
     team: L("Team Bull vs. Team Bear – your animals fight along. If the market rises, Team Bull hits harder.", "Team Bulle gegen Team Bär – eure Tiere kämpfen mit. Steigt der Markt, trifft Team Bulle härter."),
     dm: L("Free for all, with market creatures adding chaos. Kill = 500 P&L.", "Jeder gegen jeden, mit Börsen-Gegnern als Chaos. Abschuss = 500 P&L.") }[MODES[modeIdx][0]];
   text(desc, 110, 152, "#a0a0b4", 15);
+  // Lobby-Option: Full-Auto-Aim (Semi ist im Multiplayer immer erlaubt); nur der Host kann umschalten
+  const faTxt = `${host ? "[A] " : ""}${L("FULL AUTO AIM", "FULL-AUTO-AIM")}: ${lobbyFullAim ? L("ALLOWED", "ERLAUBT") : L("OFF", "AUS")}`;
+  if (host) zoneButton(440, 114, 236, 30, faTxt, lobbyFullAim ? "#50ff82" : "#8290b0", "a", 13);
+  else text(faTxt, 440, 122, lobbyFullAim ? "#50ff82" : "#8290b0", 13);
   // ---- Spielerliste (links)
   text(`${L("PLAYERS", "SPIELER")} (${list.length}/4)`, 110, 186, "#6b7896", 14);
   const isTeam = MODES[modeIdx][0] === "team";
