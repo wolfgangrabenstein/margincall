@@ -2,6 +2,14 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.19.8 – Auto-Aim in drei Stufen (19.10.2026)
+
+- **Auto-Aim: Aus, Semi oder Full.**
+  - **Semi** greift nur bei nahen Gegnern (bis etwa 7 Felder) und in einem engen Sichtfeld (etwa 12° neben der Mitte). Am Handy und Tablet ist Semi jetzt standardmäßig an.
+  - **Full** funktioniert wie die bisherige Zielhilfe: weites Sichtfeld, auch ferne Gegner.
+  - Am PC steht Auto-Aim ebenfalls in den Optionen (gedacht fürs Trackpad, ohne Maus), dort standardmäßig aus.
+- **Titelbild:** Die Steuerungszeile in der Mitte entfällt; sie steht bereits unter dem Spielbild.
+
 ## Version 3.19.7 – Zielhilfe am Handy, Beenden im Browser (19.10.2026)
 
 - **Zielhilfe (Handy):** Neue Option in den Optionen, standardmäßig aus. Ist sie an, dreht sich die Ansicht beim Feuern sanft zum nächsten sichtbaren Gegner im Blickfeld, und Schüsse knapp daneben rasten auf ihn ein. Das Fadenkreuz wird rot, solange ein Ziel erfasst ist.

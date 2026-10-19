@@ -79,7 +79,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.19.7";
+const APP_VERSION = "3.19.8";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1060,11 +1060,13 @@ function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit
 }
 // Zielhilfe am Handy (Optionen, Standard aus): naechster sichtbarer Gegner innerhalb eines Blickwinkels
 let aimHoldT = 0, aimLocked = false;
-const aimAssistOn = () => COARSE && settings.aimAssist === true;
-function aimTarget(maxAng) {
+const AIM = { semi: { steer: .22, snap: .08, range: 7 }, full: { steer: .45, snap: .14, range: 14 } };
+const aimCfg = () => AIM[settings.aimMode] || null;
+const aimAssistOn = () => !!aimCfg();
+function aimTarget(maxAng, maxDist = 14) {
   let best = null, bestA = maxAng;
   const consider = (x, y, o) => {
-    const dx = x - px, dy = y - py, d = Math.hypot(dx, dy); if (d < .3 || d > 14) return;
+    const dx = x - px, dy = y - py, d = Math.hypot(dx, dy); if (d < .3 || d > maxDist) return;
     const a = Math.abs(Math.atan2(dirX * dy - dirY * dx, dirX * dx + dirY * dy));
     if (a < bestA && lineOfSight(px, py, x, y)) { bestA = a; best = o; }
   };
@@ -1077,7 +1079,7 @@ function shoot() {
   let sdx = dirX, sdy = dirY;
   if (aimAssistOn()) {   // Schuss rastet ein, wenn der Gegner fast im Fadenkreuz ist
     aimHoldT = 1;
-    const t = aimTarget(.14);
+    const t = aimTarget(aimCfg().snap, aimCfg().range);
     if (t) { const l = Math.hypot(t.x - px, t.y - py); sdx = (t.x - px) / l; sdy = (t.y - py) / l; }
   }
   if (me.ammo <= 0) { fireCd = .4; if (!isClient()) doShot(me, px, py, dirX, dirY); else { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! CASH SAMMELN"), 1.2); sfx("DECLINED"); } return; }
@@ -1360,6 +1362,9 @@ try {
 const URLP = new URLSearchParams(location.search);
 const IN_APP = URLP.has("app"), HOME_PORT = URLP.get("home") || "8080";
 const isLocalOrigin = () => ["127.0.0.1", "localhost"].includes(location.hostname);
+if (!["off", "semi", "full"].includes(settings.aimMode))
+  settings.aimMode = settings.aimAssist === true ? "full" : matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints > 0 && matchMedia("(hover: none)").matches) ? "semi" : "off";
+delete settings.aimAssist;
 if (["de", "en"].includes(URLP.get("lang"))) {   // Sprache aus dem Link, z. B. ?lang=de von der deutschen GitHub-Seite
   settings.lang = URLP.get("lang");
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { }
@@ -1494,20 +1499,21 @@ function updateHint() {
 // Optionsmenue
 const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { return L(en, de); } });
 const OPT_ROWS = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindlichkeit und grosse Zeilen
-  optRow("touchSens", "Turn sensitivity", "Drehempfindlichkeit"), optRow("aimAssist", "Aim assist", "Zielhilfe"), optRow("invert", "Invert turning", "Drehen umkehren"),
+  optRow("touchSens", "Turn sensitivity", "Drehempfindlichkeit"), optRow("aimMode", "Auto aim", "Auto-Aim"), optRow("invert", "Invert turning", "Drehen umkehren"),
   optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
   optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard", "Online-Rangliste")] : []),
   optRow("onlineMP", "Online multiplayer", "Online-Multiplayer"), optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")] : [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id })),
   optRow("mouseLook", "Mouse look", "Maussteuerung"), optRow("sens", "Mouse sensitivity", "Mausempfindlichkeit"), optRow("invert", "Invert mouse", "Maus invertieren"),
+  optRow("aimMode", "Auto aim (e.g. for trackpads)", "Auto-Aim (z. B. fürs Trackpad)"),
   optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
   optRow("onlineMP", "Online multiplayer (Cloudflare)", "Online-Multiplayer (Cloudflare)"),
   optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "Back", "Zurück")];
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
-const OPT_Y0 = COARSE ? 66 : 84, OPT_DY = COARSE ? 36 : 17;
+const OPT_Y0 = COARSE ? 66 : 78, OPT_DY = COARSE ? 36 : 17;
 function openOptions() { optReturn = state; state = ST.OPTIONS; optSel = 0; optCol = 0; optWaiting = false; document.exitPointerLock?.(); }
 function closeOptions() { optWaiting = false; state = optReturn; saveSettings(); }
 function assignBind(k) {
@@ -1530,9 +1536,9 @@ function optActivate() {
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
-    case "aimAssist": settings.aimAssist = settings.aimAssist !== true; saveSettings(); break;
+    case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[settings.aimMode] || "off"; saveSettings(); break;
     case "touchSens": settings.touchSens = (settings.touchSens || 6) % 10 + 1; saveSettings(); break;
-    case "reset": settings = { ...structuredClone(DEFAULTS), lang: settings.lang }; saveSettings(); applyVolumes(); optMsg = L("Defaults restored", "Standardbelegung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
+    case "reset": settings = { ...structuredClone(DEFAULTS), lang: settings.lang, aimMode: COARSE ? "semi" : "off" }; saveSettings(); applyVolumes(); optMsg = L("Defaults restored", "Standardbelegung wiederhergestellt"); optMsgT = 2; sfx("KACHING"); break;
     case "back": closeOptions(); break;
   }
 }
@@ -1550,7 +1556,8 @@ function optKey(k) {
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
     else if (row.kind === "touchSens") { settings.touchSens = clamp((settings.touchSens || 6) + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen" || row.kind === "aimAssist") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
+    else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(settings.aimMode) + (d > 0 ? 1 : 2)) % 3]; saveSettings(); }
   }
   else if (k === "enter" || k === " ") optActivate();
   else if ((k === "Delete" || k === "Backspace") && row.kind === "bind") { settings.binds[row.id][optCol] = null; saveSettings(); }
@@ -1577,7 +1584,7 @@ function optClick(x, y) {
 function renderOptions() {
   g.fillStyle = "#060a14"; g.fillRect(0, 0, DW, DH);
   text(L("OPTIONS", "OPTIONEN"), DW / 2, 18, "#ffd232", 40, "center");
-  if (!COARSE) { text(L("ACTION", "AKTION"), 60, 74, "#6b7896", 14); text(L("KEY 1", "BELEGUNG 1"), 530, 74, "#6b7896", 14); text(L("KEY 2", "BELEGUNG 2"), 750, 74, "#6b7896", 14); }
+  if (!COARSE) { text(L("ACTION", "AKTION"), 60, 60, "#6b7896", 14); text(L("KEY 1", "BELEGUNG 1"), 530, 60, "#6b7896", 14); text(L("KEY 2", "BELEGUNG 2"), 750, 60, "#6b7896", 14); }
   OPT_ROWS.forEach((row, i) => {
     const y0 = OPT_Y0 + i * OPT_DY, y = y0 + (COARSE ? 6 : 0), sel = i === optSel;
     if (sel) { g.fillStyle = "#123a24"; g.fillRect(40, y0 - 4, DW - 80, OPT_DY - 2); }
@@ -1589,9 +1596,13 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen" || row.kind === "aimAssist") {
-      const on = row.kind === "aimAssist" ? settings.aimAssist === true : row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
+    } else if (row.kind === "aimMode") {
+      const m = settings.aimMode || "off";
+      text(m === "off" ? L("OFF", "AUS") : m.toUpperCase(), 530, y, m === "off" ? "#ff7050" : m === "semi" ? "#ffd232" : "#50ff82", 17);
+      text(m === "semi" ? L("narrow view, nearby enemies", "enges Sichtfeld, nahe Gegner") : m === "full" ? L("wide view, far enemies too", "weites Sichtfeld, auch ferne Gegner") : "", 640, y + 2, "#6b7896", 13);
     } else if (row.kind === "lang") {
       text(settings.lang === "de" ? "DEUTSCH" : "ENGLISH", 530, y, "#50c8ff", 17);
     } else if (row.kind === "sens" || row.kind === "touchSens") {
@@ -1916,7 +1927,7 @@ function updateGame(dt) {
     if (invertT > 0) { ang = -ang; side = -side; }
     aimHoldT -= dt; aimLocked = false;
     if (aimAssistOn() && (touchFire || aimHoldT > 0)) {   // beim Feuern sanft zum Ziel drehen (wie eine Zielhilfe am Controller)
-      const t = aimTarget(.45);
+      const t = aimTarget(aimCfg().steer, aimCfg().range);
       if (t) {
         aimLocked = true;
         let diff = Math.atan2(t.y - py, t.x - px) - Math.atan2(dirY, dirX);
@@ -2869,7 +2880,6 @@ function renderTitle() {
   });
   const when = marketTime ? new Date(marketTime).toLocaleString(LOC(), { dateStyle: "short", timeStyle: "short" }) : "–";
   text(`${L("Quotes as of", "Kursstand")}: ${when}  ·  ${mStat()}`, DW / 2, 312, "#8290b0", 15, "center");
-  text(L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · double-tap = dodge`, `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · 2× Richtung = Ausweichen`), DW / 2, 345, "#a0a0b4", 15, "center");
   // Hauptknopf: Einzelspieler starten (pulsiert leicht)
   const pulse = .5 + .5 * Math.sin(gameTime * 4);
   g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(170, 378, 360, 56);

@@ -2,6 +2,14 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.19.8 – Auto aim in three levels (2026-10-19)
+
+- **Auto aim: Off, Semi or Full.**
+  - **Semi** only kicks in for nearby enemies (up to about 7 tiles) within a narrow field of view (about 12° off center). On phones and tablets Semi is now on by default.
+  - **Full** works like the previous aim assist: wide field of view, distant enemies too.
+  - On PCs, auto aim is in the options as well (meant for trackpads without a mouse), off by default there.
+- **Title screen:** The controls line in the middle is gone; it is already shown below the game screen.
+
 ## Version 3.19.7 – Aim assist on phones, quitting in the browser (2026-10-19)
 
 - **Aim assist (phones):** New option in the options menu, off by default. When it is on, the view turns smoothly toward the nearest visible enemy in your field of view while you fire, and shots that would just miss snap onto it. The crosshair turns red while a target is locked.
