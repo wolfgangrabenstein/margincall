@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.24.0";
+const APP_VERSION = "3.24.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -948,7 +948,7 @@ const KILL_LINES = [
   ["A SHORTED B TO ZERO", "A HAT B AUF NULL LEERVERKAUFT"],
   ["MARGIN CALL FOR B – THANKS, A!", "MARGIN CALL FÜR B – DANKE, A!"],
   ["A TURNED B INTO A PENNY STOCK", "A MACHT B ZUM PENNY STOCK"],
-  ["B CRASHED – A CASHES IN", "B CRASHT – A KASSIERT AB"],
+  ["B CRASHED – A CASHED IN", "B CRASHT – A HAT ABKASSIERT"],
 ];
 let lastKillLine = -1;
 function killLine(a, b) {
@@ -1280,6 +1280,7 @@ function netConnect(url) {   // ohne url: LAN ueber den eigenen Server; mit url:
 function netDisconnect() { if (net.ws) { const ws = net.ws; net.ws = null; ws.close(); } net.connected = false; }
 function leaveMP() {
   matchSetOpen = false;
+  lobbyNPC = true; lobbyFF = false; lobbyAim = "semi";   // naechste Lobby startet mit den Standard-Match-Einstellungen
   if (IN_APP && !isLocalOrigin()) { goHome(); return; }
   netDisconnect(); mpMenu = false;
   mode = "solo"; players = [me = makePlayer(0, true)];

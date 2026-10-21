@@ -2,6 +2,11 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.24.1 – Kill line, default match settings (2026-10-21)
+
+- **Kill lines:** line 7 now reads "B CRASHED – A CASHED IN".
+- **Match settings:** every new lobby starts with the defaults again – NPCs on, friendly fire off, auto aim semi only. So far changes from an earlier lobby in the same tab were kept.
+
 ## Version 3.24.0 – NPCs can be switched off, kill lines, reworked texts (2026-10-21)
 
 - **Match settings: NPCs on/off (key N).** When off, team and deathmatch have no market creatures – pure player versus player. In co-op they are always there. Default: on.

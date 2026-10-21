@@ -2,6 +2,11 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.24.1 – Abschuss-Spruch, Standard-Match-Einstellungen (21.10.2026)
+
+- **Abschuss-Sprüche:** Spruch 7 heißt jetzt „B CRASHT – A HAT ABKASSIERT“.
+- **Match-Einstellungen:** Jede neue Lobby startet wieder mit den Standardwerten – NPCs an, Friendly Fire aus, Auto-Aim nur Semi. Bisher blieben Änderungen aus einer früheren Lobby im selben Tab erhalten.
+
 ## Version 3.24.0 – NPCs abschaltbar, Abschuss-Sprüche, überarbeitete Texte (21.10.2026)
 
 - **Match-Einstellungen: NPCs an/aus (Taste N).** Ausgeschaltet gibt es im Team- und Deathmatch-Modus keine Börsen-Gegner – reines Spieler-gegen-Spieler. Im Koop sind sie immer dabei. Standard: an.
