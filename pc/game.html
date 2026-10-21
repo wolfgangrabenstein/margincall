@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.25.2";
+const APP_VERSION = "3.25.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -3992,8 +3992,8 @@ function renderSoloAsk() {
     zoneButton(x, 178, 200, 60, label, c, key, 18);
     lines.forEach((l, i) => text(l, x + 100, 252 + i * 20, lc, 14, "center"));
   };
-  col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives,", "unbegrenzt Leben,"), L("own highscore list", "eigene Highscore-Liste")], "#b4dcf0");
-  col(380, "[ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives –`, `${SOLO_LIVES} Leben –`), L("broke? A new loan", "pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
+  col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives.", "unbegrenzt Leben.")], "#b4dcf0");
+  col(380, "[ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives.`, `${SOLO_LIVES} Leben.`), L("Broke? A new loan", "Pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
   col(590, "☠  [X] HARDCORE", "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
   zoneButton(380, 362, 200, 40, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
 }

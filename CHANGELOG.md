@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.25.3 – Solo choice texts (2026-10-21)
+
+- **Solo choice:** Easy: "Weaker enemies, unlimited lives." – Normal: "5 lives. Broke? A new loan gets you back in."
+
 ## Version 3.25.2 – Key hint line without Esc (2026-10-21)
 
 - **Key hint line:** pause now shows just "P pause" instead of "P/ESC pause". Esc still pauses but is no longer advertised, because in browsers it also leaves fullscreen.
