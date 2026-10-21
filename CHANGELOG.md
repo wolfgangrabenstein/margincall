@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.26.2 – Bull run and crash easier to trigger (2026-10-21)
+
+- **Market phases reached sooner:** in level 1 (few enemies) a net 3 kills of one side are enough, in the other levels 5 (previously about 9).
+- **The animals move the market too:** when bulls trample bears (or the other way round), the mood shifts at half strength.
+- The mood drifts back to the real market more slowly; only 15 instead of 25 seconds of lock at the start of a level, and after about a minute without a phase the market tips anyway. On the Cardputer too.
+
 ## Version 3.26.1 – Chat input in the browser (2026-10-21)
 
 - **Bug fix:** in the browser, "/" and "'" opened Firefox's or Opera's quick find and left fullscreen. The game now catches both keys; in chat they are typed normally.

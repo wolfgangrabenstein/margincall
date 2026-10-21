@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.26.1"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.26.2"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -964,7 +964,7 @@ static void loadLevel(int lv) {
   histN = 0; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
-  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navOk = false;
+  phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navOk = false;
   char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, L(LEVEL_NAMES_EN[lv], LEVEL_NAMES[lv]));
   say(b, 3.0f);
   sfxPlay(SFX_ID_BELL);   // Eroeffnungsglocke
@@ -1065,13 +1065,18 @@ static void dropItem(float x, float y, uint8_t type, bool stray = false) {
   items[i] = {x, y, type, true, stray};
 }
 
+// Stimmung nach einem Abschuss: Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Boersencrash (Level 1: groessere Schritte)
+static void moveSentiment(const Enemy& e, float k) {
+  float st = (level == 0 ? 0.34f : 0.2f) * k;
+  if (e.faction == F_BEAR) sentiment = min(1.2f, sentiment + st); else if (e.faction == F_BULL) sentiment = max(-1.2f, sentiment - st);
+}
 static void killEnemy(Enemy& e, bool byPlayer) {
   e.alive = false; e.deadT = 0;
   const TypeInfo& ti = TYPES[e.type];
   if (e.type == E_BUBBLE || e.type == E_BOT) e.gone = true;
   if (byPlayer) {
     kills++;
-    if (!island && phaseT <= 0) { if (e.faction == F_BEAR) sentiment = min(1.2f, sentiment + 0.12f); else if (e.faction == F_BULL) sentiment = max(-1.2f, sentiment - 0.12f); }
+    if (!island && phaseT <= 0) moveSentiment(e, 1.0f);
     const bool shortGain = bearMkt() && e.faction == F_BEAR;
     int pts = (int)(ti.pts * (bullRun() ? 1.5f : 1.0f) * (shortGain ? 2 : 1));
     pnl += hardcore ? pts * 3 / 2 : pts;
@@ -1088,6 +1093,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     }
   } else {
     marketKills++;
+    if (!island && phaseT <= 0) moveSentiment(e, 0.5f);   // Tiere untereinander bewegen den Markt mit halber Kraft
     if (dist2Player(e.x, e.y) < 64) say(e.type == E_BEAR || e.type == E_SELLER ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BAEREN NIEDER") : L("BEARS MAUL THE BULLS", "BAEREN ZERFLEISCHEN BULLEN"), 1.5f);
   }
   sfxNear(e.type == E_BUBBLE ? SFX_ID_POP : e.type == E_SLICK ? SFX_ID_OIL : SFX_ID_STAMP, e.x, e.y, 10);
@@ -1160,10 +1166,10 @@ static void updatePhase(float dt) {
     return;
   }
   float base = constrain(levelChg * 0.08f, -0.2f, 0.2f);
-  sentiment += (base - sentiment) * dt * 0.02f;
+  sentiment += (base - sentiment) * dt * 0.01f;
   if ((phaseCd -= dt) > 0) return;
-  if (fabsf(sentiment) >= 1) startPhase(sentiment > 0 ? 1 : -1);
-  else if (phaseCd < -60) startPhase(sentiment + base > 0 || (sentiment + base == 0 && levelChg >= 0) ? 1 : -1);
+  if (fabsf(sentiment) >= 0.97f) startPhase(sentiment > 0 ? 1 : -1);
+  else if (phaseCd < -45) startPhase(sentiment + base > 0 || (sentiment + base == 0 && levelChg >= 0) ? 1 : -1);
 }
 
 static void hurtEnemy(Enemy& t, int dmg, bool byPlayer) {

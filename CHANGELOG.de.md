@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.26.2 – Bullrun und Börsencrash leichter auslösbar (21.10.2026)
+
+- **Marktphasen schneller erreichbar:** In Level 1 (wenige Gegner) genügen netto 3 Abschüsse einer Seite, in den übrigen Levels 5 (bisher etwa 9).
+- **Die Tiere bewegen den Markt mit:** Trampeln Bullen Bären nieder (oder umgekehrt), verschiebt das die Stimmung mit halber Kraft.
+- Die Stimmung driftet langsamer zum echten Kurs zurück; am Levelanfang nur noch 15 statt 25 Sekunden Sperre, und spätestens nach rund einer Minute ohne Phase kippt der Markt. Auch am Cardputer.
+
 ## Version 3.26.1 – Chat-Eingabe im Browser (21.10.2026)
 
 - **Fehler behoben:** Im Browser öffneten „/“ und „'“ die Schnellsuche von Firefox bzw. Opera und beendeten dabei das Vollbild. Das Spiel fängt beide Tasten jetzt ab; im Chat werden sie normal getippt.

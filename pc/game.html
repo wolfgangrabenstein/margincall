@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.26.1";
+const APP_VERSION = "3.26.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -920,7 +920,7 @@ function loadLevel(lv) {
   hist = []; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
-  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navDist = null;
+  phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navDist = null;
   sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
   sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
 }
@@ -1054,6 +1054,12 @@ function spawnProj(x, y, ang, spd, dmg, f, spr) {
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
 const itemSpr = t => t === 3 ? S.KEY : t ? S.DIV : S.CASH;
 
+// Stimmung nach einem Abschuss: erlegter Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Boersencrash.
+// Level 1 hat wenige Gegner, daher dort groessere Schritte (netto 3 statt 5 Abschuesse)
+function moveSentiment(e, k) {
+  const st = (level === 0 ? .34 : .2) * k;
+  if (e.f === F.BEAR) sentiment = Math.min(1.2, sentiment + st); else if (e.f === F.BULL) sentiment = Math.max(-1.2, sentiment - st);
+}
 function startPhase(dir) {
   phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL");
   if (dir > 0) {
@@ -1110,10 +1116,10 @@ function updatePhase(dt) {
     return;
   }
   const base = clamp(levelChg * .08, -.2, .2);   // echter Kurs als Grundstimmung
-  sentiment += (base - sentiment) * dt * .02;
+  sentiment += (base - sentiment) * dt * .01;
   if ((phaseCd -= dt) > 0) return;
-  if (Math.abs(sentiment) >= 1) startPhase(sentiment > 0 ? 1 : -1);
-  else if (phaseCd < -60) startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);   // spaetestens nach rund anderthalb Minuten
+  if (Math.abs(sentiment) >= .97) startPhase(sentiment > 0 ? 1 : -1);
+  else if (phaseCd < -45) startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);   // spaetestens nach rund einer Minute
 }
 function killEnemy(e, byPlayer) {
   e.alive = false; e.deadT = 0;
@@ -1121,7 +1127,7 @@ function killEnemy(e, byPlayer) {
   if (e.type === E.BUBBLE || e.type === E.BOT) e.gone = true;
   if (byPlayer) {
     byPlayer.kills++;
-    if (!island && phaseT <= 0) { if (e.f === F.BEAR) sentiment = Math.min(1.2, sentiment + .12); else if (e.f === F.BULL) sentiment = Math.max(-1.2, sentiment - .12); }
+    if (!island && phaseT <= 0) moveSentiment(e, 1);
     const shortGain = bearMkt() && e.f === F.BEAR, pts = Math.round(ti.pts * (bullRun() ? 1.5 : 1) * (shortGain ? 2 : 1));
     addScore(byPlayer, pts);
     const m = { [E.BEAR]: island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BÄR ERLEGT!"), [E.BULL]: L("BULL DOWN!", "BULLE ERLEGT!"), [E.SELLER]: L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT"), [E.BUBBLE]: L("BUBBLE BURST", "BLASE GEPLATZT"),
@@ -1129,6 +1135,7 @@ function killEnemy(e, byPlayer) {
     if (ti.boss) sayAll(m, 3); else if (shortGain) sayTo(byPlayer, `${L("SHORT GAIN", "SHORT-GEWINN")} +${pts}`); else sayTo(byPlayer, m || `${ti.name} ${L("DOWN", "ERLEDIGT")}`);
   } else {
     marketKills++;
+    if (!island && phaseT <= 0) moveSentiment(e, .5);   // Tiere untereinander bewegen den Markt mit halber Kraft
     if (dist2P(e.x, e.y) < 64) say(e.f === F.BEAR ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BÄREN NIEDER") : L("BEARS MAUL THE BULLS", "BÄREN ZERFLEISCHEN BULLEN"), 1.5);
   }
   sfxNear(e.type === E.BUBBLE ? "POP" : e.type === E.SLICK ? "OIL" : "STAMP", e.x, e.y, 10);
