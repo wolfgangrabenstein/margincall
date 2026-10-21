@@ -2,6 +2,13 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.26.0 – Enemies find their way (2026-10-21)
+
+- **Hunting during market phases:** during a bull run all bulls, during a crash all bears hunt the player – even from other rooms, through corridors and doorways, until they reach you.
+- **Pathfinding for all enemies:** when enemies can't see the player clearly, they follow a path map through the level instead of running into walls. Body width is taken into account, so nobody gets stuck on door edges or corners any more.
+- **Bug fix:** enemies that spawned inside a wall are moved to the nearest free cell.
+- On the Cardputer too.
+
 ## Version 3.25.3 – Solo choice texts (2026-10-21)
 
 - **Solo choice:** Easy: "Weaker enemies, unlimited lives." – Normal: "5 lives. Broke? A new loan gets you back in."

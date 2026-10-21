@@ -2,6 +2,13 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.26.0 – Gegner finden den Weg (21.10.2026)
+
+- **Jagd in den Marktphasen:** Im Bullrun jagen alle Bullen, im Börsencrash alle Bären gezielt den Spieler – auch aus anderen Räumen, durch Gänge und Türöffnungen, bis sie ihn erreicht haben.
+- **Wegsuche für alle Gegner:** Sehen Gegner den Spieler nicht frei, folgen sie einer Wegkarte durchs Level statt gegen Wände zu laufen. Dabei zählt die Körperbreite, damit niemand mehr an Türkanten oder Ecken hängen bleibt.
+- **Fehler behoben:** Gegner, die beim Erscheinen in einer Wand steckten, werden ins nächste freie Feld gesetzt.
+- Auch am Cardputer.
+
 ## Version 3.25.3 – Texte in der Solo-Auswahl (21.10.2026)
 
 - **Solo-Auswahl:** Einfach: „Schwächere Gegner, unbegrenzt Leben.“ – Normal: „5 Leben. Pleite? Mit neuem Kredit geht's weiter.“

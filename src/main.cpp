@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.25.3"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.26.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -691,6 +691,7 @@ static int replayIdx;
 static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // Marktphasen: 1 = Bullrun, -1 = Baerenmarkt. sentiment steigt mit erlegten Baeren, faellt mit erlegten Bullen; echter Kurs = Grundstimmung
 static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, bearHintAt;
+static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
 static inline bool bullRun() { return phase == 1 && phaseT > 0; }
 static inline bool bearMkt() { return phase == -1 && phaseT > 0; }
@@ -963,7 +964,7 @@ static void loadLevel(int lv) {
   histN = 0; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
-  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0;
+  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navOk = false;
   char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, L(LEVEL_NAMES_EN[lv], LEVEL_NAMES[lv]));
   say(b, 3.0f);
   sfxPlay(SFX_ID_BELL);   // Eroeffnungsglocke
@@ -982,6 +983,61 @@ static bool moveEntity(float& x, float& y, float mx, float my, float r) {
   if (freeAt(x + mx, y, r)) x += mx; else ok = false;
   if (freeAt(x, y + my, r)) y += my; else ok = false;
   return ok;
+}
+
+// ---- Wegsuche: Schritte bis zum Spieler fuer jedes Feld (Breitensuche), alle 0,25 s neu
+static void updateNav(float dt) {
+  if ((navT -= dt) > 0 && navOk) return;
+  navT = 0.25f; navOk = true;
+  static uint16_t q[MAP_W * MAP_H];
+  for (int k = 0; k < MAP_W * MAP_H; k++) navDist[k] = -1;
+  int head = 0, tail = 0, pi = (int)py * MAP_W + (int)px;
+  if (pi < 0 || pi >= MAP_W * MAP_H) return;
+  navDist[pi] = 0; q[tail++] = pi;
+  static const int8_t D4[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+  while (head < tail) {
+    int c = q[head++], x = c % MAP_W, y = c / MAP_W;
+    for (auto& d : D4) {
+      int nx = x + d[0], ny = y + d[1]; if (solidCell(nx, ny)) continue;
+      int j = ny * MAP_W + nx; if (navDist[j] >= 0) continue;
+      navDist[j] = navDist[c] + 1; q[tail++] = j;
+    }
+  }
+}
+static bool segBlocked(float x0, float y0, float x1, float y1);
+// freie Bahn fuer einen Koerper mit Radius r (Mitte und beide Seiten)
+static bool clearPath(float x0, float y0, float x1, float y1, float r) {
+  float dx = x1 - x0, dy = y1 - y0, d = sqrtf(dx * dx + dy * dy) + 1e-6f, ox = -dy / d * r, oy = dx / d * r;
+  return !segBlocked(x0, y0, x1, y1) && !segBlocked(x0 + ox, y0 + oy, x1 + ox, y1 + oy) && !segBlocked(x0 - ox, y0 - oy, x1 - ox, y1 - oy);
+}
+// auf ein Ziel zugehen: bei freier Bahn direkt, sonst entlang der Wegkarte von Feldmitte zu Feldmitte
+static void chase(float& ex, float& ey, float tx, float ty, bool toPlayer, float sp, float dt, float r = 0.25f) {
+  float gx = tx, gy = ty;
+  if (toPlayer && navOk && !clearPath(ex, ey, tx, ty, r)) {
+    int cx = (int)ex, cy = (int)ey, here = navDist[cy * MAP_W + cx], best = here >= 0 ? here : 30000, bx = -1, by = -1;
+    static const int8_t D4[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    for (auto& d : D4) {
+      int nx = cx + d[0], ny = cy + d[1]; if (solidCell(nx, ny)) continue;
+      int v = navDist[ny * MAP_W + nx]; if (v >= 0 && v < best) { best = v; bx = nx; by = ny; }
+    }
+    if (bx >= 0) { gx = bx + 0.5f; gy = by + 0.5f; } else { gx = cx + 0.5f; gy = cy + 0.5f; }
+  }
+  float dx = gx - ex, dy = gy - ey, d = sqrtf(dx * dx + dy * dy) + 1e-6f, step = min(d, sp * dt);
+  if (!moveEntity(ex, ey, dx / d * step, dy / d * step, r)) {   // an einer Kante: Richtung Feldmitte ruecken
+    float mx = (int)ex + 0.5f - ex, my = (int)ey + 0.5f - ey, lim = sp * dt;
+    moveEntity(ex, ey, mx > 0 ? min(mx, lim) : max(mx, -lim), my > 0 ? min(my, lim) : max(my, -lim), r);
+  }
+}
+// steckt ein Gegner in einer Wand, ins naechste freie Feld setzen
+static void unstick(float& ex, float& ey, float r) {
+  if (freeAt(ex, ey, r * 0.8f)) return;
+  int cx = (int)ex, cy = (int)ey; float bd = 1e9f, bxp = ex, byp = ey;
+  for (int oy = -1; oy <= 1; oy++) for (int ox = -1; ox <= 1; ox++) {
+    if (solidCell(cx + ox, cy + oy)) continue;
+    float x = cx + ox + 0.5f, y = cy + oy + 0.5f, dd = (x - ex) * (x - ex) + (y - ey) * (y - ey);
+    if (dd < bd) { bd = dd; bxp = x; byp = y; }
+  }
+  ex = bxp; ey = byp;
 }
 
 static int hurtAmt;   // Staerke des letzten Treffers (fuer roten Blitz und Schadenszahl)
@@ -1188,6 +1244,7 @@ static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teils
 
 // ---------------------------------------------------------------- Gegner-KI
 static void chooseTarget(Enemy& e, int self) {
+  if ((bullRun() && e.type == E_BULL) || (bearMkt() && e.type == E_BEAR)) { e.target = -1; e.awake = true; return; }   // Marktphase: jagt den Spieler, egal wo
   float best = 1e9f; int bt = -2;
   float dp = sqrtf(dist2Player(e.x, e.y));
   if (dp < 11 && lineOfSight(e.x, e.y, px, py)) { best = dp; bt = -1; }
@@ -1216,6 +1273,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
   const float bearRage = bearMkt() && e.faction == F_BEAR ? 1.3f : 1.0f;   // Baerenmarkt: Baeren schneller und angriffslustiger
   e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * bearRage; e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir >= 0) { pirateAI(e, dt); return; }
+  unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
   const float spdMul = (crashT > 0 ? 1.4f : 1.0f) * bearRage;
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
 
@@ -1231,6 +1289,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
   }
   float dx = tx - e.x, dy = ty - e.y, d = sqrtf(dx * dx + dy * dy) + 1e-4f;
   float nx = dx / d, ny = dy / d, ang = atan2f(dy, dx);
+  const bool toPl = !animal || e.target == -1;   // nur zum Spieler gibt es eine Wegkarte
 
   if (!animal) {
     float fx = e.x, fy = e.y, fa = ang;
@@ -1238,11 +1297,11 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
       case E_SELLER:
-        if (d > 4.0f || !los) moveEntity(e.x, e.y, nx * 1.1f * dt * spdMul, ny * 1.1f * dt * spdMul, 0.25f);
+        if (d > 4.0f || !los) chase(e.x, e.y, tx, ty, toPl, 1.1f * spdMul, dt);
         else if (d < 2.2f) moveEntity(e.x, e.y, -nx * 0.9f * dt, -ny * 0.9f * dt, 0.25f);
         break;
       case E_SHARK:
-        if (d > 3.0f || !los) moveEntity(e.x, e.y, nx * 1.2f * dt, ny * 1.2f * dt, 0.35f);
+        if (d > 3.0f || !los) chase(e.x, e.y, tx, ty, toPl, 1.2f, dt, 0.35f);
         if (d < 0.9f && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.0f; damagePlayer(20, L("HOSTILE TAKEOVER!", "FEINDLICHE UEBERNAHME!")); }
         if (los && e.cd <= 0) {
           e.cd = 1.3f; e.attackAnim = 0.4f;
@@ -1251,7 +1310,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         }
         return;
       case E_BARON:
-        if (d > 4.5f || !los) moveEntity(e.x, e.y, nx * 1.0f * dt, ny * 1.0f * dt, 0.25f);
+        if (d > 4.5f || !los) chase(e.x, e.y, tx, ty, toPl, 1.0f, dt);
         else if (d < 2.5f) moveEntity(e.x, e.y, -nx * 0.8f * dt, -ny * 0.8f * dt, 0.25f);
         if (los && e.cd <= 0 && d < 10) {
           e.cd = 2.0f + frand(); e.attackAnim = 0.4f;
@@ -1260,12 +1319,13 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         }
         return;
       case E_SLICK:
-        if (d > 0.7f) moveEntity(e.x, e.y, nx * 0.9f * dt * spdMul, ny * 0.9f * dt * spdMul, 0.25f);
+        if (d > 0.7f) chase(e.x, e.y, tx, ty, toPl, 0.9f * spdMul, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
         return;
       case E_BOT: {
         float w = sinf(e.anim * 3) * 0.6f;
-        if (d > 3.2f || !los) moveEntity(e.x, e.y, (nx - ny * w) * 2.0f * dt, (ny + nx * w) * 2.0f * dt, 0.2f);
+        if (!los) chase(e.x, e.y, tx, ty, toPl, 2.0f, dt, 0.2f);
+        else if (d > 3.2f) moveEntity(e.x, e.y, (nx - ny * w) * 2.0f * dt, (ny + nx * w) * 2.0f * dt, 0.2f);
         else moveEntity(e.x, e.y, -ny * w * 1.5f * dt, nx * w * 1.5f * dt, 0.2f);
         if (los && e.cd <= 0 && d < 10) {
           e.cd = 1.3f + frand() * 0.5f; e.attackAnim = 0.25f;
@@ -1308,7 +1368,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       // Gebruell auf der Jagd (spawnCd dient beim Baer als Gebruell-Timer)
       e.spawnCd -= dt;
       if (e.target == -1 && e.spawnCd <= 0 && d < 8) { e.spawnCd = 5 + frand() * 4; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
-      if (d > 0.75f) { float ps = e.pir >= 0 ? 1.15f : 1.0f; moveEntity(e.x, e.y, nx * 1.5f * dt * spdMul * ps, ny * 1.5f * dt * spdMul * ps, 0.25f); }
+      if (d > 0.75f) { float ps = e.pir >= 0 ? 1.15f : 1.0f; chase(e.x, e.y, tx, ty, toPl, 1.5f * spdMul * ps, dt); }
       else if (e.cd <= 0) {
         e.cd = 1.0f; e.attackAnim = 0.3f;
         if (e.target == -1 && e.spawnCd < 3) { e.spawnCd = 3; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
@@ -1321,7 +1381,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         if (!moveEntity(e.x, e.y, e.mdx * 5.0f * dt, e.mdy * 5.0f * dt, 0.25f)) e.chargeT = 0;
         if (d < 0.75f) { e.chargeT = 0; e.cd = 1.0f; meleeHit(e, e.target, 15, 3, hitMsg); }
       } else if (d > 0.75f) {
-        moveEntity(e.x, e.y, nx * 1.3f * dt * spdMul, ny * 1.3f * dt * spdMul, 0.25f);
+        chase(e.x, e.y, tx, ty, toPl, 1.3f * spdMul, dt);
         if (e.chargeCd <= 0 && d > 1.5f && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
           e.chargeT = 0.7f; e.chargeCd = 3.5f + frand() * 2; e.mdx = nx; e.mdy = ny; e.attackAnim = 0.7f;
           sfxNear(SFX_ID_BULL, e.x, e.y, 8);
@@ -1329,7 +1389,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       } else if (e.cd <= 0) { e.cd = 1.1f; e.attackAnim = 0.3f; meleeHit(e, e.target, 10, 2, hitMsg); }
       break;
     case E_SELLER:
-      if (d > 4.0f) moveEntity(e.x, e.y, nx * 1.1f * dt, ny * 1.1f * dt, 0.25f);
+      if (d > 4.0f) chase(e.x, e.y, tx, ty, toPl, 1.1f, dt);
       else if (d < 2.2f) moveEntity(e.x, e.y, -nx * 0.9f * dt, -ny * 0.9f * dt, 0.25f);
       float fx, fy, fa;
       if (e.cd <= 0 && d < 10 && fireOrigin(e, tx, ty, fx, fy, fa)) {
@@ -1340,7 +1400,8 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       break;
     case E_BUBBLE: {
       float w = sinf(e.anim * 5) * 0.8f;
-      moveEntity(e.x, e.y, (nx - ny * w) * 2.2f * dt * spdMul, (ny + nx * w) * 2.2f * dt * spdMul, 0.25f);
+      if (toPl && !clearPath(e.x, e.y, tx, ty, 0.25f)) chase(e.x, e.y, tx, ty, true, 2.2f * spdMul, dt);   // ohne freie Bahn der Wegkarte folgen
+      else moveEntity(e.x, e.y, (nx - ny * w) * 2.2f * dt * spdMul, (ny + nx * w) * 2.2f * dt * spdMul, 0.25f);
       if (d < 0.65f && !segBlocked(e.x, e.y, tx, ty)) {
         e.alive = false; e.gone = true; sfxNear(SFX_ID_POP, e.x, e.y, 10);
         if (e.target == -1) damagePlayer(20, L("CRYPTO CRASH! -20%", "KRYPTO-CRASH! -20%"));
@@ -1973,7 +2034,7 @@ static void updateGame(float dt) {
     momentum = (m.series[replayIdx] - m.series[i0]) / m.series[i0] * 100.0f;
   }
 
-  updatePhase(dt);
+  updatePhase(dt); updateNav(dt);
   // Gegner
   bullsAlive = bearsAlive = 0;
   for (int i = 0; i < nEnemies; i++) {

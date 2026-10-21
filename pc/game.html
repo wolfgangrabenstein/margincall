@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.25.3";
+const APP_VERSION = "3.26.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -920,7 +920,7 @@ function loadLevel(lv) {
   hist = []; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
-  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0;
+  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navDist = null;
   sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
   sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
 }
@@ -934,6 +934,55 @@ function newGame() {
 
 const freeAt = (x, y, r) => !solidCell(Math.floor(x - r), Math.floor(y - r)) && !solidCell(Math.floor(x + r), Math.floor(y - r)) &&
   !solidCell(Math.floor(x - r), Math.floor(y + r)) && !solidCell(Math.floor(x + r), Math.floor(y + r));
+// ---- Wegsuche: Entfernungskarte (Schritte) von allen lebenden Spielern, alle 0,25 s neu (nur Host)
+let navDist = null, navT = 0;
+function updateNav(dt) {
+  if ((navT -= dt) > 0 && navDist) return;
+  navT = .25; navDist = new Int16Array(MAP * MAP).fill(-1);
+  const q = [];
+  for (const p of players) if (!p.dead) { const i = Math.floor(p.y) * MAP + Math.floor(p.x); if (i >= 0 && i < MAP * MAP && navDist[i] < 0) { navDist[i] = 0; q.push(i); } }
+  for (let h = 0; h < q.length; h++) {
+    const i = q[h], x = i % MAP, y = (i / MAP) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy; if (solidCell(nx, ny)) continue;
+      const j = ny * MAP + nx; if (navDist[j] >= 0) continue;
+      navDist[j] = navDist[i] + 1; q.push(j);
+    }
+  }
+}
+// freie Bahn fuer einen Koerper mit Radius r (Mitte und beide Seiten), sonst bleibt man an Kanten haengen
+function clearPath(x0, y0, x1, y1, r) {
+  const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy) + 1e-6, ox = -dy / d * r, oy = dx / d * r;
+  return !segBlocked(x0, y0, x1, y1) && !segBlocked(x0 + ox, y0 + oy, x1 + ox, y1 + oy) && !segBlocked(x0 - ox, y0 - oy, x1 - ox, y1 - oy);
+}
+// auf ein Ziel zugehen: bei freier Bahn direkt, sonst entlang der Wegkarte von Feldmitte zu Feldmitte
+function chase(e, t, sp, dt, r = .25) {
+  let gx = t.x, gy = t.y;
+  if (t.isPlayer && navDist && !clearPath(e.x, e.y, t.x, t.y, r)) {
+    const cx = Math.floor(e.x), cy = Math.floor(e.y), here = navDist[cy * MAP + cx];
+    let best = here >= 0 ? here : 1e9, bx = -1, by = -1;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy; if (solidCell(nx, ny)) continue;
+      const v = navDist[ny * MAP + nx]; if (v >= 0 && v < best) { best = v; bx = nx; by = ny; }
+    }
+    if (bx >= 0) { gx = bx + .5; gy = by + .5; } else { gx = cx + .5; gy = cy + .5; }
+  }
+  const dx = gx - e.x, dy = gy - e.y, d = Math.hypot(dx, dy) + 1e-6, step = Math.min(d, sp * dt);
+  if (!moveEntity(e, dx / d * step, dy / d * step, r)) {   // an einer Kante: Richtung Feldmitte ruecken, dann geht es weiter
+    const mx = Math.floor(e.x) + .5 - e.x, my = Math.floor(e.y) + .5 - e.y;
+    moveEntity(e, Math.sign(mx) * Math.min(Math.abs(mx), sp * dt), Math.sign(my) * Math.min(Math.abs(my), sp * dt), r);
+  }
+}
+// steckt ein Gegner in einer Wand (z. B. am Rand eines Gangs erschienen), ins naechste freie Feld setzen
+function unstick(e, r) {
+  if (freeAt(e.x, e.y, r * .8)) return;
+  const cx = Math.floor(e.x), cy = Math.floor(e.y); let best = null, bd = 1e9;
+  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+    const x = cx + ox + .5, y = cy + oy + .5; if (solidCell(cx + ox, cy + oy)) continue;
+    const dd = (x - e.x) ** 2 + (y - e.y) ** 2; if (dd < bd) { bd = dd; best = [x, y]; }
+  }
+  if (best) { e.x = best[0]; e.y = best[1]; }
+}
 function moveEntity(o, mx, my, r) {
   let ok = true;
   if (freeAt(o.x + mx, o.y, r)) o.x += mx; else ok = false;
@@ -1223,6 +1272,9 @@ function nearestPlayer(e, maxD, needLos) {
   return best;
 }
 function chooseTarget(e) {
+  if ((bullRun() && e.type === E.BULL) || (bearMkt() && e.type === E.BEAR)) {   // Marktphase: jagt den naechsten Spieler, egal wo
+    const p = nearestPlayer(e, 99, false); if (p) { e.target = p; e.awake = true; return; }
+  }
   let bt = null, best = 1e9;
   const pl = nearestPlayer(e, 11, true);
   if (pl) { bt = pl; best = Math.hypot(pl.x - e.x, pl.y - e.y); }
@@ -1244,6 +1296,7 @@ function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
   e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * bearRage; e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
+  unstick(e, e.type === E.SHARK ? .35 : .25);
   const spd = (crashT > 0 ? 1.4 : 1) * bearRage, animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
@@ -1260,21 +1313,22 @@ function updateEnemy(e, dt) {
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
       case E.SHARK:
-        if (d > 3 || !los) moveEntity(e, nx * 1.2 * dt, ny * 1.2 * dt, .35);
+        if (d > 3 || !los) chase(e, t, 1.2, dt, .35);
         if (d < .9 && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1; damagePlayer(t, 20, L("HOSTILE TAKEOVER!", "FEINDLICHE ÜBERNAHME!")); }
         if (los && e.cd <= 0) { e.cd = 1.3; e.attackAnim = .4; for (let k = -1; k <= 1; k++) spawnProj(fo[0], fo[1], fo[2] + k * .18, 4, 10, F.NEUTRAL, S.PROJ); sfxNear("ZAP", e.x, e.y, 12); }
         return;
       case E.BARON:
-        if (d > 4.5 || !los) moveEntity(e, nx * dt, ny * dt, .25); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
+        if (d > 4.5 || !los) chase(e, t, 1, dt); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
         if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], fo[2], 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
         return;
       case E.SLICK:
-        if (d > .7) moveEntity(e, nx * .9 * dt * spd, ny * .9 * dt * spd, .25);
+        if (d > .7) chase(e, t, .9 * spd, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
         return;
       case E.BOT: {
         const w = Math.sin(e.anim * 3) * .6;
-        if (d > 3.2 || !los) moveEntity(e, (nx - ny * w) * 2 * dt, (ny + nx * w) * 2 * dt, .2);
+        if (!los) chase(e, t, 2, dt, .2);
+        else if (d > 3.2) moveEntity(e, (nx - ny * w) * 2 * dt, (ny + nx * w) * 2 * dt, .2);
         else moveEntity(e, -ny * w * 1.5 * dt, nx * w * 1.5 * dt, .2);
         if (los && e.cd <= 0 && d < 10) { e.cd = 1.3 + frand() * .5; e.attackAnim = .25; spawnProj(fo[0], fo[1], fo[2] + (frand() - .5) * .1, 6, 6, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 10); }
         return;
@@ -1293,7 +1347,7 @@ function updateEnemy(e, dt) {
     case E.BEAR:
       e.roarCd -= dt;
       if (t.isPlayer && e.roarCd <= 0 && d < 8) { e.roarCd = 5 + frand() * 4; sfxNear("ROAR", e.x, e.y, 9); }   // Gebruell auf der Jagd
-      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; moveEntity(e, nx * 1.5 * dt * spd * ps, ny * 1.5 * dt * spd * ps, .25); }
+      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; chase(e, t, 1.5 * spd * ps, dt); }
       else if (e.cd <= 0) {
         e.cd = 1; e.attackAnim = .3;
         if (t.isPlayer && e.roarCd < 3) { e.roarCd = 3; sfxNear("ROAR", e.x, e.y, 9); }
@@ -1306,14 +1360,14 @@ function updateEnemy(e, dt) {
         if (!moveEntity(e, e.mdx * 5 * dt, e.mdy * 5 * dt, .25)) e.chargeT = 0;
         if (d < .75) { e.chargeT = 0; e.cd = 1; meleeHit(e, 15, 3, hitMsg); }
       } else if (d > .75) {
-        moveEntity(e, nx * 1.3 * dt * spd, ny * 1.3 * dt * spd, .25);
+        chase(e, t, 1.3 * spd, dt);
         if (e.chargeCd <= 0 && d > 1.5 && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
           e.chargeT = .7; e.chargeCd = 3.5 + frand() * 2; e.mdx = nx; e.mdy = ny; e.attackAnim = .7; sfxNear("BULL", e.x, e.y, 8);
         }
       } else if (e.cd <= 0) { e.cd = 1.1; e.attackAnim = .3; meleeHit(e, 10, 2, hitMsg); }
       break;
     case E.SELLER:
-      if (d > 4) moveEntity(e, nx * 1.1 * dt, ny * 1.1 * dt, .25); else if (d < 2.2) moveEntity(e, -nx * .9 * dt, -ny * .9 * dt, .25);
+      if (d > 4) chase(e, t, 1.1, dt); else if (d < 2.2) moveEntity(e, -nx * .9 * dt, -ny * .9 * dt, .25);
       if (e.cd <= 0 && d < 10) {
         const fo = fireOrigin(e, tx, ty);
         if (fo) { e.cd = 1.6 + frand(); e.attackAnim = .3; spawnProj(fo[0], fo[1], fo[2] + (frand() - .5) * .12, 4.5, 8, F.BEAR, S.PROJ); sfxNear("ZAP", e.x, e.y, 10); }
@@ -1321,7 +1375,8 @@ function updateEnemy(e, dt) {
       break;
     case E.BUBBLE: {
       const w = Math.sin(e.anim * 5) * .8;
-      moveEntity(e, (nx - ny * w) * 2.2 * dt * spd, (ny + nx * w) * 2.2 * dt * spd, .25);
+      if (t.isPlayer && !clearPath(e.x, e.y, tx, ty, .25)) chase(e, t, 2.2 * spd, dt);   // ohne freie Bahn der Wegkarte folgen
+      else moveEntity(e, (nx - ny * w) * 2.2 * dt * spd, (ny + nx * w) * 2.2 * dt * spd, .25);
       if (d < .65 && !segBlocked(e.x, e.y, tx, ty)) {
         e.alive = false; e.gone = true; sfxNear("POP", e.x, e.y, 10);
         if (t.isPlayer) damagePlayer(t, 20, L("CRYPTO CRASH! −20 %", "KRYPTO-CRASH! −20 %")); else hurtEnemy(t, 4, null);
@@ -2202,7 +2257,7 @@ function updateGame(dt) {
     const i0 = Math.max(0, replayIdx - 3);
     momentum = (m.s[replayIdx] - m.s[i0]) / m.s[i0] * 100;
   }
-  updatePhase(dt);
+  updatePhase(dt); updateNav(dt);
   bullsAlive = bearsAlive = 0;
   for (const e of enemies) {
     if (e.gone) continue;
