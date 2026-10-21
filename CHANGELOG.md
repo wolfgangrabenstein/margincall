@@ -2,6 +2,18 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.28.0 – Multiplayer balancing (2026-10-22)
+
+- **Fair aim assist against players:** semi stays against human opponents so phone and touchpad players can keep up. Against players, however, shots only snap as far as the hitbox is wide, the view turns half as strongly and half as fast, and the range is 6 cells; full acts like semi against players. Nothing changes against market creatures.
+- **Who uses auto aim?** The lobby and the score list (Tab) show "◎S" or "◎F" for each player.
+- **Uneven teams:** the smaller team needs proportionally fewer points (e.g. 2 vs 1: 3000 vs 1500); the status line shows your own goal.
+- **Team without NPCs:** the forced bull run or crash helps the team that is behind; the market bonus is smaller without NPCs (10 % instead of 25 %).
+- **Team mode status line** shows the bonus correctly ("BULLRUN +35 % DAMAGE" or "BULLRUN HELPS TEAM BULL"), and the phase announcement names the favoured team.
+- **Stampede in team mode** only hunts Team Bear – after all, the bulls fight for Team Bull.
+- **Death by market creatures** costs 100 points in team and deathmatch (no more free reload); respawn with at least 15 cash.
+- **Co-op bosses** grow by +80 % health per extra player (other enemies +60 %).
+- **Bug fix:** lots of your own banknotes could block enemy shots (shared cap).
+
 ## Version 3.27.0 – Balancing update (2026-10-22)
 
 Result of a thorough balancing review. The high score lists are kept.

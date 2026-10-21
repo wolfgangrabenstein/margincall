@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.27.0";
+const APP_VERSION = "3.28.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -644,6 +644,8 @@ const modeName = i => L(MODES[i][1], MODES[i][2]);
 const PNAMES_I18N = [["GREEN", "GRÜN"], ["BLUE", "BLAU"], ["ORANGE", "ORANGE"], ["PINK", "PINK"]];
 const pName = i => L(...PNAMES_I18N[i]);
 const ROUND_TIME = 240, ROUND_TARGET = 3000, ROUND_BREAK = 5;   // Rundenpause in Sekunden
+// Team-Modus: kleineres Team braucht anteilig weniger Punkte (2 gegen 1: 3000 gegen 1500)
+function teamTarget(t) { const n = [0, 0]; players.forEach(p => n[p.team ? 1 : 0]++); const mx = Math.max(n[0], n[1]); return n[t] && mx ? Math.round(ROUND_TARGET * n[t] / mx) : ROUND_TARGET; }
 function nextRound() { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; }
 let mode = "solo";
 const net = { ws: null, id: 0, hostId: 0, connected: false, online: false, code: "", pub: true };
@@ -766,7 +768,7 @@ const fireRateMul = () => oilChg > 0 ? 1 + Math.min(oilChg, 4) * .1 : 1;
 const playerSpeedMul = pl => (oilChg < 0 ? 1 + Math.min(-oilChg, 4) * .05 : 1) * (pl.slowT > 0 ? .5 : 1) * (bullRun() ? 1.15 : 1);
 // Team-Modus: das Team, dessen Level-Markt heute steigt, macht mehr Schaden
 const phaseTeam = () => phaseT > 0 ? (phase > 0 ? 0 : 1) : -1;   // 0 = Team Bulle, 1 = Team Baer, -1 = keine Phase
-const teamDmgMul = pl => mode !== "team" ? 1 : phaseTeam() >= 0 ? (pl.team === phaseTeam() ? 1.35 : 1) : ((pl.team === 0) === (levelChg >= 0) ? 1.25 : 1);
+const teamDmgMul = pl => mode !== "team" ? 1 : phaseTeam() >= 0 ? (pl.team === phaseTeam() ? 1.35 : 1) : ((pl.team === 0) === (levelChg >= 0) ? (noNPC() ? 1.1 : 1.25) : 1);
 
 function spawnEnemy(type, x, y) {
   if (noNPC()) return { alive: false, gone: true };   // NPCs ausgeschaltet: nichts erzeugen (Rueckgabe nur als Platzhalter)
@@ -774,7 +776,7 @@ function spawnEnemy(type, x, y) {
   if (!e) { if (enemies.length >= 64) e = enemies.find(o => !o.alive); if (!e) { e = {}; enemies.push(e); } }
   const ti = TYPES[type];
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
-  const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
+  const coop = mode === "coop" ? 1 + (ti.boss ? .8 : .6) * (players.length - 1) : 1;   // Bosse wachsen staerker mit   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
@@ -1056,18 +1058,21 @@ function damagePlayer(pl, d, why, attacker = null) {
   else if (attacker && attacker.isPlayer) {
     attacker.frags = (attacker.frags || 0) + 1; addScore(attacker, 500);
     sayAll(killLine(attacker.name, pl.name), 2.5);
+  } else if (mode === "team" || mode === "dm") {   // Tod durch Boersen-Gegner ist kein kostenloses Nachladen
+    const pen = Math.min(100, pl.score); pl.score -= pen; if (mode === "team") teamScore[pl.team] = Math.max(0, teamScore[pl.team] - pen);
+    sayTo(pl, L("BANKRUPT −100", "INSOLVENZ −100"), 3);
   } else sayTo(pl, L("BANKRUPT! RESTARTING SOON …", "INSOLVENZ! WIRD NEU GESTARTET …"), 3);
   if (mode === "coop") pl.score = Math.floor(pl.score * .9);
 }
 function respawnPlayer(pl) {
-  pl.dead = false; pl.hp = mode === "coop" ? 60 : 100; pl.ammo = Math.max(pl.ammo, 20); pl.slowT = 0;
+  pl.dead = false; pl.hp = mode === "coop" ? 60 : 100; pl.ammo = Math.max(pl.ammo, mode === "coop" ? 20 : 15); pl.slowT = 0;
   const s = mode === "coop" ? startSpots()[0] : (findHiddenCell(4) || startSpots()[0]);
   const a = frand() * 6.283;
   placePlayer(pl, s[0], s[1], mode === "coop" ? startDir[0] : Math.cos(a), mode === "coop" ? startDir[1] : Math.sin(a));
   sfxTo(pl, "KACHING"); sayTo(pl, L("NEW LOAN – BACK IN THE GAME", "NEUER KREDIT – WEITER GEHT'S"), 1.5);
 }
 function spawnProj(x, y, ang, spd, dmg, f, spr) {
-  if (projs.length > 60) return;
+  if (projs.filter(p => !p.owner).length > 60) return;   // Deckel nur fuer Gegnerschuesse
   if (HC()) spd *= 1.3; else if (EZ()) spd *= .85;
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
@@ -1082,6 +1087,7 @@ function moveSentiment(e, k) {
 }
 function startPhase(dir) {
   phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL");
+  if (mode === "team") sayAll(dir > 0 ? L("TEAM BULL +35 % DAMAGE · FAST RESPAWN", "TEAM BULLE +35 % SCHADEN · SCHNELLER RESPAWN") : L("TEAM BEAR +35 % DAMAGE · FAST RESPAWN", "TEAM BÄR +35 % SCHADEN · SCHNELLER RESPAWN"), 3.5);
   if (dir > 0) {
     sayAll(L("🐂 BULLRUN! MORE CASH · 1.5× POINTS", "🐂 BULLRUN! MEHR BARGELD · 1,5-FACHE PUNKTE"), 3.5);
     for (let k = 0; k < 2; k++) { const c = findHiddenCell(4); if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true }); }
@@ -1093,7 +1099,7 @@ function startPhase(dir) {
 }
 // Bullen-Stampede: eine Herde stuermt durch einen langen Gang auf einen Spieler zu
 function stampede() {   // liefert false, wenn gerade kein passender Gang da ist (dann spaeter nochmal)
-  const alive = players.filter(p => !p.dead); if (!alive.length || noNPC()) return true;
+  const alive = players.filter(p => !p.dead && (mode !== "team" || p.team === 1)); if (noNPC()) return true; if (!alive.length) return false;   // Team: die Bullen jagen Team Baer
   const pl = alive[rnd() % alive.length];
   let best = null, cx = 0, cy = 0;
   for (const [ox, oy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {   // Spielerfeld und Nachbarfelder
@@ -1110,7 +1116,8 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
     if (e.gone) continue;
     Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7, stampede: true });
   }
-  sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxAll("BULL");
+  if (mode === "team") alive.forEach(p => sayTo(p, L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2)); else sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2);
+  sfxAll("BULL");
   return true;
 }
 // Boersencrash: Boden bebt, Baeren greifen im Rudel an, Bargeld schlittert weg und taucht woanders wieder auf
@@ -1139,7 +1146,10 @@ function updatePhase(dt) {
   sentiment += (base - sentiment) * dt * .01;
   if ((phaseCd -= dt) > 0) return;
   if (Math.abs(sentiment) >= .97) startPhase(sentiment > 0 ? 1 : -1);
-  else if (phaseCd < -45) startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);   // spaetestens nach rund einer Minute
+  else if (phaseCd < -45) {
+    if (noNPC() && mode === "team" && teamScore[0] !== teamScore[1]) startPhase(teamScore[0] < teamScore[1] ? 1 : -1);   // ohne NPCs: Rueckenwind fuers zurueckliegende Team
+    else startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);
+  }   // spaetestens nach rund einer Minute
 }
 function killEnemy(e, byPlayer) {
   e.alive = false; e.deadT = 0;
@@ -1258,6 +1268,10 @@ function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit
 let aimHoldT = 0, aimLocked = false;
 const AIM = { semi: { steer: .22, snap: .08, range: 7 }, full: { steer: .45, snap: .14, range: 14 } };
 const aimModeSet = () => EZ() && COARSE && !settings.aimTouched ? "full" : settings.aimMode;   // eingestellte Stufe
+// Stufe, die im Match wirklich gilt (fuer die Anzeige bei allen Spielern)
+const myMpAim = () => { const m = aimModeSet(); return lobbyAim === "off" || m === "off" ? "off" : lobbyAim === "semi" && m === "full" ? "semi" : m; };
+const aimTag = m => m === "full" ? "◎F" : m === "semi" ? "◎S" : "";
+let lastAimSent = "";
 const aimModeNow = () => {   // wirksame Stufe: im Multiplayer hoechstens das, was der Host erlaubt
   const m = aimModeSet();
   if (!isMP() || m === "off") return m;
@@ -1265,17 +1279,20 @@ const aimModeNow = () => {   // wirksame Stufe: im Multiplayer hoechstens das, w
 };
 const aimCfg = () => AIM[aimModeNow()] || null;
 const aimAssistOn = () => !!aimCfg();
-function aimTarget(maxAng, maxDist = 14) {
-  let best = null, bestA = maxAng;
-  const consider = (x, y, o) => {
-    const dx = x - px, dy = y - py, d = Math.hypot(dx, dy); if (d < .3 || d > maxDist) return;
+function aimTarget(maxAng, maxDist = 14, kind = "steer") {
+  let best = null, bestA = 9;
+  const consider = (x, y, o, human = false) => {
+    const dx = x - px, dy = y - py, d = Math.hypot(dx, dy);
+    // gegen Menschen: hoechstens Semi, Reichweite 6, Einrasten nur so weit wie die Trefferflaeche breit ist, Nachfuehren enger
+    const lim = !human ? maxAng : kind === "snap" ? Math.min(maxAng, AIM.semi.snap, 1.5 * Math.atan(.3 / Math.max(d, .3))) : Math.min(maxAng, .12);
+    if (d < .3 || d > (human ? Math.min(maxDist, 6) : maxDist)) return;
     const a = Math.abs(Math.atan2(dirX * dy - dirY * dx, dirX * dx + dirY * dy));
-    if (a < bestA && lineOfSight(px, py, x, y)) { bestA = a; best = o; }
+    if (a < lim && a < bestA && lineOfSight(px, py, x, y)) { bestA = a; best = o; }
   };
   if (isClient()) {   // Mitspieler kennen die Gegner nur aus dem letzten Snapshot des Hosts
     if (snapCur) for (const [type, x, y, fl] of snapCur.en) if ((fl & 1) && !(mode === "team" && TYPES[type].f === teamFaction(me))) consider(x, y, { x, y });
   } else for (const e of enemies) if (e.alive && !e.gone && !(mode === "team" && e.f === teamFaction(me))) consider(e.x, e.y, e);
-  for (const o of players) if (o !== me && !o.dead && isOpponent(me, o)) consider(o.x, o.y, o);
+  for (const o of players) if (o !== me && !o.dead && isOpponent(me, o)) consider(o.x, o.y, o, true);
   return best;
 }
 function shoot() {
@@ -1283,7 +1300,7 @@ function shoot() {
   let sdx = dirX, sdy = dirY;
   if (aimAssistOn()) {   // Schuss rastet ein, wenn der Gegner fast im Fadenkreuz ist
     aimHoldT = 1;
-    const t = aimTarget(aimCfg().snap, aimCfg().range);
+    const t = aimTarget(aimCfg().snap, aimCfg().range, "snap");
     if (t) { const l = Math.hypot(t.x - px, t.y - py); sdx = (t.x - px) / l; sdy = (t.y - py) / l; }
   }
   if (me.ammo <= 0) { fireCd = .4; if (!isClient()) doShot(me, px, py, dirX, dirY); else { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! HOL DIR ETWAS BARGELD"), 1.2); sfx("DECLINED"); } return; }
@@ -1498,6 +1515,7 @@ function netReceive(m) {
       case "team": if (state === ST.LOBBY) pl.team = m.team ? 1 : 0; break;
       case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
       case "nick": { const n = cleanName(m.name, 15); if (n) { pl.name = n; hostSendLobby(); } break; }
+      case "aim": pl.aim = ["off", "semi", "full"].includes(m.m) ? m.m : "off"; if (state === ST.LOBBY) hostSendLobby(); break;
       case "ready": if (state === ST.LOBBY) { pl.ready = !!m.ready; hostSendLobby(); } break;
       case "chat":
         if (state === ST.PLAY && mode === "coop" && String(m.text).startsWith("/")) cx(pl, m.text);
@@ -1526,7 +1544,7 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off"]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
       if (!alt && [E.BEAR, E.BUBBLE, E.SLICK, E.BOT, E.ALGO].includes(e.type)) alt = (e.anim % .6) < .3 && (e.awake || e.type === E.BOT || e.type === E.ALGO);
@@ -1556,9 +1574,9 @@ function clientSnapshot(m) {
   marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim] of m.pl) {
     const p = players.find(q => q.id === id);
-    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m" });
+    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off" });
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -1644,6 +1662,7 @@ const CX = { 2420334519: ["p"], 4213436061: ["g"], 2774362824: ["f"], 2824693482
 function cx(pl, txt) {
   const c = CX[hx(String(txt).slice(1).replace(/\s+/g, "").toLowerCase())];
   if (!c || state !== ST.PLAY || (mode !== "solo" && mode !== "coop")) return;
+  if (isMP() && !pl.local && ["k", "a", "m", "l"].includes(c[0])) { sayTo(pl, L("HOST ONLY", "NUR HOST"), 1.5); return; }   // was alle betrifft, darf nur der Host
   cheated = true;
   switch (c[0]) {
     case "g": pl.god = !pl.god; sayTo(pl, pl.god ? L("INVULNERABLE", "UNVERWUNDBAR") : L("VULNERABLE AGAIN", "WIEDER VERWUNDBAR"), 1.5); break;
@@ -1664,7 +1683,7 @@ function cx(pl, txt) {
 let myAddr = "", joinText = "", mpMenu = false, pausedAt = 0, deathPenalty = 0;
 let lobbyGame = "", chatLog = [], lobbyChat = [], chatTyping = false, chatText = "", rawKey = "", lobbyNote = "", lobbyNoteT = 0;
 let foundGames = [], joinSel = 0, gamesT = 0, advertising = false, advertiseT = 0, fsOn = false;
-const lobbyPlayers = () => players.map(p => [p.id, p.name, p.team, p.avatar, p.id === net.hostId || !!p.ready]);
+const lobbyPlayers = () => players.map(p => [p.id, p.name, p.team, p.avatar, p.id === net.hostId || !!p.ready, p.local ? myMpAim() : p.aim || "off"]);
 const allReady = () => players.every(p => p.id === net.hostId || p.ready);
 function addChat(id, name, txt) {
   const clean = String(txt).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
@@ -2246,7 +2265,8 @@ function updateGame(dt) {
         aimLocked = true;
         let diff = Math.atan2(t.y - py, t.x - px) - Math.atan2(dirY, dirX);
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        ang += clamp(diff, -3.2 * dt, 3.2 * dt);
+        const turn = t.isPlayer ? 1.6 : 3.2;   // gegen Menschen halb so schnell nachfuehren
+        ang += clamp(diff, -turn * dt, turn * dt);
       }
     }
     if (down("fire") || touchFire) shoot();
@@ -2374,8 +2394,8 @@ function updateGame(dt) {
   // Runden-Ende im Team- und Deathmatch-Modus
   if (mode === "team" || mode === "dm") {
     roundT -= dt;
-    const top = mode === "team" ? Math.max(...teamScore) : Math.max(...players.map(p => p.score));
-    if (roundT <= 0 || top >= ROUND_TARGET) {
+    const done = mode === "team" ? teamScore[0] >= teamTarget(0) || teamScore[1] >= teamTarget(1) : Math.max(...players.map(p => p.score)) >= ROUND_TARGET;
+    if (roundT <= 0 || done) {
       state = ST.ROUNDEND; roundT = ROUND_BREAK; musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
     }
   }
@@ -3099,7 +3119,10 @@ function renderHUD() {
       g.fillStyle = "#1ec850"; g.fillRect(bx, HUD_Y + 36, gw2, 14);
       g.fillStyle = "#dc2828"; g.fillRect(bx + gw2, HUD_Y + 36, bw - gw2, 14);
       text(`${L("BULLS", "BULLEN")} ${teamScore[0]}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`${L("BEARS", "BÄREN")} ${teamScore[1]}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
-      text(L(`YOU: TEAM ${me.team === 0 ? "BULL" : "BEAR"} · GOAL ${ROUND_TARGET} · ${(me.team === 0) === (levelChg >= 0) ? "MARKET BONUS +25 % DAMAGE" : "NO MARKET BONUS"}`, `DU: TEAM ${me.team === 0 ? "BULLE" : "BÄR"} · ZIEL ${ROUND_TARGET} · ${(me.team === 0) === (levelChg >= 0) ? "MARKT-BONUS +25 % SCHADEN" : "KEIN MARKT-BONUS"}`), 560, HUD_Y + 60, "#a0a0b4", 14);
+      const tb = Math.round((teamDmgMul(me) - 1) * 100), pt = phaseTeam(), pn = phase > 0 ? "BULLRUN" : "CRASH", mine = me.team === 0 ? L("BULL", "BULLE") : L("BEAR", "BÄR");
+      const bonus = pt >= 0 ? (pt === me.team ? L(`${pn} +${tb} % DAMAGE`, `${pn} +${tb} % SCHADEN`) : L(`${pn} HELPS TEAM ${pt ? "BEAR" : "BULL"}`, `${pn} HILFT TEAM ${pt ? "BÄR" : "BULLE"}`))
+        : tb > 0 ? L(`MARKET BONUS +${tb} %`, `MARKT-BONUS +${tb} %`) : L("NO MARKET BONUS", "KEIN MARKT-BONUS");
+      text(`${mine} · ${L("GOAL", "ZIEL")} ${teamTarget(me.team)} · ${bonus}`, 560, HUD_Y + 60, pt === me.team ? (phase > 0 ? "#50ff82" : "#ff5050") : "#a0a0b4", 14);
     } else {
       const rank = [...players].sort((a, b) => b.score - a.score);
       text(`FRAGS ${me.frags || 0}   ·   ${L("DEATHS", "TODE")} ${me.deaths || 0}   ·   KILLS ${me.kills}`, 560, HUD_Y + 36, "#ffd232", 16);
@@ -3264,13 +3287,14 @@ function renderLobby() {
   // ---- Spielerliste (links)
   text(`${L("PLAYERS", "SPIELER")} (${list.length}/4)`, 110, 186, "#6b7896", 14);
   const isTeam = MODES[modeIdx][0] === "team";
-  list.forEach(([id, name, team, avatar, ready], i) => {
+  list.forEach(([id, name, team, avatar, ready, aim], i) => {
     const y = 208 + i * 44, col = isTeam ? (team === 0 ? [40, 200, 90] : [220, 50, 50]) : PCOLOR[(id - 1) % 4];
     const spr = (avatar === "f" ? S.AVF0 : S.AVM0) + (isTeam ? 4 + team : (id - 1) % 4);
     g.drawImage(spriteCanvas(spr), 104, y - 4, 38, 38);
     text(`${shownName(name, id, team, isTeam, list.map(e => [e[0], e[2]]))}${id === net.id ? L(" (YOU)", " (DU)") : ""}`, 150, y, isTeam ? rgbCss(col) : "#e6e6f0", 16);
     const isHostRow = id === net.hostId;
     text(isHostRow ? "★ HOST" : ready ? L("✔ READY", "✔ BEREIT") : L("✖ WAITING", "✖ WARTET"), 150, y + 20, isHostRow ? "#ffd232" : ready ? "#50ff82" : "#ff7050", 13);
+    if (aim && aim !== "off") text(`${aimTag(aim)} AUTO-AIM`, 240, y + 20, "#50c8ff", 13);   // wer Zielhilfe nutzt, sieht jeder
     if (isTeam) text(team === 0 ? L("TEAM BULL · GREEN", "TEAM BULLE · GRÜN") : L("TEAM BEAR · RED", "TEAM BÄR · ROT"), 470, y + 20, rgbCss(col), 13, "right");
   });
   // ---- Chat (Mitte)
@@ -4158,7 +4182,7 @@ function renderScoreOverlay() {
     const y = y0 + 72 + i * 34;
     if (p.local) { g.fillStyle = "rgba(255,210,50,.1)"; g.fillRect(160, y - 5, DW - 320, 30); }
     g.fillStyle = rgbCss(playerColor(p)); g.fillRect(180, y, 16, 16);
-    text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}${p.dead ? " ☠" : ""}`, 206, y, "#e6e6f0", 17);
+    text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}${p.dead ? " ☠" : ""}  ${aimTag(p.local ? myMpAim() : p.aim)}`, 206, y, "#e6e6f0", 17);
     const vals = pvp ? [`+$${p.score}`, p.frags || 0, p.deaths || 0, p.kills] : [`+$${p.score}`, p.kills, p.deaths || 0];
     vals.forEach((v, j) => text(String(v), cols[j][1], y, j === 0 ? "#50ff82" : "#e6e6f0", 17, "right"));
   });
@@ -4192,6 +4216,7 @@ function frame(now) {
   g.imageSmoothingEnabled = false;
   netMsgT -= dt;
   clickZones = [];   // Klickflaechen werden beim Zeichnen jedes Bildes neu registriert
+  if (isClient() && net.connected && myMpAim() !== lastAimSent) { lastAimSent = myMpAim(); netSend({ t: "aim", m: lastAimSent }); }
   if (matchSetOpen && state !== ST.LOBBY) matchSetOpen = false;   // Spiel gestartet oder Lobby verlassen
   if (COARSE) {
     const playing = state === ST.PLAY && !mpMenu && !chatTyping && !(me && me.dead);

@@ -2,6 +2,18 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.28.0 – Multiplayer-Balancing (22.10.2026)
+
+- **Zielhilfe gegen Spieler fair dosiert:** Semi bleibt auch gegen menschliche Gegner, damit Handy- und Touchpad-Spieler mithalten können. Gegen Spieler rastet der Schuss aber nur noch so weit ein, wie die Trefferfläche breit ist, die Ansicht dreht halb so stark und halb so schnell nach, und die Reichweite ist 6 Felder; Full wirkt gegen Spieler wie Semi. Gegen Börsen-Gegner ändert sich nichts.
+- **Wer nutzt Auto-Aim?** In der Lobby und in der Punkteliste (Tab) steht bei jedem Spieler „◎S“ bzw. „◎F“.
+- **Ungleiche Teams:** Das kleinere Team braucht anteilig weniger Punkte (z. B. 2 gegen 1: 3000 gegen 1500); die Statuszeile zeigt das eigene Ziel.
+- **Team ohne NPCs:** Der erzwungene Bullrun bzw. Börsencrash hilft dem zurückliegenden Team; der Kursbonus ist ohne NPCs kleiner (10 % statt 25 %).
+- **Statuszeile im Team-Modus** zeigt den Bonus richtig („BULLRUN +35 % SCHADEN“ bzw. „BULLRUN HILFT TEAM BULLE“), und die Phasenansage nennt das begünstigte Team.
+- **Stampede im Team-Modus** jagt nur Team Bär – die Bullen kämpfen ja für Team Bulle.
+- **Tod durch Börsen-Gegner** kostet in Team und Deathmatch 100 Punkte (kein kostenloses Nachladen mehr); Respawn mit mindestens 15 Cash.
+- **Koop-Bosse** wachsen mit +80 % Energie je Mitspieler (andere Gegner +60 %).
+- **Fehler behoben:** Viele eigene Geldscheine konnten Gegnerschüsse blockieren (gemeinsame Obergrenze).
+
 ## Version 3.27.0 – Balancing-Update (22.10.2026)
 
 Ergebnis einer gründlichen Balancing-Prüfung. Die Bestenlisten bleiben bestehen.
