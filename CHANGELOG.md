@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.24.0 – NPCs can be switched off, kill lines, reworked texts (2026-10-21)
+
+- **Match settings: NPCs on/off (key N).** When off, team and deathmatch have no market creatures – pure player versus player. In co-op they are always there. Default: on.
+- **Kill lines:** when a player takes out another, one of seven random lines with both names appears, e.g. "AMY SENT BOB INTO BANKRUPTCY" or "MARGIN CALL FOR BOB – THANKS, AMY!" (never the same one twice in a row).
+- **Reworked texts:** about 40 German (and matching English) texts are shorter and clearer, e.g. "Get the keycard!", "Free for all.", hardcore ending "You're broke – GAME OVER", shorter mode descriptions in the lobby. On the Cardputer umlauts stay as AE/OE/UE because its font has none.
+
 ## Version 3.23.1 – Menus without Esc, quit with Y/N (2026-10-21)
 
 - **No more Esc hints in menus:** back, cancel and leave are on **B** (like the B button on a controller), resume in the pause menu on **P**, cancel on the online consent screen on **N**. In dialogs with text input (nickname, game name, code, high score name) the buttons just say "Cancel" or "Skip", because B is a letter there; in chat, Enter with empty text cancels. Esc still works everywhere.

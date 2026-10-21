@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.23.1"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.24.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -619,7 +619,7 @@ static const char* const LEVELS[NUM_LEVELS][MAP_H] = {
   },
 };
 static const char* const LEVEL_NAMES[NUM_LEVELS] = {
-  "DOW JONES: SCHALTERHALLE", "S&P 500: HANDELSPARKETT", "NASDAQ-100: HEDGEFONDS-TRESOR",
+  "DOW JONES: ZENTRALE", "S&P 500: HANDELSPARKETT", "NASDAQ-100: HEDGEFONDS-TRESOR",
   "OEL: RAFFINERIE", "ALGO-9000: RECHENZENTRUM"};
 static const char* const LEVEL_NAMES_EN[NUM_LEVELS] = {
   "DOW JONES: BANKING HALL", "S&P 500: TRADING FLOOR", "NASDAQ-100: HEDGE FUND VAULT",
@@ -1091,7 +1091,7 @@ static void tryMove(float mx, float my) {
 
 static void shoot() {
   if (fireCd > 0) return;
-  if (ammo <= 0) { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITAET! CASH SAMMELN"), 1.2f); fireCd = 0.4f; sfxPlay(SFX_ID_DECLINED); return; }
+  if (ammo <= 0) { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITAET! HOL DIR ETWAS BARGELD"), 1.2f); fireCd = 0.4f; sfxPlay(SFX_ID_DECLINED); return; }
   ammo--; fireCd = 0.28f; flashT = 0.12f; sfxPlay(SFX_ID_SHOT);
   // die Kanone feuert einen Geldschein ab; Schaden gibt es erst, wenn er trifft
   for (auto& p : projs) if (!p.active) { p = {px + dirX * 0.3f, py + dirY * 0.3f, dirX * 13, dirY * 13, true, 2, F_SHOT, S_NOTE}; break; }
@@ -2454,7 +2454,7 @@ void loop() {
       renderTitle();
       if (enterHit || hit('x') || hit('e')) {   // E = Einfach, Enter = Normal, X = Hardcore
         hardcore = !enterHit && hit('x'); easy = !enterHit && !hardcore; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
-        if (hardcore) say(L("HARDCORE: ONE DEATH AND IT'S OVER", "HARDCORE: EIN TOD UND ES IST VORBEI"), 3.0f);
+        if (hardcore) say(L("HARDCORE: ONLY ONE LIFE", "HARDCORE: NUR EIN LEBEN"), 3.0f);
         else if (!easy) say(L("NORMAL: 5 LIVES", "NORMAL: 5 LEBEN"), 2.5f);
       }
       else if (hit('w')) startWifiScan();

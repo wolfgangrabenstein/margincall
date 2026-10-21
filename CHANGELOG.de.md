@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.24.0 – NPCs abschaltbar, Abschuss-Sprüche, überarbeitete Texte (21.10.2026)
+
+- **Match-Einstellungen: NPCs an/aus (Taste N).** Ausgeschaltet gibt es im Team- und Deathmatch-Modus keine Börsen-Gegner – reines Spieler-gegen-Spieler. Im Koop sind sie immer dabei. Standard: an.
+- **Abschuss-Sprüche:** Erwischt ein Spieler einen anderen, erscheint zufällig einer von sieben Sprüchen mit beiden Namen, z. B. „WOLFGANG SCHICKT ANDI IN DIE INSOLVENZ“ oder „MARGIN CALL FÜR ANDI – DANKE, WOLFGANG!“ (nie zweimal derselbe hintereinander).
+- **Texte überarbeitet:** rund 40 deutsche (und passende englische) Texte sind kürzer und klarer, z. B. Level 1 heißt jetzt „Dow Jones: Zentrale“, „Hol dir etwas Bargeld“ statt „Cash sammeln“, Hardcore-Ende „Du bist pleite – GAME OVER“, kürzere Modus-Beschreibungen in der Lobby. Am Cardputer bleiben Umlaute als AE/OE/UE, weil seine Schrift keine Umlaute kennt.
+
 ## Version 3.23.1 – Menüs ohne Esc, Beenden mit Y/N (21.10.2026)
 
 - **Keine Esc-Hinweise mehr in den Menüs:** Zurück, Abbrechen und Verlassen liegen auf **B** (wie die B-Taste am Controller), Weiter im Pausenmenü auf **P**, Abbrechen bei der Online-Zustimmung auf **N**. In Dialogen mit Texteingabe (Nickname, Spielname, Code, Highscore-Name) heißen die Knöpfe nur „Abbrechen“ bzw. „Ohne Namen“, weil B dort ein Buchstabe ist; im Chat bricht Enter mit leerem Text ab. Esc funktioniert weiterhin überall.
