@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.26.1 – Chat input in the browser (2026-10-21)
+
+- **Bug fix:** in the browser, "/" and "'" opened Firefox's or Opera's quick find and left fullscreen. The game now catches both keys; in chat they are typed normally.
+
 ## Version 3.26.0 – Enemies find their way (2026-10-21)
 
 - **Hunting during market phases:** during a bull run all bulls, during a crash all bears hunt the player – even from other rooms, through corridors and doorways, until they reach you.

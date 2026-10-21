@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.26.1 – Chat-Eingabe im Browser (21.10.2026)
+
+- **Fehler behoben:** Im Browser öffneten „/“ und „'“ die Schnellsuche von Firefox bzw. Opera und beendeten dabei das Vollbild. Das Spiel fängt beide Tasten jetzt ab; im Chat werden sie normal getippt.
+
 ## Version 3.26.0 – Gegner finden den Weg (21.10.2026)
 
 - **Jagd in den Marktphasen:** Im Bullrun jagen alle Bullen, im Börsencrash alle Bären gezielt den Spieler – auch aus anderen Räumen, durch Gänge und Türöffnungen, bis sie ihn erreicht haben.

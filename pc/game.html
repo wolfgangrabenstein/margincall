@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.26.0";
+const APP_VERSION = "3.26.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1850,7 +1850,8 @@ addEventListener("keydown", e => {
   if (e.target === kbd) return;   // Bildschirmtastatur: eigene Behandlung oben
   rawKey = e.key;
   const k = keyName(e);
-  if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace", "F4", "PageUp", "PageDown"].includes(k)) e.preventDefault();
+  // "/" und "'" oeffnen in Firefox/Opera die Schnellsuche (und beenden das Vollbild): abfangen, im Chat werden sie trotzdem getippt
+  if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace", "F4", "PageUp", "PageDown", "/", "'"].includes(k)) e.preventDefault();
   if (!e.repeat) onKeyPress(k);
   if (!chatTyping) keys.add(k);
 });

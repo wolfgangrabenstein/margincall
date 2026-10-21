@@ -1,7 +1,7 @@
 {
   "name": "margincall-desktop",
   "private": true,
-  "version": "3.26.0",
+  "version": "3.26.1",
   "scripts": {
     "tauri": "tauri"
   },
