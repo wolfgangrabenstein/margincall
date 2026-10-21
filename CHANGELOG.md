@@ -2,6 +2,16 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.25.0 – Bull run and bear market (2026-10-21)
+
+- **Market phases:** the market now tips noticeably. A marker above the BULLS/BEARS bar shows the mood: bears you take out push it towards a **bull run**, bulls towards a **bear market**; the real market sets the base mood. When the marker reaches the end, the market tips for 20 seconds – at the latest after about a minute and a half.
+- **🐂 Bull run:** green border, faster music, you are 15 % faster, more cash and 1.5× points. Shortly after, a **bull stampede** charges down a long corridor towards you – dodge!
+- **🐻 Bear market with stock market crash:** red border, darker view, slower music. The floor shakes, cash visibly slides away and reappears elsewhere, a pack of bears attacks, bears are faster and more aggressive, supplies are scarcer. In return, bears give double **short gains**.
+- **Team mode:** during a bull run Team Bull deals more damage and respawns faster, during a bear market Team Bear.
+- **New option "Screen shake"** (on/off) for the shaking during the crash.
+- **Cardputer:** market phases, stampede, crash, short gains and the mood marker are available here too (border in phase colour, short shake).
+- **Lobby texts:** "Together through all 5 levels: the more players, the tougher the enemies." and "Team Bull vs. Team Bear: when the market rises, the bulls hit harder."
+
 ## Version 3.24.1 – Kill line, default match settings (2026-10-21)
 
 - **Kill lines:** line 7 now reads "B CRASHED – A CASHED IN".

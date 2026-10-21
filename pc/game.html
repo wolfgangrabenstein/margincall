@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.24.1";
+const APP_VERSION = "3.25.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -628,6 +628,11 @@ let levelChg = 0, oilChg = 0, pBullBase = .5, momentum = 0, replayT = 0, replayI
 // ALGO-Manipulation: Aufschlag auf den echten Kurs (Prozentpunkte), laeuft nach manipT Sekunden aus
 let realChg = 0, manipChg = 0, manipT = 0, dumpAt = 0, manipDrawn = 0;
 let spawnT = 0, cashT = 0, aiT = 0, aiFaceT = 0, fakeT = 0, crashT = 0, glitchT = 0, invertT = 0;
+// Marktphasen: phase 1 = Bullrun, -1 = Baerenmarkt (je PHASE_LEN s). sentiment (-1..1) steigt mit erlegten Baeren und faellt mit
+// erlegten Bullen; der echte Kurs gibt die Grundstimmung. Bei +-1 (oder spaetestens nach einer Weile) kippt der Markt.
+let phase = 0, phaseT = 0, phaseCd = 25, sentiment = 0, quakeT = 0, stampedeAt = 0, bearHintAt = 0;
+const PHASE_LEN = 20;
+const bullRun = () => phase === 1 && phaseT > 0, bearMkt = () => phase === -1 && phaseT > 0;
 let tickerSegs = [], tickerW = 0, bullsAlive = 0, bearsAlive = 0;
 const zbuf = new Float32Array(RW);
 
@@ -757,9 +762,10 @@ function marketVisuals() {
 }
 const animalStrength = bull => Math.min(1 + Math.max(0, (bull ? 1 : -1) * levelChg) * .25, 1.6);
 const fireRateMul = () => oilChg > 0 ? 1 + Math.min(oilChg, 4) * .1 : 1;
-const playerSpeedMul = pl => (oilChg < 0 ? 1 + Math.min(-oilChg, 4) * .05 : 1) * (pl.slowT > 0 ? .5 : 1);
+const playerSpeedMul = pl => (oilChg < 0 ? 1 + Math.min(-oilChg, 4) * .05 : 1) * (pl.slowT > 0 ? .5 : 1) * (bullRun() ? 1.15 : 1);
 // Team-Modus: das Team, dessen Level-Markt heute steigt, macht mehr Schaden
-const teamDmgMul = pl => mode !== "team" ? 1 : ((pl.team === 0) === (levelChg >= 0) ? 1.25 : 1);
+const phaseTeam = () => phaseT > 0 ? (phase > 0 ? 0 : 1) : -1;   // 0 = Team Bulle, 1 = Team Baer, -1 = keine Phase
+const teamDmgMul = pl => mode !== "team" ? 1 : phaseTeam() >= 0 ? (pl.team === phaseTeam() ? 1.35 : 1) : ((pl.team === 0) === (levelChg >= 0) ? 1.25 : 1);
 
 function spawnEnemy(type, x, y) {
   if (noNPC()) return { alive: false, gone: true };   // NPCs ausgeschaltet: nichts erzeugen (Rueckgabe nur als Platzhalter)
@@ -914,6 +920,7 @@ function loadLevel(lv) {
   hist = []; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
+  phase = 0; phaseT = 0; phaseCd = 25; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0;
   sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
   sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
 }
@@ -974,7 +981,7 @@ function damagePlayer(pl, d, why, attacker = null) {
     pl.deaths++; deathPenalty = Math.min(pl.score, Math.max(500, Math.floor(pl.score * .25))); pl.score -= deathPenalty;
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
   }
-  pl.dead = true; pl.deaths = (pl.deaths || 0) + 1; pl.respawnT = mode === "coop" ? 6 : 3;
+  pl.dead = true; pl.deaths = (pl.deaths || 0) + 1; pl.respawnT = mode === "coop" ? 6 : mode === "team" && pl.team === phaseTeam() ? 1.5 : 3;
   sfxTo(pl, "CRASH");
   if (attacker && attacker.isPlayer && !isOpponent(attacker, pl)) sayAll(`TEAMKILL: ${attacker.name} → ${pl.name}`, 2);   // Friendly Fire: keine Belohnung
   else if (attacker && attacker.isPlayer) {
@@ -998,15 +1005,79 @@ function spawnProj(x, y, ang, spd, dmg, f, spr) {
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
 const itemSpr = t => t === 3 ? S.KEY : t ? S.DIV : S.CASH;
 
+function startPhase(dir) {
+  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL");
+  if (dir > 0) {
+    sayAll(L("🐂 BULLRUN! FASTER · MORE CASH · 1.5× POINTS", "🐂 BULLRUN! SCHNELLER · MEHR BARGELD · 1,5-FACHE PUNKTE"), 3.5);
+    for (let k = 0; k < 2; k++) { const c = findHiddenCell(4); if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true }); }
+    stampedeAt = 4;
+  } else {
+    sayAll(L("🐻 BEAR MARKET – STOCK MARKET CRASH!", "🐻 BÄRENMARKT – BÖRSENCRASH!"), 3);
+    marketCrash(); bearHintAt = 3.5;
+  }
+}
+// Bullen-Stampede: eine Herde stuermt durch einen langen Gang auf einen Spieler zu
+function stampede() {   // liefert false, wenn gerade kein passender Gang da ist (dann spaeter nochmal)
+  const alive = players.filter(p => !p.dead); if (!alive.length || noNPC()) return true;
+  const pl = alive[rnd() % alive.length];
+  let best = null, cx = 0, cy = 0;
+  for (const [ox, oy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {   // Spielerfeld und Nachbarfelder
+    const bx = Math.floor(pl.x) + ox, by = Math.floor(pl.y) + oy; if (solidCell(bx, by)) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      let n = 0; while (n < 14 && !solidCell(bx + dx * (n + 1), by + dy * (n + 1))) n++;
+      if (n >= 4 && (!best || n > best.n)) { best = { n, dx, dy }; cx = bx; cy = by; }
+    }
+  }
+  if (!best) return false;
+  const sx = cx + best.dx * best.n + .5, sy = cy + best.dy * best.n + .5;
+  for (let k = 0; k < 4; k++) {
+    const e = spawnEnemy(E.BULL, sx - best.dx * (k % 2) * .5 + best.dy * (k < 2 ? -.2 : .2), sy - best.dy * (k % 2) * .5 + best.dx * (k < 2 ? -.2 : .2));
+    if (e.gone) continue;
+    Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7 });
+  }
+  sayAll(L("STAMPEDE! DODGE!", "STAMPEDE! AUSWEICHEN!"), 2); sfxAll("BULL");
+  return true;
+}
+// Boersencrash: Boden bebt, Baeren greifen im Rudel an, Bargeld schlittert weg und taucht woanders wieder auf
+function marketCrash() {
+  quakeT = 1.3; sfxAll("ROAR");
+  const c = findHiddenCell(5);
+  if (c) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, c[0] + (k - 1) * .35, c[1]); if (!e.gone) e.awake = true; }
+  for (const it of items) if (it.active && it.type === 0 && !it.slide) {
+    const t = findHiddenCell(3); if (t) it.slide = { fx: it.x, fy: it.y, tx: t[0], ty: t[1], t: 0 };
+  }
+}
+function updatePhase(dt) {
+  for (const it of items) if (it.slide) {   // Bargeld schlittert sichtbar zur neuen Stelle
+    const sl = it.slide; sl.t += dt / 1.2; const k = Math.min(1, sl.t), e = 1 - (1 - k) * (1 - k);
+    it.x = sl.fx + (sl.tx - sl.fx) * e; it.y = sl.fy + (sl.ty - sl.fy) * e;
+    if (k >= 1) { it.slide = null; it.flash = 1.5; }
+  }
+  if (bearHintAt > 0 && (bearHintAt -= dt) <= 0) sayAll(L("SHORT GAINS: BEARS COUNT DOUBLE", "SHORT-GEWINNE: BÄREN ZÄHLEN DOPPELT"), 2.5);
+  if (phaseT > 0) {
+    phaseT -= dt;
+    if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede() && phaseT > 3) stampedeAt = 2;   // kein Gang frei: gleich nochmal versuchen
+    if (phaseT <= 0) { phase = 0; phaseCd = 35; sayAll(L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), 1.8); }
+    return;
+  }
+  const base = clamp(levelChg * .08, -.2, .2);   // echter Kurs als Grundstimmung
+  sentiment += (base - sentiment) * dt * .02;
+  if ((phaseCd -= dt) > 0) return;
+  if (Math.abs(sentiment) >= 1) startPhase(sentiment > 0 ? 1 : -1);
+  else if (phaseCd < -60) startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);   // spaetestens nach rund anderthalb Minuten
+}
 function killEnemy(e, byPlayer) {
   e.alive = false; e.deadT = 0;
   const ti = TYPES[e.type];
   if (e.type === E.BUBBLE || e.type === E.BOT) e.gone = true;
   if (byPlayer) {
-    byPlayer.kills++; addScore(byPlayer, ti.pts);
+    byPlayer.kills++;
+    if (!island && phaseT <= 0) { if (e.f === F.BEAR) sentiment = Math.min(1.2, sentiment + .12); else if (e.f === F.BULL) sentiment = Math.max(-1.2, sentiment - .12); }
+    const shortGain = bearMkt() && e.f === F.BEAR, pts = Math.round(ti.pts * (bullRun() ? 1.5 : 1) * (shortGain ? 2 : 1));
+    addScore(byPlayer, pts);
     const m = { [E.BEAR]: island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BÄR ERLEGT!"), [E.BULL]: L("BULL DOWN!", "BULLE ERLEGT!"), [E.SELLER]: L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT"), [E.BUBBLE]: L("BUBBLE BURST", "BLASE GEPLATZT"),
       [E.SHARK]: L("HEDGE FUND SMASHED! GET THE KEYCARD!", "HEDGEFONDS ZERSCHLAGEN! SCHNAPP DIE KEYCARD!"), [E.ALGO]: L("ALGO-9000 SHUT DOWN! GET THE KEYCARD!", "ALGO-9000 ABGESCHALTET! SCHNAPP DIE KEYCARD!") }[e.type];
-    if (ti.boss) sayAll(m, 3); else sayTo(byPlayer, m || `${ti.name} ${L("DOWN", "ERLEDIGT")}`);
+    if (ti.boss) sayAll(m, 3); else if (shortGain) sayTo(byPlayer, `${L("SHORT GAIN", "SHORT-GEWINN")} +${pts}`); else sayTo(byPlayer, m || `${ti.name} ${L("DOWN", "ERLEDIGT")}`);
   } else {
     marketKills++;
     if (dist2P(e.x, e.y) < 64) say(e.f === F.BEAR ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BÄREN NIEDER") : L("BEARS MAUL THE BULLS", "BÄREN ZERFLEISCHEN BULLEN"), 1.5);
@@ -1018,7 +1089,7 @@ function killEnemy(e, byPlayer) {
   }
   const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
-  else if (frand() < chance * (HC() ? .6 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
+  else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .5 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -1170,9 +1241,10 @@ function meleeHit(e, dmgP, dmgE, why) {
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
 function updateEnemy(e, dt) {
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * bearRage; e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
-  const spd = crashT > 0 ? 1.4 : 1, animal = e.f === F.BULL || e.f === F.BEAR;
+  const spd = (crashT > 0 ? 1.4 : 1) * bearRage, animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
   if (!animal) t = nearestPlayer(e, 40, false);
@@ -1350,7 +1422,7 @@ const r2 = v => Math.round(v * 100) / 100;
 function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
-    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
+    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
     pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1377,7 +1449,7 @@ function clientSnapshot(m) {
   hasKey = !!m.k;
   if (state === ST.OPTIONS) optReturn = m.st; else state = m.st;
   roundT = m.rt; teamScore = m.ts; [bullsAlive, bearsAlive] = m.ba; marketKills = m.mk;
-  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0, cheatChg = 0] = m.fx;
+  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0, cheatChg = 0, phase = 0, phaseT = 0, sentiment = 0, quakeT = 0] = m.fx;
   marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
@@ -1575,14 +1647,14 @@ const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { ret
 const OPT_MAIN = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindlichkeit und grosse Zeilen
   optRow("touchHelp", "Touch controls ▶", "Touch-Steuerung ▶"),
   optRow("touchSens", "Turn sensitivity", "Drehempfindlichkeit"), optRow("aimMode", "Auto aim", "Auto-Aim"), optRow("invert", "Invert turning", "Drehen umkehren"),
-  optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
+  optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
   optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard", "Online-Rangliste")] : []),
   optRow("onlineMP", "Online multiplayer", "Online-Multiplayer"), optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")] : [
   optRow("keys", "Controls ▶", "Steuerung ▶"),
   optRow("aimMode", "Auto aim (e.g. for trackpads)", "Auto-Aim (z. B. fürs Trackpad)"),
-  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
+  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
   optRow("onlineMP", "Online multiplayer (Cloudflare)", "Online-Multiplayer (Cloudflare)"),
   optRow("lang", "Language", "Sprache"),
@@ -1594,7 +1666,7 @@ const OPT_KEYS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id }
 let OPT_ROWS = OPT_MAIN, optPage = "main", OPT_Y0 = 0, OPT_DY = 0;
 function setOptPage(p) {
   optPage = p; OPT_ROWS = p === "keys" ? OPT_KEYS : OPT_MAIN; optSel = 0; optCol = 0; optWaiting = false;
-  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = COARSE ? 32 : p === "keys" ? 19 : 32;
+  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = COARSE ? 30 : p === "keys" ? 19 : 32;
 }
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
 function openOptions() { optReturn = state; state = ST.OPTIONS; setOptPage("main"); document.exitPointerLock?.(); }
@@ -1618,6 +1690,7 @@ function optActivate() {
     case "onlineMP": settings.onlineMP = settings.onlineMP !== true; saveSettings(); break;
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
+    case "shake": settings.shake = settings.shake === false; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
     case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[aimModeSet()] || "off"; settings.aimTouched = true; saveSettings(); break;
     case "touchSens": settings.touchSens = (settings.touchSens || 6) % 10 + 1; saveSettings(); break;
@@ -1648,7 +1721,7 @@ function optKey(k) {
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
     else if (row.kind === "touchSens") { settings.touchSens = clamp((settings.touchSens || 6) + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
     else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(aimModeSet()) + (d > 0 ? 1 : 2)) % 3]; settings.aimTouched = true; saveSettings(); }
   }
   else if (k === "enter" || k === " ") optActivate();
@@ -1690,8 +1763,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "shake" ? settings.shake !== false : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "aimMode") {
       const m = aimModeSet() || "off";
@@ -2035,7 +2108,7 @@ function updateGame(dt) {
   hurtPops = hurtPops.filter(p => p.t < 1.1);
   faceT -= dt; if (faceT <= 0) { faceT = 1.2 + Math.random() * 2.5; faceLook = Math.random() < .5 ? 0 : Math.random() < .5 ? -1 : 1; }
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; dodgeCd -= dt;
-  aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt;
+  aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt; quakeT -= dt;
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || (Math.floor(gameTime * 4) % 2)) buildTicker(); }
   if (manipT > 0) {
     manipT -= dt;
@@ -2104,7 +2177,7 @@ function updateGame(dt) {
   if (state !== ST.PLAY) return;
 
   for (const it of items) {
-    if (!it.active) continue;
+    if (!it.active || it.slide) continue;
     for (const pl of players) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
@@ -2127,6 +2200,7 @@ function updateGame(dt) {
     const i0 = Math.max(0, replayIdx - 3);
     momentum = (m.s[replayIdx] - m.s[i0]) / m.s[i0] * 100;
   }
+  updatePhase(dt);
   bullsAlive = bearsAlive = 0;
   for (const e of enemies) {
     if (e.gone) continue;
@@ -2141,7 +2215,7 @@ function updateGame(dt) {
     spawnT = (7 + frand() * 5) / (1 + .5 * extraPl);
     if (bullsAlive + bearsAlive < 9 + (mode === "coop" ? 4 * extraPl : 2 * (players.length - 1))) {
       const c = findHiddenCell(5);
-      if (c) spawnEnemy(frand() < clamp(pBullBase + momentum * 1.5, .1, .9) ? E.BULL : E.BEAR, c[0], c[1]);
+      if (c) spawnEnemy(frand() < clamp(pBullBase + momentum * 1.5 + (phaseT > 0 ? phase * .25 : 0), .1, .9) ? E.BULL : E.BEAR, c[0], c[1]);
     }
   }
   // vereinzeltes Bargeld abseits der Spieler, damit niemand ganz ohne Munition dasteht;
@@ -2149,7 +2223,7 @@ function updateGame(dt) {
   cashT -= dt;
   if (cashT <= 0) {
     const broke = players.some(p => !p.dead && p.ammo <= 3);
-    cashT = (broke ? 15 + frand() * 10 : 45 + frand() * 30) * (HC() ? 1.6 : 1);
+    cashT = (broke ? 15 + frand() * 10 : 45 + frand() * 30) * (HC() ? 1.6 : 1) * (bullRun() ? .5 : bearMkt() ? 1.6 : 1);
     if (items.filter(i => i.active && i.stray).length < 2) {
       const c = findHiddenCell(6);
       if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true });
@@ -2258,7 +2332,7 @@ function collectSprites() {
       if (!e.alive) list.push({ x: e.x, y: e.y, tex: S.DEAD, sc: .6 });
       else list.push({ x: e.x, y: e.y, tex: ti.spr + (ENEMY_ALT(e) ? 1 : 0), sc: ti.scale, hurt: e.hurt > 0 });
     }
-    for (const it of items) if (it.active) list.push({ x: it.x, y: it.y, tex: itemSpr(it.type), sc: .5 });
+    for (const it of items) if (it.active) { if (it.flash > 0) it.flash -= 1 / 60; list.push({ x: it.x, y: it.y, tex: itemSpr(it.type), sc: it.flash > 0 ? .5 + .15 * Math.abs(Math.sin(gameTime * 10)) : .5 }); }
     for (const p of projs) list.push({ x: p.x, y: p.y, tex: p.spr, sc: .35 });
   }
   for (const pl of players) if (!pl.local && !pl.dead) {   // Mitspieler weich nachfuehren (online kommen nur 10 Updates pro Sekunde)
@@ -2465,6 +2539,7 @@ function startIsland() {
   enemies = []; items = []; projs = []; hist = []; histT = 0;
   manipChg = manipT = dumpAt = 0; marketEffect(); manipDrawn = 0;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
+  phase = 0; phaseT = 0; sentiment = 0; quakeT = 0;   // keine Marktphasen in der Steueroase
   let sy = MAP - 2; while (sy > 2 && world[sy][10] !== ".") sy--;   // Start am Suedstrand, Blick zur Inselmitte
   px = 10.5; py = sy - .5; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
@@ -2929,9 +3004,16 @@ function renderHUD() {
     g.fillStyle = "#1ec850"; g.fillRect(bx, HUD_Y + 36, gw2, 14);
     g.fillStyle = "#dc2828"; g.fillRect(bx + gw2, HUD_Y + 36, bw - gw2, 14);
     text(`${L("BULLS", "BULLEN")} ${bullsAlive}`, bx + 4, HUD_Y + 37, "#04140a", 12); text(`${L("BEARS", "BÄREN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#1a0404", 12, "right");
+    if (phaseT <= 0) {   // Marktstimmung: Zeiger wandert Richtung Bullrun (links) bzw. Baerenmarkt (rechts)
+      const sx = bx + bw * (1 - clamp(sentiment, -1, 1)) / 2, hot = Math.abs(sentiment) > .6 && Math.floor(gameTime * 4) % 2;
+      g.fillStyle = hot ? (sentiment > 0 ? "#50ff82" : "#ff5050") : "#ffffff";
+      g.beginPath(); g.moveTo(sx - 6, HUD_Y + 28); g.lineTo(sx + 6, HUD_Y + 28); g.lineTo(sx, HUD_Y + 35); g.fill();
+    }
     const m = levelMarket();
     const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
-    if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
+    if (phaseT > 0) text(phase > 0 ? `🐂 BULLRUN  ${Math.ceil(phaseT)} s  ·  ${L("1.5× POINTS", "1,5-FACHE PUNKTE")}`
+      : `🐻 ${L("BEAR MARKET", "BÄRENMARKT")}  ${Math.ceil(phaseT)} s  ·  ${L("BEARS: SHORT GAIN ×2", "BÄREN: SHORT-GEWINN ×2")}`, 560, HUD_Y + 60, phase > 0 ? "#50ff82" : "#ff5050", 14);
+    else if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
     else text(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
@@ -3059,8 +3141,8 @@ function renderLobby() {
     text(modeName(modeIdx), 150, 116, "#50c8ff", 26);
     g.font = FONT(26); zoneButton(162 + g.measureText(modeName(modeIdx)).width, 112, 34, 34, "▶", "#50c8ff", "ArrowRight", 20);
   } else text(modeName(modeIdx), 110, 116, "#50c8ff", 26);
-  const desc = { coop: L("Together through all 5 levels. More players = tougher enemies.", "Gemeinsam durch alle 5 Level. Mehr Mitspieler = stärkere Gegner."),
-    team: L("Team Bull vs. Team Bear. If the market rises, Team Bull hits harder.", "Team Bulle gegen Team Bär. Steigt der Markt, trifft Team Bulle härter."),
+  const desc = { coop: L("Together through all 5 levels: the more players, the tougher the enemies.", "Gemeinsam durch alle 5 Level: Je mehr Mitspieler, desto stärkere Gegner."),
+    team: L("Team Bull vs. Team Bear: when the market rises, the bulls hit harder.", "Team Bulle gegen Team Bär: Wenn der Markt steigt, treffen die Bullen härter."),
     dm: L("Free for all.", "Jeder gegen jeden.") }[MODES[modeIdx][0]];
   text(desc, 110, 152, "#a0a0b4", 15);
   // ---- Spielerliste (links)
@@ -3422,7 +3504,7 @@ function nextStep() {
 }
 function pulse(v) { v.ph = (v.ph + v.inc) % 1; return v.ph < v.duty ? 1 : -1; }
 function renderMusic(out) {
-  const s = ms, stepLen = Math.floor(MR * 60 / (s.song.bpm * (musicPanic ? 1.22 : 1) * 4));
+  const s = ms, stepLen = Math.floor(MR * 60 / (s.song.bpm * (musicPanic ? 1.22 : 1) * (bullRun() ? 1.12 : bearMkt() ? .9 : 1) * 4));
   for (let i = 0; i < out.length; i++) {
     if (--s.left <= 0) { s.left = stepLen; nextStep(); }
     if (++s.lfoC >= 64) { s.lfoC = 0; s.lfoPh += 64 * 6 * 2 * Math.PI / MR; s.vib = Math.sin(s.lfoPh); if (s.lead.inc !== s.lead.target) s.lead.inc += (s.lead.target - s.lead.inc) / 6; }
@@ -3977,9 +4059,15 @@ function renderPlay(dt) {
     fb[i] = RGB(r + (255 - r) * k, gg * (1 - k), b * (1 - k));
   }
   lg.putImageData(img, 0, 0); if (!me.dead) renderWeapon();
-  const shx = hk > 0 ? (Math.random() - .5) * 16 * hk : 0, shy = hk > 0 ? (Math.random() - .5) * 10 * hk : 0;
+  const qk = quakeT > 0 && settings.shake !== false ? Math.min(1, quakeT) : 0;   // Boersencrash: Boden bebt (abschaltbar)
+  const shx = (hk > 0 ? (Math.random() - .5) * 16 * hk : 0) + (Math.random() - .5) * 9 * qk, shy = (hk > 0 ? (Math.random() - .5) * 10 * hk : 0) + (Math.random() - .5) * 7 * qk;
   if (shx || shy) { g.fillStyle = "#300"; g.fillRect(0, 0, DW, HUD_Y); }
   g.drawImage(low, 0, 0, RW, VH, shx, shy, DW, HUD_Y);
+  if (!island && phaseT > 0) {   // Marktphase: gruener bzw. roter Rand, im Baerenmarkt dunkler
+    if (phase < 0) { g.fillStyle = "rgba(0,0,0,.2)"; g.fillRect(0, 0, DW, HUD_Y); }
+    const a = .35 + .25 * Math.sin(gameTime * 6);
+    g.strokeStyle = phase > 0 ? `rgba(80,255,130,${a})` : `rgba(255,60,60,${a})`; g.lineWidth = 14; g.strokeRect(7, 7, DW - 14, HUD_Y - 14);
+  }
   renderHUD();
   if (down("scores") && !chatTyping) renderScoreOverlay();
 }

@@ -2,6 +2,16 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.25.0 – Bullrun und Bärenmarkt (21.10.2026)
+
+- **Marktphasen:** Der Markt kippt jetzt spürbar. Ein Zeiger über der BULLEN/BÄREN-Leiste zeigt die Stimmung: Erlegte Bären schieben sie Richtung **Bullrun**, erlegte Bullen Richtung **Bärenmarkt**; der echte Kurs gibt die Grundstimmung vor. Ist der Zeiger am Ende, kippt der Markt für 20 Sekunden – spätestens aber nach rund anderthalb Minuten.
+- **🐂 Bullrun:** grüner Rand, schnellere Musik, du bist 15 % schneller, es gibt mehr Bargeld und 1,5-fache Punkte. Kurz darauf stürmt eine **Bullen-Stampede** durch einen langen Gang auf dich zu – ausweichen!
+- **🐻 Bärenmarkt mit Börsencrash:** roter Rand, dunkleres Bild, langsamere Musik. Der Boden bebt, Bargeld schlittert sichtbar weg und taucht woanders wieder auf, ein Bärenrudel greift an, die Bären sind schneller und angriffslustiger, Nachschub ist knapper. Dafür bringen Bären doppelte **Short-Gewinne**.
+- **Team-Modus:** Im Bullrun bekommt Team Bulle mehr Schaden und schnelleren Respawn, im Bärenmarkt Team Bär.
+- **Neue Option „Bildschirmwackeln“** (an/aus) für das Beben beim Börsencrash.
+- **Cardputer:** Marktphasen, Stampede, Börsencrash, Short-Gewinne und Stimmungszeiger gibt es auch hier (Rahmen in Phasenfarbe, kurzes Beben).
+- **Lobby-Texte:** „Gemeinsam durch alle 5 Level: Je mehr Mitspieler, desto stärkere Gegner.“ und „Team Bulle gegen Team Bär: Wenn der Markt steigt, treffen die Bullen härter.“
+
 ## Version 3.24.1 – Abschuss-Spruch, Standard-Match-Einstellungen (21.10.2026)
 
 - **Abschuss-Sprüche:** Spruch 7 heißt jetzt „B CRASHT – A HAT ABKASSIERT“.

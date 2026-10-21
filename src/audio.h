@@ -31,4 +31,5 @@ void musicStop();
 void musicToggle();
 bool musicEnabled();
 void musicSetPanic(bool panic);   // schnelleres Tempo bei wenig Depotwert
+void musicSetMood(int pct);       // Tempo in Prozent je Marktphase (100 = normal)
 void musicSetPaused(bool paused);  // Spiel-Pause: Musik anhalten, danach an derselben Stelle weiter

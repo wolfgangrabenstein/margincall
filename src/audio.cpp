@@ -74,6 +74,7 @@ static int8_t chunkBuf[3][CHUNK];
 static int bufIdx = 0;
 
 static bool enabled = true, running = false, panic = false, paused = false;
+static int moodPct = 100;   // Tempo je Marktphase (Bullrun schneller, Baerenmarkt langsamer)
 static int part = 0, step = 0, loopCount = 0, stepLeft = 0;
 
 static uint32_t noteInc[128];
@@ -152,7 +153,7 @@ static inline float pulse(Voice& v) {
 }
 
 static void renderChunk(int8_t* out) {
-  const int bpm = panic ? song->bpm * 122 / 100 : song->bpm;
+  const int bpm = (panic ? song->bpm * 122 / 100 : song->bpm) * moodPct / 100;
   const int stepLen = MUSIC_RATE * 60 / (bpm * 4);
   for (int i = 0; i < CHUNK; i++) {
     if (--stepLeft <= 0) { stepLeft = stepLen; nextStep(); }
@@ -242,6 +243,7 @@ void musicToggle() {
 }
 bool musicEnabled() { return enabled; }
 void musicSetPanic(bool p) { panic = p; }
+void musicSetMood(int pct) { moodPct = pct; }
 void musicSetPaused(bool p) {
   if (p && !paused) M5Cardputer.Speaker.stop(CH_MUSIC);
   paused = p;
