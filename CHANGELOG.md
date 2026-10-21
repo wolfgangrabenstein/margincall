@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.25.1 – Market phase texts (2026-10-21)
+
+- **Reworked texts:** bull run banner "🐂 BULLRUN! MORE CASH · 1.5× POINTS", bear market banner "🐻 STOCK MARKET CRASH!", stampede warning "WATCH OUT, BULLRUN!" – on the Cardputer too.
+
 ## Version 3.25.0 – Bull run and bear market (2026-10-21)
 
 - **Market phases:** the market now tips noticeably. A marker above the BULLS/BEARS bar shows the mood: bears you take out push it towards a **bull run**, bulls towards a **bear market**; the real market sets the base mood. When the marker reaches the end, the market tips for 20 seconds – at the latest after about a minute and a half.

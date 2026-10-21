@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.25.0";
+const APP_VERSION = "3.25.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1008,11 +1008,11 @@ const itemSpr = t => t === 3 ? S.KEY : t ? S.DIV : S.CASH;
 function startPhase(dir) {
   phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL");
   if (dir > 0) {
-    sayAll(L("🐂 BULLRUN! FASTER · MORE CASH · 1.5× POINTS", "🐂 BULLRUN! SCHNELLER · MEHR BARGELD · 1,5-FACHE PUNKTE"), 3.5);
+    sayAll(L("🐂 BULLRUN! MORE CASH · 1.5× POINTS", "🐂 BULLRUN! MEHR BARGELD · 1,5-FACHE PUNKTE"), 3.5);
     for (let k = 0; k < 2; k++) { const c = findHiddenCell(4); if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true }); }
     stampedeAt = 4;
   } else {
-    sayAll(L("🐻 BEAR MARKET – STOCK MARKET CRASH!", "🐻 BÄRENMARKT – BÖRSENCRASH!"), 3);
+    sayAll(L("🐻 STOCK MARKET CRASH!", "🐻 BÖRSENCRASH!"), 3);
     marketCrash(); bearHintAt = 3.5;
   }
 }
@@ -1035,7 +1035,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
     if (e.gone) continue;
     Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7 });
   }
-  sayAll(L("STAMPEDE! DODGE!", "STAMPEDE! AUSWEICHEN!"), 2); sfxAll("BULL");
+  sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxAll("BULL");
   return true;
 }
 // Boersencrash: Boden bebt, Baeren greifen im Rudel an, Bargeld schlittert weg und taucht woanders wieder auf
@@ -1536,7 +1536,8 @@ const outOfLives = () => !isMP() && !HC() && !EZ() && livesLeft() <= 0;
 let cheated = false, cheatChg = 0, hsNote = "";
 const hx = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const CX = { 2420334519: ["p"], 4213436061: ["g"], 2774362824: ["f"], 2824693482: ["c"], 1222718734: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
-  934299367: ["l", 1], 951076986: ["l", 2], 967854605: ["l", 3], 850411272: ["l", 4], 867188891: ["l", 5], 883966510: ["l", 6] };
+  934299367: ["l", 1], 951076986: ["l", 2], 967854605: ["l", 3], 850411272: ["l", 4], 867188891: ["l", 5], 883966510: ["l", 6],
+  2701532541: ["m", 1], 2650612120: ["m", -1], 1273636928: ["m", -1] };
 function cx(pl, txt) {
   const c = CX[hx(String(txt).slice(1).replace(/\s+/g, "").toLowerCase())];
   if (!c || state !== ST.PLAY || (mode !== "solo" && mode !== "coop")) return;
@@ -1549,6 +1550,7 @@ function cx(pl, txt) {
     case "p": pl.psy = !pl.psy; if (pl.local) me.psy = pl.psy; else emit(["psy", pl.id, pl.psy ? 1 : 0]); break;
     case "k": cheatChg = c[1] - realChg; marketEffect(); sayAll(`${L("PRICE", "KURS")} ${fmtChg(levelChg)}`, 2); break;
     case "a": if (!island) aiEvent(); break;
+    case "m": if (!island) { phaseT = 0; stampedeAt = 0; startPhase(c[1]); } break;   // Marktphase sofort
     case "l":
       if (c[1] === 6) { if (!isMP()) startIsland(); break; }
       island = false; loadLevel(c[1] - 1); state = ST.PLAY; fireCd = .4;

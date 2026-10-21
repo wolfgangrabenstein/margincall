@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.25.0"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.25.1"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1062,7 +1062,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
     if (i < 0) continue;
     Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f;
   }
-  say(L("STAMPEDE! DODGE!", "STAMPEDE! AUSWEICHEN!"), 2); sfxPlay(SFX_ID_BULL);
+  say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL);
   return true;
 }
 static void marketCrash() {   // Boden bebt, Baerenrudel, Bargeld schlittert weg
@@ -1083,7 +1083,7 @@ static void startPhase(int dir) {
     for (int k = 0; k < 2; k++) { float x, y; if (findHiddenCell(x, y, 4)) dropItem(x, y, 0, true); }
     stampedeAt = 4;
   } else {
-    say(L("BEAR MARKET - CRASH!", "BAERENMARKT - BOERSENCRASH!"), 3);
+    say(L("STOCK MARKET CRASH!", "BOERSENCRASH!"), 3);
     marketCrash(); bearHintAt = 3.5f;
   }
 }

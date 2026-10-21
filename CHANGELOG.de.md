@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.25.1 – Texte der Marktphasen (21.10.2026)
+
+- **Texte überarbeitet:** Bullrun-Banner „🐂 BULLRUN! MEHR BARGELD · 1,5-FACHE PUNKTE“, Bärenmarkt-Banner „🐻 BÖRSENCRASH!“, Stampede-Warnung „VORSICHT, BULLRUN!“ – auch am Cardputer.
+
 ## Version 3.25.0 – Bullrun und Bärenmarkt (21.10.2026)
 
 - **Marktphasen:** Der Markt kippt jetzt spürbar. Ein Zeiger über der BULLEN/BÄREN-Leiste zeigt die Stimmung: Erlegte Bären schieben sie Richtung **Bullrun**, erlegte Bullen Richtung **Bärenmarkt**; der echte Kurs gibt die Grundstimmung vor. Ist der Zeiger am Ende, kippt der Markt für 20 Sekunden – spätestens aber nach rund anderthalb Minuten.
