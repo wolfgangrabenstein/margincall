@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.26.3";
+const APP_VERSION = "3.27.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -121,18 +121,19 @@ const STOCKS = [["GS", 0], ["CAT", 0], ["HD", 0], ["JPM", 0], ["BA", 0], ["KO", 
 let marketStatus = "sim", marketTime = 0;
 const mStat = () => marketStatus === "LIVE" ? "LIVE" : marketStatus === "nosrv" ? L("SIMULATED (no server)", "SIMULIERT (kein Server)") : L("SIMULATED", "SIMULIERT");
 
-function marketsSimulate() {
+function marketsSimulate(force = false) {   // simulierte Kurse bleiben bis zum naechsten Lauf (force) gleich
   const base = [51000, 7700, 30000, 90];
   markets.forEach((m, i) => {
-    if (m.live) return;
+    if (m.live || (m.sim && !force)) return;
+    m.sim = true;
     let v = base[i] * (0.97 + 0.06 * Math.random());
     m.prev = v; m.s = [];
-    const drift = (Math.random() * 2 - 1) * 0.0004;
+    const drift = (Math.random() * 2 - 1) * 0.0002;
     for (let k = 0; k < 78; k++) { v *= 1 + drift + (Math.random() * 2 - 1) * 0.0015; m.s.push(v); }
     m.p = v; m.chg = (m.p - m.prev) / m.prev * 100;
   });
   // simulierte Einzelwerte folgen grob ihrem Index (ohne Preis, nur Veraenderung)
-  for (const s of STOCKS) if (!s.live) { s.p = 0; s.chg = markets[s.m].chg + (Math.random() * 2 - 1) * 1.5; }
+  for (const s of STOCKS) if (!s.live && (!s.sim || force)) { s.sim = true; s.p = 0; s.chg = markets[s.m].chg + (Math.random() * 2 - 1) * 1.5; }
 }
 async function marketsFetch() {
   if (settings.liveData !== true) {   // Datenschutz: ohne Zustimmung keine Anfrage an Yahoo Finance
@@ -146,7 +147,7 @@ async function marketsFetch() {
     let live = 0;
     d.markets.forEach((x, i) => {
       if (!x || !x.s || x.s.length < 2) return;
-      Object.assign(markets[i], { p: x.p, prev: x.prev, chg: (x.p - x.prev) / x.prev * 100, s: x.s, live: true });
+      Object.assign(markets[i], { p: x.p, prev: x.prev, chg: (x.p - x.prev) / x.prev * 100, s: x.s, live: true, sim: false });
       live++;
     });
     for (const s of STOCKS) {
@@ -775,9 +776,9 @@ function spawnEnemy(type, x, y) {
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
   const coop = mode === "coop" ? 1 + .6 * (players.length - 1) : 1;   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
-  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.8 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.8 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
+  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
-    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null });
+    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
   return e;
 }
 // Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
@@ -819,6 +820,23 @@ function findHiddenCell(minDist) {
     return [cx, cy];
   }
   return null;
+}
+// Trading-Bots mit Obergrenze (lebende Bots); vom Boss gerufene erscheinen in seiner Naehe und zaehlen halb
+function botCap() { return (EZ() ? 4 : 6) + (mode === "coop" ? 2 * (players.length - 1) : 0); }
+function spawnBots(count, boss = null) {
+  const alive = enemies.filter(e => e.alive && e.type === E.BOT).length, n = Math.min(count, botCap() - alive);
+  for (let k = 0; k < n; k++) {
+    let c = null;
+    if (boss) for (let t = 0; t < 40 && !c; t++) {   // verdeckte Zelle 2,5–6 Felder um den Boss
+      const x = Math.floor(boss.x) + (rnd() % 13) - 6, y = Math.floor(boss.y) + (rnd() % 13) - 6, cx = x + .5, cy = y + .5, d = Math.hypot(cx - boss.x, cy - boss.y);
+      if (d < 2.5 || d > 6 || solidCell(x, y) || players.some(p => !p.dead && lineOfSight(cx, cy, p.x, p.y))) continue;
+      c = [cx, cy];
+    }
+    if (!c) c = findHiddenCell(3.5);
+    if (!c) continue;
+    const e = spawnEnemy(E.BOT, c[0], c[1]); if (e.gone) continue;
+    if (boss) { e.summoned = true; e.awake = players.some(p => !p.dead && Math.hypot(p.x - boss.x, p.y - boss.y) < 10); }
+  }
 }
 function spawnNear(type, count) { for (let k = 0; k < count; k++) { const c = findHiddenCell(3.5); if (c) spawnEnemy(type, c[0], c[1]); } }
 
@@ -901,10 +919,11 @@ function loadLevel(lv) {
   if (mode === "dm" || mode === "team") {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
     roundT = ROUND_TIME; teamScore = [0, 0];
-    players.forEach(p => { p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; });
+    players.forEach(p => { p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.hp = 100; p.ammo = 30; });   // jede Runde frisch
   }
   const spots = startSpots();
   players.forEach((pl, i) => {
+    if (mode === "coop" && (pl.dead || pl.hp <= 0)) { pl.hp = 60; pl.ammo = Math.max(pl.ammo, 20); }   // wer tot war, kommt wie beim Respawn zurueck
     pl.dead = false; pl.respawnT = 0; pl.slowT = 0;
     const s = mode === "dm" || mode === "team" ? (findHiddenCell(4) || spots[i % spots.length]) : spots[i % spots.length];
     placePlayer(pl, s[0], s[1], startDir[0], startDir[1]);
@@ -925,6 +944,7 @@ function loadLevel(lv) {
   sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
 }
 function newGame() {
+  marketsSimulate(true);   // ohne Live-Kurse: pro Lauf ein neuer simulierter Markttag
   rngState = (Math.random() * 4294967295 >>> 0) || 1;   // jedes Spiel anders verteilt
   island = islandDone = false; cheated = false;
   players.forEach(p => { p.god = false; p.noclip = false; p.psy = false; });
@@ -1027,7 +1047,7 @@ function damagePlayer(pl, d, why, attacker = null) {
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
   }
   if (!isMP()) {   // Solo: jeder Tod wird gezaehlt und kostet 25 % des P&L (mind. 500 $)
-    pl.deaths++; deathPenalty = Math.min(pl.score, Math.max(500, Math.floor(pl.score * .25))); pl.score -= deathPenalty;
+    pl.deaths++; deathPenalty = Math.min(pl.score, Math.max(500, Math.floor(pl.score * .25)));   // abgezogen erst beim neuen Kredit
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
   }
   pl.dead = true; pl.deaths = (pl.deaths || 0) + 1; pl.respawnT = mode === "coop" ? 6 : mode === "team" && pl.team === phaseTeam() ? 1.5 : 3;
@@ -1080,7 +1100,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
     const bx = Math.floor(pl.x) + ox, by = Math.floor(pl.y) + oy; if (solidCell(bx, by)) continue;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       let n = 0; while (n < 14 && !solidCell(bx + dx * (n + 1), by + dy * (n + 1))) n++;
-      if (n >= 4 && (!best || n > best.n)) { best = { n, dx, dy }; cx = bx; cy = by; }
+      if (n >= 6 && (!best || n > best.n)) { best = { n, dx, dy }; cx = bx; cy = by; }
     }
   }
   if (!best) return false;
@@ -1088,7 +1108,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
   for (let k = 0; k < 4; k++) {
     const e = spawnEnemy(E.BULL, sx - best.dx * (k % 2) * .5 + best.dy * (k < 2 ? -.2 : .2), sy - best.dy * (k % 2) * .5 + best.dx * (k < 2 ? -.2 : .2));
     if (e.gone) continue;
-    Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7 });
+    Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7, stampede: true });
   }
   sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxAll("BULL");
   return true;
@@ -1097,7 +1117,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
 function marketCrash() {
   quakeT = 1.3; sfxAll("ROAR");
   const c = findHiddenCell(5);
-  if (c) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, c[0] + (k - 1) * .35, c[1]); if (!e.gone) e.awake = true; }
+  if (c) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, c[0] + (k - 1) * .35, c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; } }   // Rudel greift gestaffelt an
   for (const it of items) if (it.active && it.type === 0 && !it.slide) {
     const t = findHiddenCell(3); if (t) it.slide = { fx: it.x, fy: it.y, tx: t[0], ty: t[1], t: 0 };
   }
@@ -1128,7 +1148,12 @@ function killEnemy(e, byPlayer) {
   if (byPlayer) {
     byPlayer.kills++;
     if (!island && phaseT <= 0) moveSentiment(e, 1);
-    const shortGain = bearMkt() && e.f === F.BEAR, pts = Math.round(ti.pts * (bullRun() ? 1.5 : 1) * (shortGain ? 2 : 1));
+    const shortGain = bearMkt() && e.f === F.BEAR;
+    let pts = Math.round(ti.pts * (bullRun() ? 1.5 : 1) * (shortGain ? 2 : 1) * (e.summoned ? .5 : 1));
+    if (ti.boss && !isMP()) {   // 4.2: Boss-Punkte gibt es pro Level nur einmal voll (nach einem Tod 10 %)
+      byPlayer.bossPaid = byPlayer.bossPaid || {};
+      if (byPlayer.bossPaid[level]) pts = Math.round(pts * .1); else byPlayer.bossPaid[level] = true;
+    }
     addScore(byPlayer, pts);
     const m = { [E.BEAR]: island ? L("PIRATE DOWN!", "PIRAT ERLEDIGT!") : L("BEAR DOWN!", "BÄR ERLEGT!"), [E.BULL]: L("BULL DOWN!", "BULLE ERLEGT!"), [E.SELLER]: L("SHORT SELLER LIQUIDATED", "SHORT SELLER LIQUIDIERT"), [E.BUBBLE]: L("BUBBLE BURST", "BLASE GEPLATZT"),
       [E.SHARK]: L("HEDGE FUND SMASHED! GET THE KEYCARD!", "HEDGEFONDS ZERSCHLAGEN! SCHNAPP DIE KEYCARD!"), [E.ALGO]: L("ALGO-9000 SHUT DOWN! GET THE KEYCARD!", "ALGO-9000 ABGESCHALTET! SCHNAPP DIE KEYCARD!") }[e.type];
@@ -1143,7 +1168,7 @@ function killEnemy(e, byPlayer) {
     if (ti.boss) { if (!enemies.some(o => o.alive && TYPES[o.type].boss)) dropKey(e.x, e.y); }
     else if (!levelHasBoss && byPlayer && ++keyKills >= keyNeed) dropKey(e.x, e.y);
   }
-  const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : .38) : .22;
+  const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : e.summoned ? .25 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .5 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
 }
@@ -1154,16 +1179,16 @@ function hurtEnemy(t, dmg, byPlayer) {
 }
 
 function aiEvent(forced = -1) {
-  const ev = forced >= 0 ? forced : rnd() % 6;
+  const ev = forced >= 0 ? forced : level === 0 ? [0, 2, 3][rnd() % 3] : rnd() % 6;   // Level 1: nur die harmloseren Ereignisse
   aiFaceT = 2.2; glitchT = Math.max(glitchT, .6); sfxAll("GLITCH");
   switch (ev) {
     case 0: fakeT = 10; spawnNear(frand() < .5 ? E.BULL : E.BEAR, 2); manipulate((frand() < .5 ? -1 : 1) * (2 + frand() * 2), 20, L("ALGO-9000: FAKE NEWS SPREAD!", "ALGO-9000: FAKE NEWS GESTREUT!")); break;
     case 1: crashT = 8; manipulate(-5, 15, "ALGO-9000: FLASH CRASH!"); break;
-    case 2: spawnNear(E.BOT, 2 + rnd() % 2); manipulate(-1.5 - frand(), 20, L("ALGO-9000: TRADING BOTS ACTIVE", "ALGO-9000: TRADING-BOTS AKTIV")); break;
+    case 2: spawnBots(2 + rnd() % 2); manipulate(-1.5 - frand(), 20, L("ALGO-9000: TRADING BOTS ACTIVE", "ALGO-9000: TRADING-BOTS AKTIV")); break;
     case 3: spawnNear(E.BUBBLE, 3); manipulate(4, 24, "ALGO-9000: PUMP & DUMP!"); dumpAt = 12; break;
     case 4: glitchT = 4; invertT = 3; manipulate((frand() < .5 ? -1 : 1) * 4, 15, L("ALGO-9000: SYSTEM MANIPULATED!", "ALGO-9000: SYSTEM MANIPULIERT!")); break;
     default:
-      enemies.forEach(e => { if (e.alive && (e.type === E.BULL || e.type === E.BEAR)) { e.str *= 1.2; e.awake = true; } });
+      enemies.forEach(e => { if (e.alive && (e.type === E.BULL || e.type === E.BEAR)) { e.str = Math.min(e.str * 1.2, 1.92); e.awake = true; } });
       spawnNear(E.BULL, 1); spawnNear(E.BEAR, 1); manipulate(realChg < 0 ? -3 : 3, 20, L("ALGO-9000: BULLS & BEARS ENRAGED", "ALGO-9000: BULLEN & BÄREN AUFGEHETZT"));
   }
   buildTicker();
@@ -1301,10 +1326,10 @@ function meleeHit(e, dmgP, dmgE, why) {
 }
 function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * bearRage; e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1));   // Gesamttakt hoechstens x2 e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
   unstick(e, e.type === E.SHARK ? .35 : .25);
-  const spd = (crashT > 0 ? 1.4 : 1) * bearRage, animal = e.f === F.BULL || e.f === F.BEAR;
+  const spd = Math.min(1.6, (crashT > 0 ? 1.4 : 1) * bearRage), animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
   if (!animal) t = nearestPlayer(e, 40, false);
@@ -1319,11 +1344,20 @@ function updateEnemy(e, dt) {
     const fo = d < (TYPES[e.type].boss ? 30 : 12) ? fireOrigin(e, tx, ty) : null, los = !!fo;   // Bosse schiessen ueber die ganze Karte zurueck
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
-      case E.SHARK:
-        if (d > 3 || !los) chase(e, t, 1.2, dt, .35);
+      case E.SHARK: {
+        if (!e.halfDone && e.hp < e.maxhp / 2) { e.halfDone = true; e.orb = 1; sayAll("MARGIN CALL!", 2); sfxAll("ROAR"); }   // Phase 2
+        if (e.halfDone && los && d < 7 && d > 1.5) {   // Phase 2: umkreist den Spieler auf 3–5 Feldern
+          const want = d < 3 ? -1 : d > 5 ? 1 : 0, sp = (EZ() ? 1.4 : 1.8) * dt;
+          if (!moveEntity(e, (nx * want - ny * .8 * e.orb) * sp, (ny * want + nx * .8 * e.orb) * sp, .35)) e.orb = -e.orb;
+        } else if (d > 3 || !los || d < 1.5) chase(e, t, 1.4, dt, .35);   // aus der Naehe ran zum Biss
         if (d < .9 && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1; damagePlayer(t, 20, L("HOSTILE TAKEOVER!", "FEINDLICHE ÜBERNAHME!")); }
-        if (los && e.cd <= 0) { e.cd = 1.3; e.attackAnim = .4; for (let k = -1; k <= 1; k++) spawnProj(fo[0], fo[1], fo[2] + k * .18, 4, 10, F.NEUTRAL, S.PROJ); sfxNear("ZAP", e.x, e.y, 12); }
+        if (los && e.cd <= 0 && d >= 1.5) {   // unter 1,5 Feldern nur Biss, keine Salve
+          e.attackAnim = .4; sfxNear("ZAP", e.x, e.y, 12);
+          if (e.halfDone) { e.cd = 1.5; for (let k = -2; k <= 2; k++) spawnProj(fo[0], fo[1], fo[2] + k * .14, 4, 10, F.NEUTRAL, S.PROJ); }
+          else { e.cd = 1.3; for (let k = -1; k <= 1; k++) spawnProj(fo[0], fo[1], fo[2] + k * .18, 4, 10, F.NEUTRAL, S.PROJ); }
+        }
         return;
+      }
       case E.BARON:
         if (d > 4.5 || !los) chase(e, t, 1, dt); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
         if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], fo[2], 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
@@ -1343,8 +1377,12 @@ function updateEnemy(e, dt) {
       case E.ALGO:
         e.spawnCd -= dt;
         if (los && e.cd <= 0) { e.cd = 1.2; e.attackAnim = .5; for (let k = -2; k <= 2; k++) spawnProj(fo[0], fo[1], fo[2] + k * .14, 5, 8, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 14); }
-        if (e.spawnCd <= 0) { e.spawnCd = 8; spawnNear(E.BOT, 2); }
-        if (!e.halfDone && e.hp < e.maxhp / 2) { e.halfDone = true; aiEvent(1); }
+        if (e.spawnCd <= 0) { e.spawnCd = 8; spawnBots(2, e); }
+        if (!e.halfDone && e.hp < e.maxhp / 2) {
+          e.halfDone = true;
+          if (crashT > 0) crashT = Math.min(crashT + 3, 10); else aiEvent(1);
+          aiT = Math.max(aiT, crashT + 6);   // kein Zufallsereignis direkt hinterher
+        }
         return;
     }
     return;
@@ -1365,7 +1403,10 @@ function updateEnemy(e, dt) {
       if (e.chargeT > 0) {
         e.chargeT -= dt;
         if (!moveEntity(e, e.mdx * 5 * dt, e.mdy * 5 * dt, .25)) e.chargeT = 0;
-        if (d < .75) { e.chargeT = 0; e.cd = 1; meleeHit(e, 15, 3, hitMsg); }
+        if (d < .75 && !(e.stampede && t.isPlayer && t.stampHitT > 0)) {   // Stampede: nach einem Treffer trampeln die anderen durch
+          e.chargeT = 0; e.cd = 1; meleeHit(e, 15, 3, hitMsg);
+          if (e.stampede && t.isPlayer) t.stampHitT = .7;
+        }
       } else if (d > .75) {
         chase(e, t, 1.3 * spd, dt);
         if (e.chargeCd <= 0 && d > 1.5 && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
@@ -2120,7 +2161,11 @@ function onKeyPress(k) {
       else if (isBound("pause", k) || k === "enter" || k === "Escape") { if (k !== "Escape" || pauseAge() > .4) { state = ST.PLAY; lockMouse(); } }
       break;
     case ST.LEVELDONE:
-      if (k === "enter" && isHost()) { loadLevel(level + 1); if (!HC()) players.forEach(p => p.ammo = Math.max(p.ammo, 15)); state = ST.PLAY; fireCd = .4; lockMouse(); }
+      if (k === "enter" && isHost()) {
+        loadLevel(level + 1);
+        players.forEach(p => { if (HC()) p.hp = Math.max(p.hp, 35); else { p.ammo = Math.max(p.ammo, 20); p.hp = Math.max(p.hp, 40); } });   // geschafftes Level lohnt sich
+        state = ST.PLAY; fireCd = .4; lockMouse();
+      }
       break;
     case ST.ROUNDEND:
       if (k === "enter" && isHost()) { nextRound(); lockMouse(); }
@@ -2128,7 +2173,7 @@ function onKeyPress(k) {
       break;
     case ST.DEAD:
       if (HC() || outOfLives()) { if (k === "enter" || k === "h") finishRun(false); }   // Hardcore bzw. alle Leben weg: kein neuer Kredit
-      else if (k === "enter") { me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
+      else if (k === "enter") { me.score = Math.max(0, me.score - deathPenalty); deathPenalty = 0; me.hp = 100; me.ammo = Math.max(me.ammo, 30); loadLevel(level); state = ST.PLAY; fireCd = .4; lockMouse(); }
       else if (k === "h") finishRun(false);   // aufgeben: Lauf endet, Highscore eintragen
       break;
     case ST.CREDITS:
@@ -2236,6 +2281,7 @@ function updateGame(dt) {
   // ---- ab hier: Solo oder Host
   for (const pl of players) {
     pl.slowT -= dt;
+    if (pl.stampHitT > 0) pl.stampHitT -= dt;
     if (pl.dead && isMP()) { pl.respawnT -= dt; if (pl.respawnT <= 0) respawnPlayer(pl); }
   }
   checkExit();
@@ -2295,7 +2341,10 @@ function updateGame(dt) {
     }
   }
   aiT -= dt;
-  if (aiT <= 0) { aiT = (level === NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (HC() ? .7 : 1); aiEvent(); }
+  if (aiT <= 0) {
+    if (crashT > 0) aiT = crashT + 1;   // waehrend eines Flash Crash kein weiteres Ereignis
+    else { aiT = (level === NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (HC() ? .7 : 1); aiEvent(); }
+  }
 
   for (const p of projs) {
     if (!p.active) continue;
@@ -2517,6 +2566,7 @@ function renderWeapon() {
 // genauso laeuft es auf dem Cardputer). Die Insel liegt auf dem normalen 20x20-Raster: Wasser ist fuer Bewegung,
 // Baeren und Schuesse eine Wand, so funktionieren Kollision, Gegner-KI und Schiessen unveraendert.
 const ISLE_TIME = 45, ISLE_COINS = 42, ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
+let isleCoinsPlaced = ISLE_COINS;   // tatsaechlich ausgelegte Muenzen (falls die Insel weniger Platz bietet)
 const ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 15;   // Hoehengitter -6..26, Sichtweite in Feldern
 let island = false, islandDone = false, isleAll = false, isleT = 0, isleCoins = 0, isleSpawnT = 0, isleCashT = 0, isleResult = "";
 let creditsT = 0;
@@ -2609,7 +2659,8 @@ function startIsland() {
   px = 10.5; py = sy - .5; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
   const taken = isleBuildObjects();
-  for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); }
+  isleCoinsPlaced = 0;
+  for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); isleCoinsPlaced++; }
   for (let k = 0; k < (HC() ? 2 : 3); k++) { const c = isleFreeCell(4, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 0, active: true }); }   // vereinzelt Munition
   for (let k = 0; k < (HC() ? 10 : 8); k++) { const c = isleFreeCell(6); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
   state = ST.PLAY; fireCd = .4; musicStart(6); lockMouse();
@@ -2683,12 +2734,12 @@ function updateIsland(dt) {
     isleCashT = (HC() ? 14 : 10) + frand() * 4;
     if (items.filter(i => i.active && i.type === 0).length < 2) { const c = isleFreeCell(5); if (c) items.push({ x: c[0], y: c[1], type: 0, active: true }); }
   }
-  if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
+  if (isleCoins >= isleCoinsPlaced) endIsland(L("ALL COINS – TAX-FREE FORTUNE!", "ALLE MÜNZEN – STEUERFREIES VERMÖGEN!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP – THE TAX INSPECTORS ARE HERE", "ZEIT UM – DIE STEUERFAHNDUNG IST DA"), false);
 }
 function islandCoin(pl) {
   isleCoins++; addScore(pl, ISLE_COIN_PTS);
-  sayTo(pl, `GOLD ${isleCoins}/${ISLE_COINS}  ·  ${L("TAX-FREE", "STEUERFREI")} +$${ISLE_COIN_PTS}`, 1.2);
+  sayTo(pl, `GOLD ${isleCoins}/${isleCoinsPlaced}  ·  ${L("TAX-FREE", "STEUERFREI")} +$${ISLE_COIN_PTS}`, 1.2);
   if (pl.local) pickT = .25;
   sfxTo(pl, "COINS");
 }
@@ -3058,11 +3109,11 @@ function renderHUD() {
     const tl = Math.max(0, Math.ceil(isleT)), warn = isleT < 15, blink = warn && Math.floor(gameTime * 4) % 2;
     g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(DW - 196, 68, 182, 72);
     text(`⏱ ${fmtTime(tl)}`, DW - 24, 72, blink ? "#ffffff" : warn ? "#ff3c3c" : "#ffd232", 38, "right");
-    text(`GOLD ${isleCoins}/${ISLE_COINS}`, DW - 24, 116, "#ffc828", 18, "right");
+    text(`GOLD ${isleCoins}/${isleCoinsPlaced}`, DW - 24, 116, "#ffc828", 18, "right");
     const bx = 560, bw = 380;
     g.fillStyle = "#3a3010"; g.fillRect(bx, HUD_Y + 36, bw, 14);
-    g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / ISLE_COINS, 14);
-    text(`GOLD ${isleCoins}/${ISLE_COINS}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`${L("PIRATES", "PIRATEN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
+    g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / isleCoinsPlaced, 14);
+    text(`GOLD ${isleCoins}/${isleCoinsPlaced}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`${L("PIRATES", "PIRATEN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
     text(`☀ ${L("TAX HAVEN", "STEUEROASE")}  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ${L("ALL COINS", "ALLE MÜNZEN")} = +$${ISLE_ALL_BONUS.toLocaleString(LOC())}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
   } else {
     const bx = 560, bw = 380, tot = bullsAlive + bearsAlive, gw2 = tot ? bw * bullsAlive / tot : bw / 2;
@@ -3320,7 +3371,7 @@ function renderEnd(title, sub, col, bull) {
   if (!isMP() && state === ST.DEAD) {
     if (HC() || outOfLives()) zoneButton(320, 378, 320, 40, L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN"), "#ffd232", "enter", 18);
     else {
-      zoneButton(180, 378, 290, 40, L("[ENTER] NEW LOAN", "[ENTER] NEUER KREDIT"), "#50ff82", "enter", 16);
+      zoneButton(180, 378, 290, 40, deathPenalty ? L(`[ENTER] NEW LOAN (−$${deathPenalty.toLocaleString(LOC())})`, `[ENTER] NEUER KREDIT (−$${deathPenalty.toLocaleString(LOC())})`) : L("[ENTER] NEW LOAN", "[ENTER] NEUER KREDIT"), "#50ff82", "enter", 15);
       zoneButton(490, 378, 290, 40, L("[H] GIVE UP & HIGHSCORE", "[H] AUFGEBEN & HIGHSCORE"), "#ffd232", "h", 16);
     }
   } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, islandDone ? L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#ffd232", "enter", 18);
@@ -4231,7 +4282,7 @@ function frame(now) {
     case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) creditsDone(); break;
     case ST.OUTRO: gameTime += dt; outroT += dt; renderOutro(dt); if (outroT > OUTRO_LEN) state = ST.WIN; break;
     case ST.WIN: gameTime += dt;
-      if (islandDone) { renderEnd(L("TAX HAVEN", "STEUEROASE"), `${isleResult}  ·  Gold ${isleCoins}/${ISLE_COINS}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString(LOC())}` : ""}`, "#ffd232", true); break; }
+      if (islandDone) { renderEnd(L("TAX HAVEN", "STEUEROASE"), `${isleResult}  ·  Gold ${isleCoins}/${isleCoinsPlaced}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString(LOC())}` : ""}`, "#ffd232", true); break; }
       renderEnd(L("BULL MARKET!", "BULLENMARKT!"), me.winBonus ? L(`ALGO-9000 defeated – bull market bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " incl. clean sheet"}`, `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " inkl. weißer Weste"}`) : L("ALGO-9000 defeated – the market is free", "ALGO-9000 besiegt – der Markt ist frei"), "#ffd232", true);
       break;
   }

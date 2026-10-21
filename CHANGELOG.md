@@ -2,6 +2,23 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.27.0 – Balancing update (2026-10-22)
+
+Result of a thorough balancing review. The high score lists are kept.
+
+- **Fairer hardcore:** enemies have 1.4× instead of 1.8× health (a bear takes 4 instead of 6 hits). Moving to the next level gives an emergency loan of at least 35 % portfolio. Damage, speed, one life and 1.5× points stay.
+- **Clearing a level pays off:** in normal and easy the next level starts with at least 40 % portfolio and 20 cash.
+- **Stampede:** only one bull per herd hits you, the others trample through. The herd needs at least 6 cells of run-up, so there is time to dodge.
+- **ALGO-9000:** at most 6 trading bots at once (easy 4, co-op +2 per extra player); summoned bots appear near the boss and give half points. After the flash crash at half health the next event doesn't follow immediately.
+- **Hedge fund shark:** up close it only bites instead of firing a deadly volley at point-blank range. From half health on it gets serious: "MARGIN CALL!" – it circles you and fires fans of five shots.
+- **No more runaway spikes:** "bulls & bears enraged" stacks to strength 1.92 at most; attack rate (oil, hardcore, bear market) at most twice as fast; the bear pack in a crash attacks in turns.
+- **Level 1:** ALGO events there are milder (no inverted controls, no flash crash).
+- **Bankruptcy in normal:** the 25 % is only deducted when you take the new loan (now shown on the button). Game over or giving up keeps your full score.
+- **Boss points** are paid in full once per level; beating the boss again after dying gives 10 %.
+- **Multiplayer:** players who were dead at a level or round change no longer start with 0 % portfolio (co-op 60 %, team/deathmatch 100 % and 30 cash).
+- **Simulated quotes** (without live data) are calmer and stay the same during a run.
+- **Cardputer:** all changes too; in addition a bankruptcy now costs 25 % instead of half, hardcore also counts the level exit and pickups 1.5×, the flash crash no longer comes too early in easy, a shot no longer costs cash when there is no free slot for the banknote, and the tax haven coin target is always right.
+
 ## Version 3.26.3 – Bosses fire back at long range (2026-10-22)
 
 - **Bug fix:** from far away (more than 12 cells) you could shoot ALGO-9000 and the hedge fund shark safely, because they only fired back at short range. Bosses now fire back across the whole map as soon as they have a clear line of sight. On the Cardputer too.

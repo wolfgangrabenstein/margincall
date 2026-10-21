@@ -2,6 +2,23 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.27.0 – Balancing-Update (22.10.2026)
+
+Ergebnis einer gründlichen Balancing-Prüfung. Die Bestenlisten bleiben bestehen.
+
+- **Hardcore fairer:** Gegner haben nur noch 1,4-fache statt 1,8-fache Energie (ein Bär braucht 4 statt 6 Treffer). Beim Levelwechsel gibt es einen Notkredit auf mindestens 35 % Depot. Schaden, Tempo, ein Leben und 1,5-fache Punkte bleiben.
+- **Geschaffte Level lohnen sich:** In Normal und Einfach startet das nächste Level mit mindestens 40 % Depot und 20 Cash.
+- **Stampede:** Pro Herde trifft dich nur noch ein Bulle, die anderen trampeln durch. Die Herde braucht mindestens 6 Felder Anlauf, damit Zeit zum Ausweichen bleibt.
+- **ALGO-9000:** Höchstens 6 Trading-Bots gleichzeitig (Einfach 4, im Koop +2 je Mitspieler); gerufene Bots erscheinen beim Boss und bringen halbe Punkte. Nach dem Flash Crash bei halber Energie folgt nicht sofort das nächste Ereignis.
+- **Hedgefonds-Hai:** Aus der Nähe beißt er nur noch statt aus kurzer Distanz eine tödliche Salve zu feuern. Ab halber Energie wird es ernst: „MARGIN CALL!“ – er umkreist dich und feuert Fächer aus fünf Schüssen.
+- **Keine unbegrenzten Spitzen mehr:** „Bullen & Bären aufgehetzt“ stapelt sich höchstens bis Stärke 1,92; Angriffstakt (Öl, Hardcore, Bärenmarkt) höchstens doppelt so schnell; das Bärenrudel im Börsencrash greift gestaffelt an.
+- **Level 1:** Die ALGO-Ereignisse sind dort harmloser (keine Steuerungsumkehr, kein Flash Crash).
+- **Insolvenz in Normal:** Die 25 % werden erst beim neuen Kredit abgezogen (steht jetzt auf dem Knopf). Bei Game Over oder Aufgeben bleibt der volle Punktestand.
+- **Boss-Punkte** gibt es pro Level nur einmal voll; wer nach einem Tod den Boss erneut besiegt, bekommt 10 %.
+- **Multiplayer:** Wer beim Level- oder Rundenwechsel gerade tot war, startet nicht mehr mit 0 % Depot (Koop 60 %, Team/Deathmatch 100 % und 30 Cash).
+- **Simulierte Kurse** (ohne Live-Daten) sind ruhiger und bleiben während eines Laufs gleich.
+- **Cardputer:** alle Änderungen ebenfalls; zusätzlich kostet eine Insolvenz dort jetzt 25 % statt der Hälfte, Hardcore zählt auch Levelausgang und Pickups 1,5-fach, der Flash Crash kommt in Einfach nicht mehr zu früh, ein Schuss kostet kein Cash mehr, wenn gerade kein Platz für den Geldschein frei ist, und in der Steueroase stimmt das Münzziel immer.
+
 ## Version 3.26.3 – Bosse schießen auch auf Distanz zurück (22.10.2026)
 
 - **Fehler behoben:** Aus großer Entfernung (mehr als 12 Felder) konnte man ALGO-9000 und den Hedgefonds-Hai gefahrlos beschießen, weil sie nur auf kurze Distanz zurückfeuerten. Bosse schießen jetzt über die ganze Karte zurück, sobald sie freie Sicht haben. Auch am Cardputer.

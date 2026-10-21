@@ -34,7 +34,7 @@ void marketsSimulate() {
     float v = base[m] * (0.97f + 0.06f * (esp_random() % 1000) / 1000.0f);
     k.prev = v;
     k.n = 78;
-    float drift = ((int)(esp_random() % 2001) - 1000) / 1000.0f * 0.0004f;
+    float drift = ((int)(esp_random() % 2001) - 1000) / 1000.0f * 0.0002f;
     for (int i = 0; i < k.n; i++) {
       v *= 1.0f + drift + ((int)(esp_random() % 2001) - 1000) / 1000.0f * 0.0015f;
       k.series[i] = v;

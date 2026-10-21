@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.26.3"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.27.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -664,12 +664,13 @@ struct Enemy {
   int8_t pir;       // Piratentyp in der Steueroase (-1 = keiner)
   int16_t target;   // -1 = Spieler, -2 = keins, sonst Index
   uint8_t role; bool alert; float gx, gy, delay, alertT;   // Piraten: 0 Jaeger, 2 Waechter (bewacht den Schatz bei gx/gy)
+  bool stampede, summoned; int8_t orb;   // Stampede-Bulle, vom Boss gerufener Bot, Kreisrichtung des Hais in Phase 2
 };
 struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; };   // slide > 0: schlittert gerade (Boersencrash)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
 static constexpr uint8_t F_SHOT = 9;   // Geldschein aus der Waffe des Spielers
 
-static constexpr int MAX_E = 48, MAX_I = 48, MAX_P = 32;
+static constexpr int MAX_E = 48, MAX_I = 48, MAX_P = 40;
 static Enemy enemies[MAX_E]; static int nEnemies;
 static Item items[MAX_I];    static int nItems;
 static Proj projs[MAX_P];
@@ -690,6 +691,7 @@ static float levelChg, oilChg, pBullBase, momentum, replayT;
 static int replayIdx;
 static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // Marktphasen: 1 = Bullrun, -1 = Baerenmarkt. sentiment steigt mit erlegten Baeren, faellt mit erlegten Bullen; echter Kurs = Grundstimmung
+static float stampHitT;   // Schutz nach einem Stampede-Treffer
 static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, bearHintAt;
 static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
@@ -804,7 +806,7 @@ static int spawnEnemy(uint8_t type, float x, float y) {
   e.x = x; e.y = y; e.type = type; e.faction = TYPES[type].faction;
   e.alive = true; e.target = -2; e.pir = -1;
   e.str = type == E_BULL ? animalStrength(true) : (type == E_BEAR ? animalStrength(false) : 1.0f);
-  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.8f : easy ? 0.7f : 1.0f));
+  e.hp = (int16_t)roundf(TYPES[type].hp * e.str * (hardcore ? 1.4f : easy ? 0.7f : 1.0f));
   e.cd = 1.0f + frand(); e.anim = frand() * 6; e.think = frand() * 0.4f;
   e.spawnCd = 6;
   float a = frand() * 6.283f; e.mdx = cosf(a); e.mdy = sinf(a);
@@ -860,6 +862,27 @@ static bool findHiddenCell(float& ox, float& oy, float minDist) {
 static void spawnAnimal(bool bull) {
   float x, y;
   if (findHiddenCell(x, y, 5)) spawnEnemy(bull ? E_BULL : E_BEAR, x, y);
+}
+static bool lineOfSight(float x0, float y0, float x1, float y1);
+static void spawnBots(int count, int bossIdx = -1) {   // Trading-Bots mit Obergrenze; vom Boss gerufene erscheinen bei ihm und zaehlen halb
+  int alive = 0; for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && enemies[i].type == E_BOT) alive++;
+  int n = min(count, (easy ? 4 : 6) - alive);
+  for (int k = 0; k < n; k++) {
+    float x = 0, y = 0; bool ok = false;
+    if (bossIdx >= 0) {
+      const Enemy& b = enemies[bossIdx];
+      for (int t = 0; t < 40 && !ok; t++) {
+        int cx = (int)b.x + (int)(rnd() % 13) - 6, cy = (int)b.y + (int)(rnd() % 13) - 6; float fx = cx + 0.5f, fy = cy + 0.5f;
+        float d = sqrtf((fx - b.x) * (fx - b.x) + (fy - b.y) * (fy - b.y));
+        if (d < 2.5f || d > 6 || solidCell(cx, cy) || lineOfSight(fx, fy, px, py)) continue;
+        x = fx; y = fy; ok = true;
+      }
+    }
+    if (!ok) ok = findHiddenCell(x, y, 3.5f);
+    if (!ok) continue;
+    int i = spawnEnemy(E_BOT, x, y); if (i < 0) continue;
+    if (bossIdx >= 0) { const Enemy& b = enemies[bossIdx]; enemies[i].summoned = true; enemies[i].awake = (b.x - px) * (b.x - px) + (b.y - py) * (b.y - py) < 100; }
+  }
 }
 static void spawnNear(uint8_t type, int count) {
   for (int k = 0; k < count; k++) { float x, y; if (findHiddenCell(x, y, 3.5f)) spawnEnemy(type, x, y); }
@@ -972,7 +995,8 @@ static void loadLevel(int lv) {
 }
 
 // Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
-static void newGame() { rngState = esp_random() | 1; hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; island = islandDone = false; loadLevel(0); }
+static uint8_t bossPaid;   // Bit je Level: Boss-Punkte schon kassiert
+static void newGame() { marketsSimulate(); bossPaid = 0; rngState = esp_random() | 1; hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; island = islandDone = false; loadLevel(0); }
 
 static bool freeAt(float x, float y, float r) {
   return !solidCell((int)(x - r), (int)(y - r)) && !solidCell((int)(x + r), (int)(y - r)) &&
@@ -1055,6 +1079,8 @@ static void damagePlayer(int d, const char* why) {
 
 static void spawnProj(float x, float y, float ang, float spd, uint8_t dmg, uint8_t faction, uint8_t spr) {
   if (hardcore) spd *= 1.3f; else if (easy) spd *= 0.85f;
+  int used = 0; for (auto& p : projs) if (p.active) used++;
+  if (used >= MAX_P - 6) return;   // die letzten Plaetze bleiben fuer die Schuesse des Spielers
   for (auto& p : projs) if (!p.active) { p = {x, y, cosf(ang) * spd, sinf(ang) * spd, true, dmg, faction, spr}; return; }
 }
 
@@ -1078,7 +1104,8 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     kills++;
     if (!island && phaseT <= 0) moveSentiment(e, 1.0f);
     const bool shortGain = bearMkt() && e.faction == F_BEAR;
-    int pts = (int)(ti.pts * (bullRun() ? 1.5f : 1.0f) * (shortGain ? 2 : 1));
+    int pts = (int)(ti.pts * (bullRun() ? 1.5f : 1.0f) * (shortGain ? 2 : 1) * (e.summoned ? 0.5f : 1.0f));
+    if (ti.boss) { if (bossPaid & (1 << level)) pts /= 10; else bossPaid |= 1 << level; }   // nach einem Tod gibt es den Boss nur noch mit 10 %
     pnl += hardcore ? pts * 3 / 2 : pts;
     char b[48];
     if (shortGain && !ti.boss) { snprintf(b, sizeof(b), L("SHORT GAIN +%d", "SHORT-GEWINN +%d"), pts); say(b); }
@@ -1101,7 +1128,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     if (ti.boss) { bool other = false; for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && isBoss(enemies[i])) other = true; if (!other) dropKey(e.x, e.y); }
     else if (!levelHasBoss && byPlayer && ++keyKills >= keyNeed) dropKey(e.x, e.y);
   }
-  float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : 0.38f) : 0.22f;
+  float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : e.summoned ? 0.25f : 0.38f) : 0.22f;
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f) * (bullRun() ? 2.0f : bearMkt() ? 0.5f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
 }
@@ -1114,7 +1141,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
     int bx = (int)px + o[0], by = (int)py + o[1]; if (solidCell(bx, by)) continue;
     for (auto& d : DIR) {
       int n = 0; while (n < 14 && !solidCell(bx + d[0] * (n + 1), by + d[1] * (n + 1))) n++;
-      if (n >= 4 && n > best) { best = n; bdx = d[0]; bdy = d[1]; cx = bx; cy = by; }
+      if (n >= 6 && n > best) { best = n; bdx = d[0]; bdy = d[1]; cx = bx; cy = by; }
     }
   }
   if (!best) return false;
@@ -1122,7 +1149,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
   for (int k = 0; k < 4; k++) {
     int i = spawnEnemy(E_BULL, sx - bdx * (k % 2) * 0.5f + bdy * (k < 2 ? -0.2f : 0.2f), sy - bdy * (k % 2) * 0.5f + bdx * (k < 2 ? -0.2f : 0.2f));
     if (i < 0) continue;
-    Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f;
+    Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f; e.stampede = true;
   }
   say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL);
   return true;
@@ -1130,7 +1157,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
 static void marketCrash() {   // Boden bebt, Baerenrudel, Bargeld schlittert weg
   quakeT = 1.3f; sfxPlay(SFX_ID_ROAR);
   float x, y;
-  if (findHiddenCell(x, y, 5)) for (int k = 0; k < 3; k++) { int i = spawnEnemy(E_BEAR, x + (k - 1) * 0.35f, y); if (i >= 0) enemies[i].awake = true; }
+  if (findHiddenCell(x, y, 5)) for (int k = 0; k < 3; k++) { int i = spawnEnemy(E_BEAR, x + (k - 1) * 0.35f, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; } }   // Rudel greift gestaffelt an
   for (int i = 0; i < nItems; i++) {
     Item& it = items[i];
     if (!it.active || it.type != 0 || it.slide > 0) continue;
@@ -1187,17 +1214,18 @@ static void manipulate(float chg, float t, const char* what) {
   say(b, 2.5f);
 }
 static void aiEvent(int forced = -1) {
-  int ev = forced >= 0 ? forced : rnd() % 6;
+  static const uint8_t EASY_EV[3] = {0, 2, 3};
+  int ev = forced >= 0 ? forced : level == 0 ? EASY_EV[rnd() % 3] : rnd() % 6;   // Level 1: nur die harmloseren Ereignisse
   aiFaceT = 2.2f; glitchT = max(glitchT, 0.6f);
   sfxPlay(SFX_ID_GLITCH);
   switch (ev) {
     case 0: fakeT = 10; spawnNear(frand() < 0.5f ? E_BULL : E_BEAR, 2); manipulate((frand() < 0.5f ? -1 : 1) * (2 + frand() * 2), 20, "FAKE NEWS!"); break;
     case 1: crashT = 8; manipulate(-5, 15, "FLASH CRASH!"); break;
-    case 2: spawnNear(E_BOT, 2 + rnd() % 2); manipulate(-1.5f - frand(), 20, L("BOTS ACTIVE", "BOTS AKTIV")); break;
+    case 2: spawnBots(2 + rnd() % 2); manipulate(-1.5f - frand(), 20, L("BOTS ACTIVE", "BOTS AKTIV")); break;
     case 3: spawnNear(E_BUBBLE, 3); manipulate(4, 24, "PUMP & DUMP!"); dumpAt = 12; break;
     case 4: glitchT = 4; invertT = 3; manipulate((frand() < 0.5f ? -1 : 1) * 4, 15, L("MANIPULATED!", "MANIPULIERT!")); break;
     default:
-      for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && (enemies[i].type == E_BULL || enemies[i].type == E_BEAR)) { enemies[i].str *= 1.2f; enemies[i].awake = true; }
+      for (int i = 0; i < nEnemies; i++) if (enemies[i].alive && (enemies[i].type == E_BULL || enemies[i].type == E_BEAR)) { enemies[i].str = fminf(enemies[i].str * 1.2f, 1.92f); enemies[i].awake = true; }
       spawnNear(E_BULL, 1); spawnNear(E_BEAR, 1);
       manipulate(realChg < 0 ? -3 : 3, 20, L("ENRAGED!", "AUFGEHETZT!"));
       break;
@@ -1215,7 +1243,7 @@ static void tryMove(float mx, float my) {
       if (msgT <= 0) { char b[48]; snprintf(b, sizeof(b), L("VAULT LOCKED - NEED THE %s KEYCARD", "TRESOR ZU - DU BRAUCHST DIE %s KEYCARD"), L(KEY_EN[level % 5], KEY_DE[level % 5])); say(b, 1.5f); sfxPlay(SFX_ID_DECLINED); }
     }
     else {
-      state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += 500 + hp * 5;
+      state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += hardcore ? (500 + hp * 5) * 3 / 2 : 500 + hp * 5;
       if (state == ST_WIN) {   // Bullenmarkt-Bonus: 10.000 + 25 % des P&L + 5.000 ohne Tod, Hardcore x1,5
         winBonus = 10000 + pnl / 4 + (deaths ? 0 : 5000);
         if (hardcore) winBonus = winBonus * 3 / 2;
@@ -1231,9 +1259,11 @@ static void tryMove(float mx, float my) {
 static void shoot() {
   if (fireCd > 0) return;
   if (ammo <= 0) { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITAET! HOL DIR ETWAS BARGELD"), 1.2f); fireCd = 0.4f; sfxPlay(SFX_ID_DECLINED); return; }
+  Proj* slot = nullptr; for (auto& p : projs) if (!p.active) { slot = &p; break; }
+  if (!slot) { fireCd = 0.1f; return; }   // kein freier Platz: kein Schuss und auch kein Cash weg
   ammo--; fireCd = 0.28f; flashT = 0.12f; sfxPlay(SFX_ID_SHOT);
   // die Kanone feuert einen Geldschein ab; Schaden gibt es erst, wenn er trifft
-  for (auto& p : projs) if (!p.active) { p = {px + dirX * 0.3f, py + dirY * 0.3f, dirX * 13, dirY * 13, true, 2, F_SHOT, S_NOTE}; break; }
+  *slot = {px + dirX * 0.3f, py + dirY * 0.3f, dirX * 13, dirY * 13, true, 2, F_SHOT, S_NOTE};
 }
 static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teilschritten, damit er duenne Gegner nicht ueberspringt
   for (int k = 0; k < 2 && p.active; k++) {
@@ -1277,10 +1307,10 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
   const float bearRage = bearMkt() && e.faction == F_BEAR ? 1.3f : 1.0f;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * bearRage; e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f));   // Gesamttakt hoechstens x2 e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
-  const float spdMul = (crashT > 0 ? 1.4f : 1.0f) * bearRage;
+  const float spdMul = min(1.6f, (crashT > 0 ? 1.4f : 1.0f) * bearRage);
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
 
   if (animal && e.think <= 0) { e.think = 0.4f; chooseTarget(e, idx); if (e.target != -2) e.awake = true; }
@@ -1307,12 +1337,16 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         else if (d < 2.2f) moveEntity(e.x, e.y, -nx * 0.9f * dt, -ny * 0.9f * dt, 0.25f);
         break;
       case E_SHARK:
-        if (d > 3.0f || !los) chase(e.x, e.y, tx, ty, toPl, 1.2f, dt, 0.35f);
+        if (!e.halfDone && e.hp * 2 < (int)roundf(TYPES[E_SHARK].hp * (hardcore ? 1.4f : easy ? 0.7f : 1.0f))) { e.halfDone = true; e.orb = 1; say("MARGIN CALL!", 2); sfxPlay(SFX_ID_ROAR); }   // Phase 2
+        if (e.halfDone && los && d < 7 && d > 1.5f) {   // Phase 2: umkreist den Spieler auf 3-5 Feldern
+          float want = d < 3 ? -1.0f : d > 5 ? 1.0f : 0.0f, sp = (easy ? 1.4f : 1.8f) * dt;
+          if (!moveEntity(e.x, e.y, (nx * want - ny * 0.8f * e.orb) * sp, (ny * want + nx * 0.8f * e.orb) * sp, 0.35f)) e.orb = -e.orb;
+        } else if (d > 3.0f || !los || d < 1.5f) chase(e.x, e.y, tx, ty, toPl, 1.4f, dt, 0.35f);   // aus der Naehe ran zum Biss
         if (d < 0.9f && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.0f; damagePlayer(20, L("HOSTILE TAKEOVER!", "FEINDLICHE UEBERNAHME!")); }
-        if (los && e.cd <= 0) {
-          e.cd = 1.3f; e.attackAnim = 0.4f;
-          for (int k = -1; k <= 1; k++) spawnProj(fx, fy, fa + k * 0.18f, 4.0f, 10, F_NEUTRAL, S_PROJ);
-          sfxNear(SFX_ID_ZAP, e.x, e.y, 12);
+        if (los && e.cd <= 0 && d >= 1.5f) {   // unter 1,5 Feldern nur Biss, keine Salve
+          e.attackAnim = 0.4f; sfxNear(SFX_ID_ZAP, e.x, e.y, 12);
+          if (e.halfDone) { e.cd = 1.5f; for (int k = -2; k <= 2; k++) spawnProj(fx, fy, fa + k * 0.14f, 4.0f, 10, F_NEUTRAL, S_PROJ); }
+          else { e.cd = 1.3f; for (int k = -1; k <= 1; k++) spawnProj(fx, fy, fa + k * 0.18f, 4.0f, 10, F_NEUTRAL, S_PROJ); }
         }
         return;
       case E_BARON:
@@ -1347,8 +1381,12 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
           for (int k = -2; k <= 2; k++) spawnProj(fx, fy, fa + k * 0.14f, 5.0f, 8, F_AI, S_LASER);
           sfxPlay(SFX_ID_LASER);
         }
-        if (e.spawnCd <= 0) { e.spawnCd = 8; spawnNear(E_BOT, 2); }
-        if (!e.halfDone && e.hp < TYPES[E_ALGO].hp * (hardcore ? 0.9f : 0.5f)) { e.halfDone = true; aiEvent(1); }
+        if (e.spawnCd <= 0) { e.spawnCd = 8; spawnBots(2, idx); }
+        if (!e.halfDone && e.hp < TYPES[E_ALGO].hp * (hardcore ? 0.7f : easy ? 0.35f : 0.5f)) {   // halbe HP (Modusfaktor 1,4 / 0,7 / 1)
+          e.halfDone = true;
+          if (crashT > 0) crashT = min(crashT + 3.0f, 10.0f); else aiEvent(1);
+          aiT = max(aiT, crashT + 6);   // kein Zufallsereignis direkt hinterher
+        }
         return;
       default: break;
     }
@@ -1385,7 +1423,10 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       if (e.chargeT > 0) {   // Sturmangriff
         e.chargeT -= dt;
         if (!moveEntity(e.x, e.y, e.mdx * 5.0f * dt, e.mdy * 5.0f * dt, 0.25f)) e.chargeT = 0;
-        if (d < 0.75f) { e.chargeT = 0; e.cd = 1.0f; meleeHit(e, e.target, 15, 3, hitMsg); }
+        if (d < 0.75f && !(e.stampede && e.target == -1 && stampHitT > 0)) {   // Stampede: nach einem Treffer trampeln die anderen durch
+          e.chargeT = 0; e.cd = 1.0f; meleeHit(e, e.target, 15, 3, hitMsg);
+          if (e.stampede && e.target == -1) stampHitT = 0.7f;
+        }
       } else if (d > 0.75f) {
         chase(e.x, e.y, tx, ty, toPl, 1.3f * spdMul, dt);
         if (e.chargeCd <= 0 && d > 1.5f && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
@@ -1427,7 +1468,7 @@ static void centerText(const char* s, int y, int size, uint16_t col);
 static constexpr int ISLE_TIME = 45, ISLE_COINS = 42, ISLE_MIN = -6, ISLE_N = 33, ISLE_R = 10;
 static constexpr long ISLE_COIN_PTS = 500, ISLE_ALL_BONUS = 10000;
 static float isleT, isleSpawnT, isleCashT, creditsT;
-static int isleCoins;
+static int isleCoins, isleCoinsPlaced = ISLE_COINS;   // ausgelegte Muenzen (falls weniger Platz ist)
 static const char* isleResult = "";
 static float isleV[ISLE_N * ISLE_N];
 struct IsleTri { float v[9]; uint8_t r, g, b, deco; };   // deco: Aufkleber, wird immer nach der Flaeche dahinter gezeichnet
@@ -1455,7 +1496,7 @@ static bool isleFreeCell(float minDist, bool avoid, float& ox, float& oy) {
     int x = 1 + rnd() % (MAP_W - 2), y = 1 + rnd() % (MAP_H - 2); float cx = x + 0.5f, cy = y + 0.5f;
     if (world[y][x] != '.' || sqrtf(dist2Player(cx, cy)) < minDist) continue;
     bool bad = false;
-    if (avoid) for (int k = 0; k < nIsleTaken; k++) if (fabsf(isleTaken[k][0] - cx) + fabsf(isleTaken[k][1] - cy) < 1.2f) bad = true;
+    if (avoid) for (int k = 0; k < nIsleTaken; k++) { float ex = isleTaken[k][0] - cx, ey = isleTaken[k][1] - cy; if (ex * ex + ey * ey < 1.0f) bad = true; }
     if (bad) continue;
     ox = cx; oy = cy; return true;
   }
@@ -1601,9 +1642,10 @@ static void startIsland() {
   px = 10.5f; py = sy - 0.5f; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
   hp = 100; ammo = min(99, ammo + 20); histN = 0;
   isleBuildObjects();
+  isleCoinsPlaced = 0;
   for (int k = 0; k < ISLE_COINS; k++) {
     float x, y; if (!isleFreeCell(2.5f, true, x, y) || nItems >= MAX_I) break;
-    isleTake(x, y); items[nItems++] = {x, y, 2, true, false};
+    isleTake(x, y); items[nItems++] = {x, y, 2, true, false}; isleCoinsPlaced++;
   }
   for (int k = 0; k < (hardcore ? 2 : 3); k++) { float x, y; if (isleFreeCell(4, true, x, y)) { isleTake(x, y); dropItem(x, y, 0); } }   // vereinzelt Munition
   for (int k = 0; k < (hardcore ? 10 : 8); k++) { float x, y; if (isleFreeCell(6, false, x, y)) { int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { makePirate(enemies[i]); enemies[i].awake = true; } } }
@@ -1751,7 +1793,7 @@ static void endIsland(const char* msg, bool all) {
 }
 static void islandCoin() {
   isleCoins++; pnl += hardcore ? ISLE_COIN_PTS * 3 / 2 : ISLE_COIN_PTS;
-  char b[48]; snprintf(b, sizeof(b), "GOLD %d/%d - %s", isleCoins, ISLE_COINS, L("TAX-FREE!", "STEUERFREI!")); say(b, 1.2f);
+  char b[48]; snprintf(b, sizeof(b), "GOLD %d/%d - %s", isleCoins, isleCoinsPlaced, L("TAX-FREE!", "STEUERFREI!")); say(b, 1.2f);
   pickT = 0.25f; sfxPlay(SFX_ID_COINS);
 }
 static void updateIsland(float dt) {
@@ -1776,7 +1818,7 @@ static void updateIsland(float dt) {
     int cash = 0; for (int i = 0; i < nItems; i++) if (items[i].active && items[i].type == 0) cash++;
     float x, y; if (cash < 2 && isleFreeCell(5, false, x, y)) dropItem(x, y, 0);
   }
-  if (isleCoins >= ISLE_COINS) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
+  if (isleCoins >= isleCoinsPlaced) endIsland(L("ALL COINS - TAX-FREE!", "ALLE MUENZEN - STEUERFREI!"), true);
   else if (isleT <= 0) endIsland(L("TIME'S UP - TAX INSPECTORS!", "ZEIT UM - DIE STEUERFAHNDUNG KOMMT"), false);
 }
 
@@ -1945,7 +1987,7 @@ static void updateGame(float dt) {
   gameTime += dt;
   musicSetPanic(hp > 0 && hp < 30);
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; slowT -= dt;
-  aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt; quakeT -= dt;
+  aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt; quakeT -= dt; stampHitT -= dt;
   musicSetMood(bullRun() ? 112 : bearMkt() ? 90 : 100);   // Bullrun schnellere, Baerenmarkt langsamere Musik
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || ((int)(gameTime * 4) % 2)) buildTicker(); }
   if (manipT > 0) {
@@ -2025,7 +2067,7 @@ static void updateGame(float dt) {
     }
     if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + (hardcore ? 7 : 10)); say(hardcore ? "CASHFLOW +7" : "CASHFLOW +10", 1.2f); }
     else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? L("DIVIDEND PAID +15%", "DIVIDENDE AUSGESCHUETTET +15%") : L("DIVIDEND PAID +20%", "DIVIDENDE AUSGESCHUETTET +20%"), 1.2f); }
-    it.active = false; pickT = 0.25f; pnl += 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
+    it.active = false; pickT = 0.25f; pnl += hardcore ? 37 : 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
   }
 
   if (island) { updateIsland(dt); return; }
@@ -2075,7 +2117,10 @@ static void updateGame(float dt) {
 
   // KI-Ereignisse
   aiT -= dt;
-  if (aiT <= 0) { aiT = (level == NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (hardcore ? 0.7f : 1.0f); aiEvent(); }
+  if (aiT <= 0) {
+    if (crashT > 0) aiT = crashT + 1;   // waehrend eines Flash Crash kein weiteres Ereignis
+    else { aiT = (level == NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (hardcore ? 0.7f : 1.0f); aiEvent(); }
+  }
 
   // Projektile
   for (auto& p : projs) {
@@ -2630,8 +2675,8 @@ void loop() {
       if (island) {   // HUD in der Steueroase: Gold und Zeit statt Bullen/Baeren und Kurs
         canvas.fillRect(146, VH + 10, SW - 146, 17, c565(8, 12, 26));
         canvas.fillRect(148, VH + 12, 88, 5, c565(58, 48, 16));
-        canvas.fillRect(148, VH + 12, 88 * isleCoins / ISLE_COINS, 5, c565(255, 200, 40));
-        char b[24]; snprintf(b, sizeof(b), "GOLD %d/%d %d:%02d", isleCoins, ISLE_COINS, (int)max(0.0f, isleT) / 60, (int)max(0.0f, isleT) % 60);
+        canvas.fillRect(148, VH + 12, 88 * isleCoins / max(1, isleCoinsPlaced), 5, c565(255, 200, 40));
+        char b[24]; snprintf(b, sizeof(b), "GOLD %d/%d %d:%02d", isleCoins, isleCoinsPlaced, (int)max(0.0f, isleT) / 60, (int)max(0.0f, isleT) % 60);
         canvas.setTextSize(1); canvas.setTextDatum(top_left); canvas.setTextColor(isleT < 15 ? c565(255, 80, 80) : c565(255, 210, 50));
         canvas.drawString(b, 148, VH + 19);
         // grosser Timer oben rechts im Bild, in den letzten 15 s rot blinkend
@@ -2642,7 +2687,7 @@ void loop() {
         canvas.setTextColor(isleT < 15 ? (((int)(gameTime * 4) % 2) ? c565(255, 255, 255) : c565(255, 60, 60)) : c565(255, 210, 50));
         canvas.drawString(b, SW - 5, 25);
         canvas.setTextSize(1); canvas.setTextColor(c565(255, 200, 40));
-        snprintf(b, sizeof(b), "GOLD %d/%d", isleCoins, ISLE_COINS); canvas.drawString(b, SW - 5, 43);
+        snprintf(b, sizeof(b), "GOLD %d/%d", isleCoins, isleCoinsPlaced); canvas.drawString(b, SW - 5, 43);
         canvas.setTextDatum(top_left);
       }
       break;
@@ -2659,7 +2704,7 @@ void loop() {
       if (enterHit) {
         level++;
         if (marketsAgeMs() > 120000) fetchMarketsNow();
-        loadLevel(level); if (!hardcore) ammo = max(ammo, 15); state = ST_PLAY; fireCd = 0.4f;
+        loadLevel(level); if (hardcore) hp = max(hp, 35); else { ammo = max(ammo, 20); hp = max(hp, 40); } state = ST_PLAY; fireCd = 0.4f;
       }
       break;
     case ST_DEAD:
@@ -2672,13 +2717,13 @@ void loop() {
         if (easy) snprintf(sub, sizeof(sub), "%s", L("YOUR PORTFOLIO HIT ZERO", "DEIN DEPOT IST AUF NULL"));
         else snprintf(sub, sizeof(sub), L("BANKRUPT - %d %s LEFT", "PLEITE - NOCH %d %s"), SOLO_LIVES - deaths, SOLO_LIVES - deaths == 1 ? L("LIFE", "LEBEN") : L("LIVES", "LEBEN"));
         renderEndScreen(L("BANKRUPT", "INSOLVENZ"), sub, c565(255, 60, 60), false);
-        if (enterHit) { hp = 100; ammo = max(ammo, 30); pnl = pnl / 2; loadLevel(level); state = ST_PLAY; fireCd = 0.4f; }
+        if (enterHit) { long pen = pnl > 0 ? min(pnl, max(500L, pnl / 4)) : 0; pnl -= pen; hp = 100; ammo = max(ammo, 30); loadLevel(level); state = ST_PLAY; fireCd = 0.4f; }
       }
       break;
     case ST_WIN:
       gameTime += dt;
       if (islandDone) {   // Auswertung der Steueroase
-        char sub[48]; snprintf(sub, sizeof(sub), "%s %d/%d", isleAll ? L("ALL THE GOLD!", "ALLES GOLD!") : "GOLD", isleCoins, ISLE_COINS);
+        char sub[48]; snprintf(sub, sizeof(sub), "%s %d/%d", isleAll ? L("ALL THE GOLD!", "ALLES GOLD!") : "GOLD", isleCoins, isleCoinsPlaced);
         renderEndScreen(L("TAX HAVEN", "STEUEROASE"), isleResult, c565(255, 210, 50), true);
         centerText(sub, 88, 1, c565(255, 210, 50));
         if (enterHit) { state = ST_TITLE; musicStart(); }
