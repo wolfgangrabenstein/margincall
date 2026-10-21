@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.25.1";
+const APP_VERSION = "3.25.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1638,9 +1638,9 @@ function bindLabel(k) {
 const bindText = a => settings.binds[a].filter(Boolean).map(bindLabel).join("/") || "–";
 function updateHint() {
   document.getElementById("hint").textContent =
-    L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindText("pause")} pause · ` +
+    L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindLabel(settings.binds.pause.find(Boolean) || "p")} pause · ` +
       `${bindText("music")} music · 2× direction dodge · H highscores · O options · T chat · Tab stats · F4 fullscreen · L language`,
-    `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindText("pause")} Pause · ` +
+    `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindLabel(settings.binds.pause.find(Boolean) || "p")} Pause · ` +
       `${bindText("music")} Musik · 2× Richtung Ausweichen · H Highscores · O Optionen · T Chat · Tab Statistik · F4 Vollbild · L Sprache`);
 }
 

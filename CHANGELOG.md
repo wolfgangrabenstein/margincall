@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.25.2 – Key hint line without Esc (2026-10-21)
+
+- **Key hint line:** pause now shows just "P pause" instead of "P/ESC pause". Esc still pauses but is no longer advertised, because in browsers it also leaves fullscreen.
+
 ## Version 3.25.1 – Market phase texts (2026-10-21)
 
 - **Reworked texts:** bull run banner "🐂 BULLRUN! MORE CASH · 1.5× POINTS", bear market banner "🐻 STOCK MARKET CRASH!", stampede warning "WATCH OUT, BULLRUN!" – on the Cardputer too.

@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.25.2 – Tastenzeile ohne Esc (21.10.2026)
+
+- **Tastenzeile:** zeigt bei Pause nur noch „P Pause“ statt „P/ESC Pause“. Esc pausiert weiterhin, wird aber nicht mehr angezeigt, weil es im Browser auch das Vollbild beendet.
+
 ## Version 3.25.1 – Texte der Marktphasen (21.10.2026)
 
 - **Texte überarbeitet:** Bullrun-Banner „🐂 BULLRUN! MEHR BARGELD · 1,5-FACHE PUNKTE“, Bärenmarkt-Banner „🐻 BÖRSENCRASH!“, Stampede-Warnung „VORSICHT, BULLRUN!“ – auch am Cardputer.
