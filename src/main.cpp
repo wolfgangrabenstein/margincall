@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.26.2"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.26.3"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1299,7 +1299,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
 
   if (!animal) {
     float fx = e.x, fy = e.y, fa = ang;
-    bool los = d < 12 && fireOrigin(e, px, py, fx, fy, fa);
+    bool los = d < (TYPES[e.type].boss ? 30 : 12) && fireOrigin(e, px, py, fx, fy, fa);   // Bosse schiessen ueber die ganze Karte zurueck
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
       case E_SELLER:

@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.26.3 – Bosse schießen auch auf Distanz zurück (22.10.2026)
+
+- **Fehler behoben:** Aus großer Entfernung (mehr als 12 Felder) konnte man ALGO-9000 und den Hedgefonds-Hai gefahrlos beschießen, weil sie nur auf kurze Distanz zurückfeuerten. Bosse schießen jetzt über die ganze Karte zurück, sobald sie freie Sicht haben. Auch am Cardputer.
+
 ## Version 3.26.2 – Bullrun und Börsencrash leichter auslösbar (21.10.2026)
 
 - **Marktphasen schneller erreichbar:** In Level 1 (wenige Gegner) genügen netto 3 Abschüsse einer Seite, in den übrigen Levels 5 (bisher etwa 9).

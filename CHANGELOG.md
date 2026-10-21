@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.26.3 – Bosses fire back at long range (2026-10-22)
+
+- **Bug fix:** from far away (more than 12 cells) you could shoot ALGO-9000 and the hedge fund shark safely, because they only fired back at short range. Bosses now fire back across the whole map as soon as they have a clear line of sight. On the Cardputer too.
+
 ## Version 3.26.2 – Bull run and crash easier to trigger (2026-10-21)
 
 - **Market phases reached sooner:** in level 1 (few enemies) a net 3 kills of one side are enough, in the other levels 5 (previously about 9).

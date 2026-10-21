@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.26.2";
+const APP_VERSION = "3.26.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1316,7 +1316,7 @@ function updateEnemy(e, dt) {
   const tx = t.x, ty = t.y, dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, nx = dx / d, ny = dy / d, ang = Math.atan2(dy, dx);
 
   if (!animal) {
-    const fo = d < 12 ? fireOrigin(e, tx, ty) : null, los = !!fo;
+    const fo = d < (TYPES[e.type].boss ? 30 : 12) ? fireOrigin(e, tx, ty) : null, los = !!fo;   // Bosse schiessen ueber die ganze Karte zurueck
     if (!e.awake) { if (los && d < 9) e.awake = true; else return; }
     switch (e.type) {
       case E.SHARK:
