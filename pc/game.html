@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.23.0";
+const APP_VERSION = "3.23.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1425,7 +1425,8 @@ function quitGame() {
     try { window.close(); } catch (e) { }
     setTimeout(() => {
       if (document.hidden) return;
-      if (document.referrer && history.length > 1) { history.back(); setTimeout(() => { if (!document.hidden) state = ST.BYE; }, 400); }
+      // Browser lassen nur selbst geoeffnete Tabs schliessen: sonst eine Seite zurueck (dorthin, woher man kam)
+      if (history.length > 1) { history.back(); setTimeout(() => { if (!document.hidden) state = ST.BYE; }, 700); }
       else state = ST.BYE;
     }, 250);
     return;
@@ -1688,9 +1689,9 @@ function renderOptions() {
     }
   });
   const help = COARSE ? L("Tap a row to change it · tap a box to set a slider", "Zeile antippen zum Ändern · auf ein Kästchen tippen für den Regler")
-    : optPage === "main" ? L("↑↓ select · ←→ change value · ENTER/click change · ESC back", "↑↓ wählen · ←→ Wert ändern · ENTER/Klick ändern · ESC zurück")
+    : optPage === "main" ? L("↑↓ select · ←→ change value · ENTER/click change · B back", "↑↓ wählen · ←→ Wert ändern · ENTER/Klick ändern · B zurück")
     : optWaiting ? L("Press a new key or mouse button · ESC cancels", "Neue Taste oder Maustaste drücken · ESC bricht ab")
-    : L("↑↓ select · ←→ column/value · ENTER/click change · DEL clear · ESC back", "↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · ESC zurück");
+    : L("↑↓ select · ←→ column/value · ENTER/click change · DEL clear · B back", "↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · B zurück");
   text(help, DW / 2, DH - 32, "#8290b0", 15, "center");
   if (optMsgT > 0) text(optMsg, DW / 2, DH - 56, "#50ff82", 16, "center");
 }
@@ -1854,7 +1855,12 @@ kbd.addEventListener("keydown", e => {
 });
 // F4: Vollbild an/aus. In der App schaltet das Fenster selbst um (Adresse wird von der App abgefangen).
 function toggleFullscreen() { setFullscreen(!fsOn); }
+// Textfeld aktiv? Dann ist B ein Buchstabe, sonst die Zurueck-Taste der Menues
+const typingText = () => !!edit || (chatTyping && (state === ST.LOBBY || state === ST.PLAY)) || state === ST.NAMEENTRY
+  || (state === ST.ONLINE && codeAsk) || (state === ST.JOIN && joinText.length > 0);
+const pauseKey = () => bindLabel(settings.binds.pause.find(Boolean) || "p");
 function onKeyPress(k) {
+  if (k === "b" && state !== ST.PLAY && !typingText() && !(state === ST.OPTIONS && optWaiting)) k = "Escape";   // B = Zurueck (Esc geht weiterhin)
   audioUnlock();
   if (k === "F4" && !(state === ST.OPTIONS && optWaiting)) { toggleFullscreen(); return; }
   if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "q") quitGame(); return; }
@@ -1881,9 +1887,9 @@ function onKeyPress(k) {
     return;
   }
   if (state === ST.TITLE && quitAsk) {
-    // Auswahl mit Pfeiltasten, ENTER bestaetigt die Auswahl; Q (nochmal) beendet, N/ESC brechen ab
+    // Auswahl mit Pfeiltasten, ENTER bestaetigt die Auswahl; Y (bzw. J) beendet, N bricht ab
     if (["ArrowLeft", "ArrowRight", "a", "d", "Tab"].includes(k)) { quitSel = k === "ArrowLeft" || k === "a" ? 0 : k === "ArrowRight" || k === "d" ? 1 : 1 - quitSel; sfx("HIT"); }
-    else if (k === "q" || k === "quit:yes" || ((k === "enter" || k === " ") && quitSel === 0)) { quitAsk = false; quitGame(); }
+    else if (k === "y" || k === "j" || k === "quit:yes" || ((k === "enter" || k === " ") && quitSel === 0)) { quitAsk = false; quitGame(); }
     else if (k === "n" || k === "Escape" || k === "quit:no" || k === "enter" || k === " ") quitAsk = false;
     return;
   }
@@ -2938,7 +2944,7 @@ function renderHUD() {
     const shown = chatText.length > 58 ? "…" + chatText.slice(-57) : chatText;
     text("CHAT:", 134, 79, "#50c8ff", 15);
     text(shown + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), 190, 78, "#ffffff", 17);
-    text(L("ENTER send · ESC cancel", "ENTER senden · ESC abbrechen"), DW - 134, 112, "#8290b0", 12, "right");
+    text(L("ENTER send (empty = cancel)", "ENTER senden (leer = abbrechen)"), DW - 134, 112, "#8290b0", 12, "right");
   }
   if (me.dead) {
     g.fillStyle = "rgba(60,0,0,.55)"; g.fillRect(0, 26, DW, HUD_Y - 26);
@@ -3022,7 +3028,7 @@ function renderLobby() {
     zoneButton(bx, by + bh + 6, bw, 24, L("[Y] COPY CODE", "[Y] CODE KOPIEREN"), "#ffd232", "y", 13);
     text(net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE", "ONLINE · PRIVAT"), bx + bw / 2, by + bh + 36, net.pub ? "#50c8ff" : "#c890ff", 12, "center");
   }
-  if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDE MIT SPIEL-SERVER …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16); return; }
+  if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDE MIT SPIEL-SERVER …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16); return; }
   const host = isHost();
   const list = host ? lobbyPlayers() : lobbyInfo;
   const modeIdx = lobbyMode;
@@ -3094,7 +3100,7 @@ function renderLobby() {
     zoneButton(150, 442, 210, 36, r ? L("✔ READY ([E] UNDO)", "✔ BEREIT ([E] ZURÜCK)") : L("[E] READY", "[E] BEREIT"), r ? "#50ff82" : "#ffd232", "e", 15);
   }
   zoneButton(375, 442, 210, 36, L("⚙ [S] MATCH SETTINGS", "⚙ [S] MATCH-EINSTELLUNGEN"), "#50c8ff", "s", 13);
-  zoneButton(600, 442, 210, 36, L("[ESC] LEAVE", "[ESC] VERLASSEN"), "#ff7050", "Escape", 15);
+  zoneButton(600, 442, 210, 36, L("[B] LEAVE", "[B] VERLASSEN"), "#ff7050", "Escape", 15);
   if (matchSetOpen) renderMatchSettings(host);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
   text(net.online ? (net.pub ? L(`Others find your game under ONLINE PLAY – or join with code ${net.code}`, `Mitspieler finden dein Spiel unter ONLINE SPIELEN – oder treten mit Code ${net.code} bei`)
@@ -3118,7 +3124,7 @@ function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Kno
   const ffVal = lobbyFF ? L("ON", "AN") : L("OFF", "AUS"), ffCol = lobbyFF ? "#ff7050" : "#50ff82";
   if (host) zoneButton(530, 282, 210, 34, `[F] ${ffVal}`, ffCol, "f", 16); else text(ffVal, 635, 290, ffCol, 18, "center");
   text(L("On: teammates (team/co-op) can be hit – team kills give nothing.", "An: Teamkollegen (Team/Koop) treffbar – Teamkills bringen nichts."), DW / 2, 326, "#a0a0b4", 13, "center");
-  zoneButton(380, 382, 200, 38, L("[ESC] DONE", "[ESC] FERTIG"), "#50c8ff", "Escape", 16);
+  zoneButton(380, 382, 200, 38, L("[B] DONE", "[B] FERTIG"), "#50c8ff", "Escape", 16);
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
@@ -3608,7 +3614,7 @@ function renderNameEntry() {
   // Jeder Upload braucht diesen ausdruecklich beschrifteten Knopf (SignPath: nur auf ausdruecklichen Wunsch uebertragen)
   const up = onlineOn() && ONLINE_HS_URL;
   zoneButton(170, 366, 380, 40, up ? L("[ENTER] SAVE & POST ONLINE", "[ENTER] SPEICHERN & ONLINE STELLEN") : local ? L("[ENTER] SAVE LOCALLY", "[ENTER] LOKAL SPEICHERN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#50ff82", "enter", 16);
-  zoneButton(570, 366, 220, 40, L("[ESC] SKIP", "[ESC] OHNE NAMEN"), "#8290b0", "Escape");
+  zoneButton(570, 366, 220, 40, L("SKIP", "OHNE NAMEN"), "#8290b0", "Escape");
   text(CREDITS, DW / 2, 440, "#6b7896", 13, "center");
 }
 function renderHighscores() {
@@ -3649,7 +3655,7 @@ function renderHighscores() {
     else if (!onlineOn()) text(L("Online submission is off – turn it on in the options or after a run.", "Online-Eintrag ist aus – einschalten im Optionsmenü oder nach einem Lauf."), 140, 424, "#6b7896", 12);
   }
   if (hsNote) text(hsNote, DW / 2, 430, "#ff7050", 14, "center");
-  zoneButton(250, 452, 220, 38, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(250, 452, 220, 38, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
   zoneButton(490, 452, 220, 38, [L("[X] TO ☠ HARDCORE", "[X] ZU ☠ HARDCORE"), L("[X] TO ♥ EASY", "[X] ZU ♥ EINFACH"), L("[X] TO NORMAL", "[X] ZU NORMAL")][hsMode], ["#ff5050", "#50c8ff", "#ffd232"][hsMode], "x", 16);
 }
 
@@ -3675,7 +3681,7 @@ function renderEdit() {
   text(edit.value + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), DW / 2, 238, "#ffffff", 24, "center");
   text(L(`up to ${edit.max} characters · leave empty = default`, `bis ${edit.max} Zeichen · leer lassen = Standard`), DW / 2, 280, "#6b7896", 13, "center");
   zoneButton(260, 310, 210, 40, L("[ENTER] SAVE", "[ENTER] SPEICHERN"), "#50ff82", "enter", 16);
-  zoneButton(490, 310, 210, 40, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#8290b0", "Escape", 16);
+  zoneButton(490, 310, 210, 40, L("CANCEL", "ABBRECHEN"), "#8290b0", "Escape", 16);
 }
 function editNick() {
   openEdit(L("YOUR NICKNAME", "DEIN NICKNAME"), settings.nickname || "", 15, v => {
@@ -3701,7 +3707,7 @@ function renderMpChoice() {
   text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 300, "#a0a0b4", 14, "center");
   zoneButton(300, 332, 360, 40, L("[O] ONLINE PLAY", "[O] ONLINE SPIELEN"), "#ffd232", "o", 22);
   text(L("Over the internet – public games or private ones with a code", "Übers Internet – öffentliche Spiele oder private mit Code"), DW / 2, 378, "#a0a0b4", 14, "center");
-  zoneButton(390, 440, 180, 34, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(390, 440, 180, 34, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
 }
 // ---------------------------------------------------------------- Online-Multiplayer (Cloudflare)
 // Ein Raum beim MARGIN-CALL-Server leitet die Nachrichten weiter wie der eingebaute Server im LAN; der Host rechnet das Spiel.
@@ -3765,7 +3771,7 @@ function renderOnlineAsk() {
     L("You can withdraw your consent anytime under [O] OPTIONS → “Online multiplayer”.", "Du kannst die Zustimmung jederzeit unter [O] OPTIONEN → „Online-Multiplayer“ zurückziehen."),
   ].forEach((l, i) => text(l, DW / 2, 132 + i * 28, i < 4 ? "#dcdce6" : "#a0a0b4", 16, "center"));
   zoneButton(160, 372, 310, 44, L("[ENTER] I AGREE", "[ENTER] EINVERSTANDEN"), "#50ff82", "enter");
-  zoneButton(490, 372, 310, 44, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#a0a0b4", "Escape");
+  zoneButton(490, 372, 310, 44, L("[N] CANCEL", "[N] ABBRECHEN"), "#a0a0b4", "Escape");
   text(L("Cloudflare privacy policy: cloudflare.com/privacypolicy", "Datenschutzhinweise von Cloudflare: cloudflare.com/de-de/privacypolicy"), DW / 2, 450, "#6b7896", 13, "center");
 }
 function renderOnline() {
@@ -3788,7 +3794,7 @@ function renderOnline() {
     const label = (r.name || "?") + (r.host ? "  ·  " + r.host : "") + "  ·  " + modeName(r.mode | 0) + "  ·  " + r.players + "/4";
     zoneButton(150, y, DW - 300, 30, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "room:" + i, 15);
   });
-  zoneButton(390, 456, 180, 36, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(390, 456, 180, 36, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
   text(L("Version", "Version") + " " + APP_VERSION, DW - 130, 488, "#4a5672", 12, "right");
   if (codeAsk) {   // Dialog: Code eines privaten Spiels eingeben
     g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
@@ -3802,7 +3808,7 @@ function renderOnline() {
       zone(x, 222, 60, 70, "codefield");
     }
     zoneButton(270, 322, 200, 40, L("[ENTER] JOIN", "[ENTER] BEITRETEN"), codeText.length === 5 ? "#50ff82" : "#3a5a44", "enter", 16);
-    zoneButton(490, 322, 200, 40, L("[ESC] CANCEL", "[ESC] ABBRECHEN"), "#8290b0", "Escape", 16);
+    zoneButton(490, 322, 200, 40, L("CANCEL", "ABBRECHEN"), "#8290b0", "Escape", 16);
     if (COARSE) text(L("Tap a field to open the keyboard", "Tippe auf ein Feld für die Tastatur"), DW / 2, 376, "#6b7896", 12, "center");
   }
 }
@@ -3827,7 +3833,7 @@ function renderJoin() {
   g.strokeStyle = joinText ? "#50ff82" : "#2a3656"; g.lineWidth = 2; g.strokeRect(170, 374, DW - 340, 40);
   text((joinText || (Math.floor(gameTime * 3) % 2 ? "" : "z. B. 192.168.1.20:8080")) + (joinText && Math.floor(gameTime * 3) % 2 ? "▌" : ""), 182, 384, joinText ? "#ffffff" : "#4a5672", 20);
   zoneButton(250, 434, 220, 40, L("[ENTER] CONNECT", "[ENTER] VERBINDEN"), "#50ff82", "enter");
-  zoneButton(490, 434, 220, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape");
+  zoneButton(490, 434, 220, 40, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape");
 }
 function joinTo(addr) {
   const host = addr.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -3882,7 +3888,7 @@ function renderSoloAsk() {
   col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives,", "unbegrenzt Leben,"), L("own highscore list", "eigene Highscore-Liste")], "#b4dcf0");
   col(380, "[ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives –`, `${SOLO_LIVES} Leben –`), L("broke? A new loan", "pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
   col(590, "☠  [X] HARDCORE", "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
-  zoneButton(380, 362, 200, 40, L("[ESC] BACK", "[ESC] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(380, 362, 200, 40, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
 }
 let creditsMenu = false;   // Abspann aus dem Hauptmenue: danach zurueck ins Menue statt in die Steueroase
 function startMenuCredits() { creditsMenu = true; creditsT = 0; state = ST.CREDITS; musicStart(); }
@@ -3891,7 +3897,7 @@ function renderQuitAsk() {
   g.fillStyle = "rgba(0,0,0,.75)"; g.fillRect(0, 0, DW, DH);
   g.fillStyle = "#000"; g.fillRect(250, 180, 460, 150); g.strokeStyle = "#ff7050"; g.lineWidth = 2; g.strokeRect(250, 180, 460, 150);
   text(L("QUIT THE GAME?", "SPIEL WIRKLICH BEENDEN?"), DW / 2, 202, "#ffd232", 26, "center");
-  [[272, L("[Q] QUIT", "[Q] BEENDEN"), "#ff7050", "quit:yes"], [488, L("[N] CANCEL", "[N] ABBRECHEN"), "#50ff82", "quit:no"]].forEach(([x, label, col, key], i) => {
+  [[272, L("[Y] QUIT", "[Y] BEENDEN"), "#ff7050", "quit:yes"], [488, L("[N] CANCEL", "[N] ABBRECHEN"), "#50ff82", "quit:no"]].forEach(([x, label, col, key], i) => {
     if (i === quitSel) { g.fillStyle = i ? "rgba(80,255,130,.18)" : "rgba(255,112,80,.18)"; g.fillRect(x - 4, 256, 208, 52); g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(x - 4, 256, 208, 52); }
     zoneButton(x, 260, 200, 44, (i === quitSel ? "▶ " : "") + label, col, key, 17);
   });
@@ -3903,7 +3909,7 @@ function renderMpMenu() {
   text(L("The game keeps running!", "Das Spiel läuft weiter!"), DW / 2, 202, "#ff7050", 16, "center");
   zoneButton(268, 226, 205, 34, L("[L] LEAVE", "[L] VERLASSEN"), "#ffffff", "l", 16);
   zoneButton(487, 226, 205, 34, L("[Q] MAIN MENU", "[Q] HAUPTMENÜ"), "#ff7050", "q", 16);
-  zoneButton(368, 268, 224, 30, L("[ESC] BACK TO GAME", "[ESC] ZURÜCK INS SPIEL"), "#8290b0", "Escape", 15);
+  zoneButton(368, 268, 224, 30, L(`[${pauseKey()}] BACK TO GAME`, `[${pauseKey()}] ZURÜCK INS SPIEL`), "#8290b0", "Escape", 15);
 }
 
 // ---------------------------------------------------------------- Statistik-Einblendung (Tab gedrueckt halten)
@@ -4031,7 +4037,7 @@ function frame(now) {
     case ST.PAUSE:
       g.fillStyle = "#000"; g.fillRect(230, 160, 500, 130);
       text(L("TRADING HALTED", "HANDEL AUSGESETZT"), DW / 2, 178, "#ffd232", 28, "center");
-      zoneButton(250, 228, 145, 40, L("[ESC] RESUME", "[ESC] WEITER"), "#50ff82", "Escape", 16);
+      zoneButton(250, 228, 145, 40, L(`[${pauseKey()}] RESUME`, `[${pauseKey()}] WEITER`), "#50ff82", "Escape", 16);
       zoneButton(408, 228, 145, 40, L("[O] OPTIONS", "[O] OPTIONEN"), "#50c8ff", "o", 16);
       zoneButton(566, 228, 145, 40, L("[Q] MAIN MENU", "[Q] HAUPTMENÜ"), "#ff7050", "q", 16);
       break;

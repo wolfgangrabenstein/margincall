@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.23.1 – Menus without Esc, quit with Y/N (2026-10-21)
+
+- **No more Esc hints in menus:** back, cancel and leave are on **B** (like the B button on a controller), resume in the pause menu on **P**, cancel on the online consent screen on **N**. In dialogs with text input (nickname, game name, code, high score name) the buttons just say "Cancel" or "Skip", because B is a letter there; in chat, Enter with empty text cancels. Esc still works everywhere.
+- **Quit the game:** confirm with **Y** (on German keyboards also J), **N** cancels.
+- **Browser:** quitting closes the tab if the browser allows it (for tabs you opened directly). Otherwise it goes back one page – to where you came from – instead of only showing the goodbye screen.
+
 ## Version 3.23.0 – Friendly fire in the match settings (2026-10-19)
 
 - **Friendly fire (new, key F in the match settings):** **off** by default – teammates in team and co-op mode cannot hurt each other. If the host turns it **on**, shots hit your own people too; a team kill gives neither a frag nor points. Nothing changes in deathmatch.

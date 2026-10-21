@@ -12,14 +12,14 @@ No installation needed: **[play MARGIN CALL in the browser](https://wolfgangrabe
 
 ## Downloads
 
-Current version **3.23.0** – click a file and the download starts right away:
+Current version **3.23.1** – click a file and the download starts right away:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.23.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.0/MarginCall-3.23.0-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.23.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.0/MarginCall-3.23.0-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
-| [**MarginCall-3.23.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.0/MarginCall-3.23.0-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.23.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.0/MarginCall-3.23.0-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
+| [**MarginCall-3.23.1-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.1/MarginCall-3.23.1-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.23.1-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.1/MarginCall-3.23.1-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
+| [**MarginCall-3.23.1-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.1/MarginCall-3.23.1-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.23.1-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.23.1/MarginCall-3.23.1-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
 Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md)
 
@@ -57,7 +57,7 @@ MARGIN CALL runs as a small standalone app on Windows, macOS and Linux (Tauri), 
 | Pause | Esc or P |
 | Resume | Esc or P in the pause menu |
 | Back to main menu | Q in the pause menu |
-| Quit | Q in the main menu, then confirm with Enter |
+| Quit | Q in the main menu, then confirm with Y (N cancels) |
 | Play solo: easy, normal or hardcore | Enter in the main menu, then E (easy: weaker enemies, unlimited lives), Enter (normal: 5 lives) or X (hardcore: one life) |
 | Credits | C in the main menu |
 | Language (English/German) | L in the main menu or Options → Language; Cardputer: L on the title screen |

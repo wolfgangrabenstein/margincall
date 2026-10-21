@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.23.1 – Menüs ohne Esc, Beenden mit Y/N (21.10.2026)
+
+- **Keine Esc-Hinweise mehr in den Menüs:** Zurück, Abbrechen und Verlassen liegen auf **B** (wie die B-Taste am Controller), Weiter im Pausenmenü auf **P**, Abbrechen bei der Online-Zustimmung auf **N**. In Dialogen mit Texteingabe (Nickname, Spielname, Code, Highscore-Name) heißen die Knöpfe nur „Abbrechen“ bzw. „Ohne Namen“, weil B dort ein Buchstabe ist; im Chat bricht Enter mit leerem Text ab. Esc funktioniert weiterhin überall.
+- **Spiel beenden:** Die Rückfrage bestätigt man jetzt mit **Y** (auf deutscher Tastatur auch J), **N** bricht ab.
+- **Browser:** Beenden schließt den Tab, wenn der Browser es erlaubt (bei Tabs, die man direkt geöffnet hat). Sonst geht es eine Seite zurück – dorthin, woher man kam – statt nur den Abschiedsbildschirm zu zeigen.
+
 ## Version 3.23.0 – Friendly Fire in den Match-Einstellungen (19.10.2026)
 
 - **Friendly Fire (neu, Taste F in den Match-Einstellungen):** Standardmäßig **aus** – Teamkollegen im Team- und Koop-Modus können sich nicht verletzen. Schaltet der Host es **an**, treffen auch Schüsse auf eigene Leute; ein Teamkill bringt weder Frag noch Punkte. Im Deathmatch ändert sich nichts.
