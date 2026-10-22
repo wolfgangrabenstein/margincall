@@ -700,6 +700,7 @@ static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, b
 // Boersencrash (hoechstens einmal pro Lauf): crashStage 1 Handelsstopp, 2 Crash mit Margin Call, 3 Erholungsrallye.
 // Ausloeser: ueberhitzter Markt (2 Bullruns im Level oder 3 im Lauf) beim naechsten Abschwung, oder echter Kurs mit Live-Daten <= -3 %
 static int crashStage, levelBullruns, runBullruns, coolKills; static float crashStT, crashChg; static long marginDue, marginBase, marginPaid; static bool crashDone, rallySaid;
+static bool canCrash(); static bool overheated();   // unten definiert
 static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
 static inline bool bullRun() { return phase == 1 && phaseT > 0; }
@@ -2436,6 +2437,16 @@ static void renderGlitch() {
   }
 }
 
+// Boersencrash: ganzer Bildschirm blinkt rot, bleibt aber durchsichtig (wie am PC)
+static void renderCrashTint() {
+  if (crashStage != 1 && crashStage != 2) return;
+  float sn = sinf(gameTime * 4), k = crashStage == 1 ? 0.2f : 0.1f + 0.3f * sn * sn;
+  for (int i = 0; i < SW * VH; i++) {
+    uint16_t c = swp(fb[i]); int r = (c >> 11) & 31, g = (c >> 5) & 63, b = c & 31;
+    r += (int)((28 - r) * k); g = (int)(g * (1 - k)); b = (int)(b * (1 - k));
+    fb[i] = swp((max(r, 0) << 11) | (g << 5) | b);
+  }
+}
 static void renderHurt() {   // roter Bildblitz
   if (hurtT <= 0) return;
   float k = min(1.0f, hurtT / 0.35f) * min(1.0f, 0.45f + hurtAmt / 40.0f) * 0.65f;
@@ -2833,7 +2844,7 @@ void loop() {
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
       updateGame(dt);
       if (island) renderIsland(); else { renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
-      renderHurt(); renderWeapon(); renderHUD();
+      renderCrashTint(); renderHurt(); renderWeapon(); renderHUD();
       if (hurtT > 0) { char hb[16]; snprintf(hb, sizeof(hb), "v -%d%%", hurtAmt); centerText(hb, 30 + (int)((0.35f - hurtT) * 60), 2, c565(255, 50, 50)); }
       if (island) {   // HUD in der Steueroase: Gold und Zeit statt Bullen/Baeren und Kurs
         canvas.fillRect(146, VH + 10, SW - 146, 17, c565(8, 12, 26));

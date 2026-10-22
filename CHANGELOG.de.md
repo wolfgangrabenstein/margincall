@@ -12,6 +12,9 @@
   - **Erholungsrallye (12 s):** 1,25-fache Punkte für Abschüsse.
 - **Bärenfalle als Gegenstück zum Bullrun:** Das Bargeld rutscht nicht mehr weg, und es gibt keine verschärfte Knappheit mehr (Drops nur noch leicht reduziert). Neu: In den letzten 4 Sekunden **schnappt die Falle zu**. Alle Bären sind 3 Sekunden benommen und bringen 1,5-fache Punkte. In der Statuszeile heißt die Phase jetzt „Bärenfalle“.
 - **Cardputer:** Börsencrash und Bärenfalle gibt es auch dort, mit rotem Rahmen statt Notbeleuchtung.
+- **Crash gut sichtbar:** Während des Crashs blinkt zusätzlich zum Rand der ganze Bildschirm rot, bleibt aber durchsichtig genug zum Weiterspielen (PC und Cardputer).
+- **Chatverlauf (T):** Unter dem Chatfenster stehen die letzten 6 Nachrichten.
+- **Ereignisverlauf (L):** Zeigt die letzten 10 Meldungen mit Zeitangabe; erneut L oder nach 10 Sekunden schließt ihn. Die Taste ist in den Optionen belegbar (PC und Browser).
 
 ## Version 3.29.0 – Deckung, Hinterhalt und Bärenfalle (22.10.2026)
 

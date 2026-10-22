@@ -695,7 +695,14 @@ function spriteCanvas(idx) {   // Sprite als kleines Canvas (fuer Vorschau in de
 }
 const alivePlayers = () => players.filter(p => !p.dead);
 
-const say = (s, t = 2) => { msg = s; msgT = t; };
+const say = (s, t = 2) => { msg = s; msgT = t; logMsg(s); };
+// Verlaeufe: Chatnachrichten (beginnen mit "» ") und alle anderen Meldungen, jeweils mit Zeitpunkt
+let chatHist = [], eventLog = [], logOpen = false, logUntil = 0;
+function logMsg(s) {
+  const now = performance.now(), list = s.startsWith("» ") ? chatHist : eventLog, last = list[list.length - 1];
+  if (last && last[0] === s && now - last[1] < 1500) return;   // gleiche Meldung kurz hintereinander nur einmal
+  list.push([s, now]); if (list.length > 12) list.shift();
+}
 const dist2P = (x, y) => (x - px) ** 2 + (y - py) ** 2;
 const levelMarket = () => markets[LEVEL_MARKET[level]];
 
@@ -1733,12 +1740,12 @@ function clientSnapshot(m) {
 const ACTIONS = [
   ["fwd", "Forward", "Vorwärts"], ["back", "Backward", "Rückwärts"], ["turnL", "Turn left", "Links drehen"], ["turnR", "Turn right", "Rechts drehen"],
   ["strafeL", "Strafe left", "Seitwärts links"], ["strafeR", "Strafe right", "Seitwärts rechts"], ["fire", "Fire", "Feuern"], ["pause", "Pause", "Pause"], ["music", "Mute music", "Musik stumm"],
-  ["chat", "Chat (multiplayer)", "Chat (Multiplayer)"], ["scores", "Stats (hold)", "Statistik (halten)"],
+  ["chat", "Chat (multiplayer)", "Chat (Multiplayer)"], ["log", "Event log", "Ereignisverlauf"], ["scores", "Stats (hold)", "Statistik (halten)"],
 ];
 const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
-    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], scores: ["Tab", null] },
+    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], log: ["l", null], scores: ["Tab", null] },
   mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en", musicVol: 3, sfxVol: 7,   // Lautstaerke 0-10
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
@@ -1905,9 +1912,9 @@ const bindText = a => settings.binds[a].filter(Boolean).map(bindLabel).join("/")
 function updateHint() {
   document.getElementById("hint").textContent =
     L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindLabel(settings.binds.pause.find(Boolean) || "p")} pause · ` +
-      `${bindText("music")} music · 2× direction dodge · H highscores · O options · T chat · Tab stats · F4 fullscreen · L language`,
+      `${bindText("music")} music · 2× direction dodge · H highscores · O options · ${bindText("chat")} chat · ${bindText("log")} event log · Tab stats · F4 fullscreen · L language (title screen)`,
     `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindLabel(settings.binds.pause.find(Boolean) || "p")} Pause · ` +
-      `${bindText("music")} Musik · 2× Richtung Ausweichen · H Highscores · O Optionen · T Chat · Tab Statistik · F4 Vollbild · L Sprache`);
+      `${bindText("music")} Musik · 2× Richtung Ausweichen · H Highscores · O Optionen · ${bindText("chat")} Chat · ${bindText("log")} Ereignisse · Tab Statistik · F4 Vollbild · L Sprache (Titelbild)`);
 }
 
 // Optionsmenue
@@ -2301,7 +2308,8 @@ function onKeyPress(k) {
       }
       break;
     case ST.PLAY:
-      if ((isMP() || mode === "solo") && isBound("chat", k)) { chatTyping = true; chatText = ""; keys.clear(); break; }
+      if ((isMP() || mode === "solo") && isBound("chat", k)) { chatTyping = true; chatText = ""; keys.clear(); logOpen = false; break; }
+      if (isBound("log", k)) { logOpen = !logOpen; logUntil = performance.now() + 10000; break; }
       dodgeTap(k);
       if (isBound("pause", k)) {
         if (isMP()) mpMenu = true; else state = ST.PAUSE;
@@ -3334,6 +3342,24 @@ function renderHUD() {
     text("CHAT:", 134, 79, "#50c8ff", 15);
     text(shown + (Math.floor(gameTime * 3) % 2 ? "▌" : ""), 190, 78, "#ffffff", 17);
     text(L("ENTER send (empty = cancel)", "ENTER senden (leer = abbrechen)"), DW - 134, 112, "#8290b0", 12, "right");
+    const hist = chatHist.slice(-6);   // die letzten Nachrichten darunter
+    g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(120, 126, DW - 240, 12 + Math.max(1, hist.length) * 20);
+    if (!hist.length) text(L("No messages yet", "Noch keine Nachrichten"), 134, 132, "#6b7896", 14);
+    hist.forEach(([m], i) => text(m.length > 70 ? m.slice(0, 69) + "…" : m, 134, 132 + i * 20, "#dcdce6", 14));
+  }
+  if (logOpen && !chatTyping) {   // Ereignisverlauf (L)
+    if (performance.now() > logUntil) logOpen = false;   // schliesst nach 10 s von selbst
+    const ev = eventLog.slice(-10), now = performance.now();
+    g.fillStyle = "rgba(0,0,0,.8)"; g.fillRect(120, 66, DW - 240, 40 + Math.max(1, ev.length) * 20);
+    g.strokeStyle = "#ffdc3c"; g.lineWidth = 2; g.strokeRect(120, 66, DW - 240, 40 + Math.max(1, ev.length) * 20);
+    text(L("EVENTS", "EREIGNISSE"), 134, 74, "#ffdc3c", 15);
+    text(`[${bindText("log")}] ${L("close", "schließen")}`, DW - 134, 76, "#8290b0", 12, "right");
+    if (!ev.length) text(L("Nothing has happened yet", "Noch nichts passiert"), 134, 100, "#6b7896", 14);
+    ev.forEach(([m, t], i) => {
+      const ago = Math.round((now - t) / 1000);
+      text(ago < 60 ? L(`${ago} s ago`, `vor ${ago} s`) : L(`${Math.floor(ago / 60)} min ago`, `vor ${Math.floor(ago / 60)} min`), 134, 100 + i * 20, "#8290b0", 13);
+      text(m.length > 62 ? m.slice(0, 61) + "…" : m, 234, 100 + i * 20, m.startsWith("ALGO") ? "#ff5050" : "#dcdce6", 14);
+    });
   }
   if (me.dead) {
     g.fillStyle = "rgba(60,0,0,.55)"; g.fillRect(0, 26, DW, HUD_Y - 26);
@@ -4361,7 +4387,8 @@ function renderPlay(dt) {
   if (shx || shy) { g.fillStyle = "#300"; g.fillRect(0, 0, DW, HUD_Y); }
   g.drawImage(low, 0, 0, RW, VH, shx, shy, DW, HUD_Y);
   if (crashStage === 1 || crashStage === 2) {   // Boersencrash: rote Notbeleuchtung, kuerzere Sicht
-    g.fillStyle = `rgba(110,0,0,${crashStage === 1 ? .25 : .32 + .08 * Math.sin(gameTime * 3)})`; g.fillRect(0, 0, DW, HUD_Y);
+    const blink = crashStage === 1 ? .2 : .1 + .3 * Math.sin(gameTime * 4) ** 2;   // ganzer Bildschirm blinkt rot, bleibt aber durchsichtig
+    g.fillStyle = `rgba(230,0,0,${blink})`; g.fillRect(0, 0, DW, HUD_Y);
     const gr = g.createRadialGradient(DW / 2, HUD_Y / 2, HUD_Y * .22, DW / 2, HUD_Y / 2, DW * .62);
     gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,.8)"); g.fillStyle = gr; g.fillRect(0, 0, DW, HUD_Y);
     if (crashStage === 1) text(`${L("TRADING HALT", "HANDELSSTOPP")}  ${Math.ceil(crashStT)}`, DW / 2, 120, "#ff5050", 34, "center");
