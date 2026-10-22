@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.35.3 – Mauszeiger nach der Partie (22.10.2026)
+
+- **Multiplayer:** Kehrte ein Mitspieler im Vollbild nach einer fertigen Partie in die Lobby zurück, blieb sein Mauszeiger unsichtbar, bis er das Vollbild verließ. Die Maus wird jetzt auch bei Mitspielern freigegeben, sobald der Host die Runde beendet.
+
 ## Version 3.35.2 – Ping in der Statistik, Nachschub ohne NPCs (22.10.2026)
 
 - **Multiplayer – Ping:** Die Statistik (Tab) zeigt für jeden Spieler den Ping in Millisekunden: grün unter 80 ms, gelb unter 150 ms, darüber rot. Beim Host steht „HOST“.

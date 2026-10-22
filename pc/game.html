@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.35.2";
+const APP_VERSION = "3.35.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -4783,6 +4783,7 @@ function frame(now) {
     if (state === ST.LOBBY && (lobbyT -= dt) <= 0) { lobbyT = net.online ? 1 : .3; hostSendLobby(); }
   }
   lobbyNoteT -= dt;
+  if (document.pointerLockElement === screen && state !== ST.PLAY) document.exitPointerLock?.();   // Maus freigeben, auch wenn der Host die Runde beendet hat (Mitspieler)
   if (isClient() && (pingT -= dt) <= 0) { pingT = 2; netSend({ t: "ping", ts: performance.now(), rtt: myPing }); }
   // Spiel im LAN ankuendigen, solange der Host in der Lobby ist (nur in der App bzw. am eigenen Server)
   const shouldAdvertise = isLocalOrigin() && net.connected && !net.online && isHost() && state === ST.LOBBY;

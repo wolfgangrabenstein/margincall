@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.35.3 – Mouse pointer after the match (22.10.2026)
+
+- **Multiplayer:** When a joined player returned to the lobby in fullscreen after a finished match, their mouse pointer stayed invisible until they left fullscreen. The mouse is now released for joined players too as soon as the host ends the round.
+
 ## Version 3.35.2 – Ping in the statistics, supplies without NPCs (22.10.2026)
 
 - **Multiplayer – ping:** The statistics (Tab) show every player’s ping in milliseconds: green below 80 ms, yellow below 150 ms, red above. The host shows “HOST”.
