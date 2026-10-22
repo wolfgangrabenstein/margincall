@@ -2,6 +2,15 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.30.2 – Smarter enemies in hardcore mode (22.10.2026)
+
+- **Leading shots:** In hardcore, short sellers, oil barons and trading bots aim where you are about to be instead of where you are.
+- **Dodging:** If you aim right at a regular enemy, it now and then jumps aside (not bosses or crypto bubbles).
+- **Pack alarm:** When a bull or bear gets shot, nearby animals of the same kind chase the shooter too.
+- **More tactics:** Shooters take cover more often, ambushes start from 12 instead of 10 tiles, and animals burst out of hiding faster.
+
+Hardcore mode only, on PC, browser and Cardputer.
+
 ## Version 3.30.1 – Refinancing package, own sounds, quieter music (22.10.2026)
 
 - **Refinancing package:** A very rare drop, at most one per level (1 % of your kills, 0.5 % in hardcore, 1.5 % in easy mode; never from bosses, summoned bots or on the tax haven island). It refills your portfolio to 100 % and gives +20 cash (hardcore +15) and $100. With a full portfolio it stays on the floor for later.

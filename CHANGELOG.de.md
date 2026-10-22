@@ -2,6 +2,15 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.30.2 – Cleverere Gegner im Hardcore-Modus (22.10.2026)
+
+- **Vorhalten:** Short Seller, Ölbaron und Trading-Bot zielen im Hardcore-Modus dorthin, wo du gleich sein wirst, statt auf deine aktuelle Position.
+- **Ausweichen:** Zielst du genau auf einen normalen Gegner, springt er ab und zu zur Seite (Bosse und Krypto-Blasen nicht).
+- **Rudel-Alarm:** Wird ein Bulle oder Bär beschossen, verfolgen auch Artgenossen in der Nähe den Schützen.
+- **Mehr Taktik:** Schützen gehen häufiger in Deckung, Hinterhalte beginnen schon aus 12 statt 10 Feldern, und die Tiere brechen schneller aus dem Versteck hervor.
+
+Nur im Hardcore-Modus, auf PC, Browser und Cardputer.
+
 ## Version 3.30.1 – Refinanzierungspaket, eigene Sounds, leisere Musik (22.10.2026)
 
 - **Refinanzierungspaket:** Ein ganz seltener Drop, höchstens einer pro Level (1 % der eigenen Abschüsse, im Hardcore-Modus 0,5 %, im leichten Modus 1,5 %; nicht von Bossen, gerufenen Bots oder in der Steueroase). Es füllt das Depot auf 100 % und gibt +20 Cash (Hardcore +15) und 100 $. Bei vollem Depot bleibt es für später liegen.

@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.30.1";
+const APP_VERSION = "3.30.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -800,7 +800,7 @@ function spawnEnemy(type, x, y) {
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0,
-    trapT: 0, hunter: false, guardX: undefined, alertT: 0 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
+    trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
   return e;
 }
 // Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
@@ -1290,8 +1290,24 @@ function hurtEnemy(t, dmg, byPlayer) {
 }
 
 // beschossen: den Schuetzen eine Weile verfolgen, aus der Ferne getroffen manchmal erst kurz in Deckung gehen
+// Hardcore: Schuetzen halten vor, zielen also dorthin, wo der Spieler gleich sein wird
+function leadAng(fo, t, spd) {
+  if (!HC() || !t || !t.isPlayer) return fo[2];
+  const k = Math.hypot(t.x - fo[0], t.y - fo[1]) / (spd * 1.3) * .8;
+  return Math.atan2(t.y + (t.vy || 0) * k - fo[1], t.x + (t.vx || 0) * k - fo[0]);
+}
+// Hardcore: wer ins Fadenkreuz geraet, springt ab und zu zur Seite
+function dodgeAim(e, t, d, dt) {
+  if (e.sideT > 0) { e.sideT -= dt; if (!moveEntity(e, e.sdx * 3 * dt, e.sdy * 3 * dt, .25)) e.sideT = 0; return true; }
+  if ((e.sideCd -= dt) > 0 || d > 12 || d < 1.5) return false;
+  if (((e.x - t.x) * t.dirX + (e.y - t.y) * t.dirY) / d < .985 || !lineOfSight(e.x, e.y, t.x, t.y)) return false;
+  e.sideCd = 1.8 + frand() * 1.2; if (frand() < .4) return false;
+  const sd = frand() < .5 ? 1 : -1; e.sdx = -t.dirY * sd; e.sdy = t.dirX * sd; e.sideT = .3; return true;
+}
 function provoke(e, pl) {
   e.aggro = pl; e.aggroT = 20; e.think = 0;
+  if (HC()) for (const o of enemies)   // Hardcore: Rudel-Alarm, Artgenossen in der Naehe verfolgen den Schuetzen mit
+    if (o !== e && o.alive && o.f === e.f && o.pir === undefined && !(o.aggroT > 0) && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < 36) { o.aggro = pl; o.aggroT = 10; o.think = 0; o.awake = true; }
   if (e.coverCd > 0 || e.stampede || Math.hypot(pl.x - e.x, pl.y - e.y) < 6 || frand() < .5) return;
   e.coverCd = 6;
   const c = findCover(e, pl); if (c) { e.covX = c[0]; e.covY = c[1]; e.coverT = 1.2 + frand() * .8; }
@@ -1310,7 +1326,7 @@ function findCover(e, pl) {
 function shooterCover(e, t, los, d, sp, dt) {
   if (EZ()) return false;
   if (e.coverT <= 0 && e.coverCd <= 0 && e.cd > .8 && los && d < 12) {
-    e.coverCd = 2;
+    e.coverCd = HC() ? 1.2 : 2;
     const c = findCover(e, t); if (c) { e.covX = c[0]; e.covY = c[1]; e.coverT = Math.min(2.5, e.cd - .3); if (t.isPlayer) { e.aggro = t; e.aggroT = Math.max(e.aggroT, 6); } }   // hinter der Deckung den Spieler nicht vergessen
   }
   if (e.coverT <= 0) return false;
@@ -1324,7 +1340,7 @@ function ambush(e, t, d, sp, dt) {
   if (e.lurkT > 0 && (d < 3 || (seen && !watched))) e.lurkT = 0;   // Spieler nah oder schaut weg: zuschlagen
   if (e.lurkT > 0) { if (Math.hypot(e.covX - e.x, e.covY - e.y) > .1) chase(e, { x: e.covX, y: e.covY }, sp, dt); return true; }
   if (e.lurking) { e.lurking = false; e.rushT = 2.5; e.lurkCd = 8; return false; }   // aus dem Versteck hervorbrechen
-  if (e.lurkCd > 0 || d < 4 || d > 10 || !watched) return false;
+  if (e.lurkCd > 0 || d < 4 || d > (HC() ? 12 : 10) || !watched) return false;
   e.lurkCd = 3; const c = findCover(e, t); if (!c) return false;
   e.covX = c[0]; e.covY = c[1]; e.lurkT = 4 + frand() * 2; e.lurking = true; e.aggro = t; e.aggroT = Math.max(e.aggroT, 9); return true;
 }
@@ -1510,6 +1526,7 @@ function updateEnemy(e, dt) {
   }
   if (animal && e.coverT > 0) { if (Math.hypot(e.covX - e.x, e.covY - e.y) > .1) chase(e, { x: e.covX, y: e.covY }, 2 * spd, dt); return; }   // kurz in Deckung, dann Angriff
   const tx = t.x, ty = t.y, dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, nx = dx / d, ny = dy / d, ang = Math.atan2(dy, dx);
+  if (HC() && e.awake && t.isPlayer && !TYPES[e.type].boss && e.type !== E.BUBBLE && !(e.chargeT > 0) && dodgeAim(e, t, d, dt)) return;
 
   if (!animal) {
     const fo = d < (TYPES[e.type].boss ? 30 : 12) ? fireOrigin(e, tx, ty) : null, los = !!fo;   // Bosse schiessen ueber die ganze Karte zurueck
@@ -1532,7 +1549,7 @@ function updateEnemy(e, dt) {
       case E.BARON:
         if (shooterCover(e, t, los, d, 1.2, dt)) return;
         if (d > 4.5 || !los) chase(e, t, 1, dt); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
-        if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], fo[2], 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
+        if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], leadAng(fo, t, 3.4), 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
         return;
       case E.SLICK:
         if (d > .7) chase(e, t, .9 * spd, dt);
@@ -1544,7 +1561,7 @@ function updateEnemy(e, dt) {
         if (!los) chase(e, t, 2, dt, .2);
         else if (d > 3.2) moveEntity(e, (nx - ny * w) * 2 * dt, (ny + nx * w) * 2 * dt, .2);
         else moveEntity(e, -ny * w * 1.5 * dt, nx * w * 1.5 * dt, .2);
-        if (los && e.cd <= 0 && d < 10) { e.cd = 1.3 + frand() * .5; e.attackAnim = .25; spawnProj(fo[0], fo[1], fo[2] + (frand() - .5) * .1, 6, 6, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 10); }
+        if (los && e.cd <= 0 && d < 10) { e.cd = 1.3 + frand() * .5; e.attackAnim = .25; spawnProj(fo[0], fo[1], leadAng(fo, t, 6) + (frand() - .5) * .1, 6, 6, F.AI, S.LASER); sfxNear("LASER", e.x, e.y, 10); }
         return;
       }
       case E.ALGO:
@@ -1566,7 +1583,7 @@ function updateEnemy(e, dt) {
       e.roarCd -= dt;
       if (t.isPlayer && e.roarCd <= 0 && d < 8) { e.roarCd = 5 + frand() * 4; sfxNear("ROAR", e.x, e.y, 9); }   // Gebruell auf der Jagd
       if (ambush(e, t, d, 1.5 * spd, dt)) break;
-      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; chase(e, t, 1.5 * spd * ps * (e.rushT > 0 ? 1.7 : 1), dt); }
+      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; chase(e, t, 1.5 * spd * ps * (e.rushT > 0 ? (HC() ? 1.9 : 1.7) : 1), dt); }
       else if (e.cd <= 0) {
         e.cd = 1; e.attackAnim = .3;
         if (t.isPlayer && e.roarCd < 3) { e.roarCd = 3; sfxNear("ROAR", e.x, e.y, 9); }
@@ -1583,7 +1600,7 @@ function updateEnemy(e, dt) {
         }
       } else if (d > .75) {
         if (ambush(e, t, d, 1.3 * spd, dt)) break;
-        chase(e, t, 1.3 * spd * (e.rushT > 0 ? 1.7 : 1), dt);
+        chase(e, t, 1.3 * spd * (e.rushT > 0 ? (HC() ? 1.9 : 1.7) : 1), dt);
         if (e.chargeCd <= 0 && d > 1.5 && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
           e.chargeT = .7; e.chargeCd = 3.5 + frand() * 2; e.mdx = nx; e.mdy = ny; e.attackAnim = .7; sfxNear("BULL", e.x, e.y, 8);
         }
@@ -1594,7 +1611,7 @@ function updateEnemy(e, dt) {
       if (d > 4 || !lineOfSight(e.x, e.y, tx, ty)) chase(e, t, 1.1, dt); else if (d < 2.2) moveEntity(e, -nx * .9 * dt, -ny * .9 * dt, .25);
       if (e.cd <= 0 && d < 10) {
         const fo = fireOrigin(e, tx, ty);
-        if (fo) { e.cd = 1.6 + frand(); e.attackAnim = .3; spawnProj(fo[0], fo[1], fo[2] + (frand() - .5) * .12, 4.5, 8, F.BEAR, S.PROJ); sfxNear("ZAP", e.x, e.y, 10); }
+        if (fo) { e.cd = 1.6 + frand(); e.attackAnim = .3; spawnProj(fo[0], fo[1], leadAng(fo, t, 4.5) + (frand() - .5) * .12, 4.5, 8, F.BEAR, S.PROJ); sfxNear("ZAP", e.x, e.y, 10); }
       }
       break;
     case E.BUBBLE: {
@@ -2449,6 +2466,11 @@ function updateGame(dt) {
   } else dodgeT = 0;
   mouseTurn = 0;
   me.x = px; me.y = py; me.dirX = dirX; me.dirY = dirY;
+  for (const pl of players) {   // Laufrichtung der Spieler (geglaettet), damit Hardcore-Schuetzen vorhalten koennen
+    let vx = (pl.x - (pl.ox ?? pl.x)) / Math.max(dt, 1e-3), vy = (pl.y - (pl.oy ?? pl.y)) / Math.max(dt, 1e-3);
+    if (Math.abs(vx) > 6 || Math.abs(vy) > 6) vx = vy = 0;   // Sprung (Respawn, Levelstart)
+    pl.vx = (pl.vx || 0) * .7 + vx * .3; pl.vy = (pl.vy || 0) * .7 + vy * .3; pl.ox = pl.x; pl.oy = pl.y;
+  }
 
   histT -= dt;
   if (histT <= 0) { histT = .4; hist.push(me.hp); if (hist.length > 60) hist.shift(); }
