@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.34.1 – Chat colours in the lobby (22.10.2026)
+
+- **Lobby chat:** Long messages that wrap over several lines now keep the sender’s colour on every line. Previously the following lines turned grey.
+
 ## Version 3.34.0 – Last man standing (22.10.2026)
 
 - **New multiplayer mode “Last man standing”:** Every player has only a few lives; whoever runs out is eliminated and watches. The last one left wins.

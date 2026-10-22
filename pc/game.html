@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.34.0";
+const APP_VERSION = "3.34.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -3652,11 +3652,11 @@ function renderLobby() {
   for (const [cid, cname, ctext] of chat) {
     const who = cname.replace("TRADER ", "");
     const words = `${who}: ${ctext}`.match(/.{1,36}(\s|$)|\S+/g) || [];
-    words.forEach((w, j) => lines.push([j === 0 ? cid : -1, w.trim()]));
+    words.forEach(w => lines.push([cid, w.trim()]));   // alle Zeilen einer Nachricht in der Farbe des Absenders
   }
   lines.slice(-8).forEach(([cid, l], i) => {
     const c = cid > 0 ? rgbCss(isTeam ? [200, 200, 210] : PCOLOR[(cid - 1) % 4]) : "#c8c8d7";
-    text(l, cx + 8, cy + 26 + i * 17, cid === -1 ? "#c8c8d7" : c, 13);
+    text(l, cx + 8, cy + 26 + i * 17, c, 13);
   });
   const iy = cy + ch - 26;
   g.fillStyle = chatTyping ? "rgba(80,200,255,.12)" : "rgba(0,0,0,.4)"; g.fillRect(cx + 4, iy, cw - 8, 22);

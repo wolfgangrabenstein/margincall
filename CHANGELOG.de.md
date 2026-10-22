@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.34.1 – Chatfarben in der Lobby (22.10.2026)
+
+- **Lobby-Chat:** Lange Nachrichten, die über mehrere Zeilen umbrechen, behalten jetzt in jeder Zeile die Farbe des Absenders. Bisher wurden die Folgezeilen grau.
+
 ## Version 3.34.0 – Last Man Standing (22.10.2026)
 
 - **Neuer Multiplayer-Modus „Last Man Standing“:** Jeder Spieler hat nur wenige Leben; wer keine mehr hat, scheidet aus und schaut zu. Wer als Letzter übrig bleibt, gewinnt.
