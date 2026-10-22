@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.32.0"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.33.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -687,7 +687,8 @@ struct Enemy {
   float lurkT, lurkCd, rushT; bool lurking;
   float sideT, sideCd, sdx, sdy;   // Hardcore: Seitschritt aus dem Fadenkreuz
   bool pack;   // gehoert zum Rudel der Baerenfalle
-  bool atk;    // Kleinanleger: darf gerade angreifen   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
+  bool atk;    // Kleinanleger: darf gerade angreifen
+  float hopT, hopCd;   // Oelschlick: Sprung   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
   float trapT;   // Baerenfalle: benommen (role 3 = Crash-Waechter bei gx/gy, role 4 = Crash-Jaeger)
 };
 struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; bool crash; };   // crash: Notverkauf-Bargeld (150 $)   // slide > 0: schlittert gerade (Baerenfalle)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
@@ -1599,7 +1600,14 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
           sfxNear(SFX_ID_OIL, e.x, e.y, 10);
         }
         return;
-      case E_SLICK:
+      case E_SLICK:   // kriecht und springt immer wieder ein Stueck auf dich zu
+        e.hopCd -= dt;
+        if (e.hopT > 0) {   // in der Luft: schneller, landet mit einem Platsch
+          e.hopT -= dt; moveEntity(e.x, e.y, e.mdx * 2.6f * spdMul * dt, e.mdy * 2.6f * spdMul * dt, 0.25f);
+          if (e.hopT <= 0) { sfxNear(SFX_ID_OIL, e.x, e.y, 7); if (d < 0.9f && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; slowT = 3; damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); } }
+          return;
+        }
+        if (e.hopCd <= 0 && d > 1.2f && d < 7 && los) { e.hopCd = (easy ? 2.4f : hardcore ? 1.1f : 1.6f) + frand() * 1.2f; e.hopT = 0.55f; e.mdx = nx; e.mdy = ny; return; }
         if (d > 0.7f) chase(e.x, e.y, tx, ty, toPl, 0.9f * spdMul, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
         return;
@@ -2495,7 +2503,7 @@ static void renderWalls() {
   }
 }
 
-struct Spr { float x, y; int16_t tex; float scale; bool hurt; float dist; };
+struct Spr { float x, y; int16_t tex; float scale; bool hurt; float dist; float z; };   // z: Sprunghoehe (Oelschlick)
 static Spr sprs[MAX_E + MAX_I + MAX_P];
 
 static void renderSprites() {
@@ -2512,7 +2520,7 @@ static void renderSprites() {
         alt = fmodf(e.anim, 0.6f) < 0.3f && (e.awake || e.type == E_BOT || e.type == E_ALGO);
       t = ti.spr + (alt ? 1 : 0);
     }
-    sprs[n++] = {e.x, e.y, (int16_t)t, sc, e.alive && e.hurt > 0, 0};
+    sprs[n++] = {e.x, e.y, (int16_t)t, sc, e.alive && e.hurt > 0, 0, e.alive && e.hopT > 0 ? sinf(3.1416f * (1 - e.hopT / 0.55f)) * 0.55f : 0.0f};
   }
   for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type == 5 ? S_LIQ : items[i].type == 4 ? S_REFI : items[i].type == 3 ? S_KEY : items[i].type ? S_DIV : S_CASH), items[i].flash > 0 ? 0.5f + 0.15f * fabsf(sinf(gameTime * 10)) : 0.5f, false, 0};
   for (auto& p : projs) if (p.active) sprs[n++] = {p.x, p.y, (int16_t)p.spr, 0.35f, false, 0};
@@ -2531,7 +2539,7 @@ static void renderSprites() {
     int full = (int)(PROJ / tY);
     int size = (int)(full * s.scale); if (size < 1) continue;
     bool floating = s.tex == S_PROJ || s.tex == S_PROJ_OIL || s.tex == S_LASER || s.tex == S_BOT0 || s.tex == S_BOT1 || s.tex == S_NOTE;
-    int vMove = floating ? 0 : (full - size) / 2;
+    int vMove = (floating ? 0 : (full - size) / 2) - (int)(full * s.z);
     int top = VH / 2 - size / 2 + vMove, left = scrX - size / 2;
     int32_t step = (TEX << 16) / size;
     int xs = max(0, left), xe = min(SW, left + size);

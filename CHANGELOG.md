@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.33.0 – The oil slick jumps (22.10.2026)
+
+- **Oil slick:** It no longer just crawls but keeps jumping towards you. When it is 1.2–7 tiles away and sees you, it leaps about every 1.5–3 seconds, flies faster than it crawls and lands with a splat. If it lands right next to you, the oil sticks just like its normal attack. As a small investor it jumps less often, as a day trader more often. Its landing also shows up in the sound display.
+
+Applies to PC, browser, multiplayer and Cardputer.
+
 ## Version 3.32.0 – See hits and sounds (22.10.2026)
 
 For everyone who plays without sound:

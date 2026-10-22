@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.32.0";
+const APP_VERSION = "3.33.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -809,7 +809,7 @@ function spawnEnemy(type, x, y) {
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0,
-    trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0, pack: false });   // wiederverwendete Objekte: Merkmale zuruecksetzen
+    trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0, pack: false, hopT: 0, hopCd: 1 + frand() * 1.5 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
   return e;
 }
 // Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
@@ -1546,6 +1546,8 @@ function holdBack(e, t, d, nx, ny, dt) {
   else if (d > 8) chase(e, t, .9, dt);
   else if (!moveEntity(e, -ny * e.orb * .6 * dt, nx * e.orb * .6 * dt, .25)) e.orb = -e.orb;
 }
+const HOP_T = .55;   // Sprungdauer des Oelschlicks
+const hopZ = e => e.hopT > 0 ? Math.sin(Math.PI * (1 - e.hopT / HOP_T)) * .55 : 0;   // Sprunghoehe (Anteil der Wandhoehe)
 function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
   e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt; e.trapT -= dt;   // Gesamttakt hoechstens x2
@@ -1603,7 +1605,14 @@ function updateEnemy(e, dt) {
         if (d > 4.5 || !los) chase(e, t, 1, dt); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
         if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], leadAng(fo, t, 3.4), 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
         return;
-      case E.SLICK:
+      case E.SLICK:   // kriecht und springt immer wieder ein Stueck auf dich zu
+        e.hopCd -= dt;
+        if (e.hopT > 0) {   // in der Luft: schneller, landet mit einem Platsch
+          e.hopT -= dt; moveEntity(e, e.mdx * 2.6 * spd * dt, e.mdy * 2.6 * spd * dt, .25);
+          if (e.hopT <= 0) { sfxNear("OIL", e.x, e.y, 7); if (d < .9 && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); } }
+          return;
+        }
+        if (e.hopCd <= 0 && d > 1.2 && d < 7 && los) { e.hopCd = (EZ() ? 2.4 : HC() ? 1.1 : 1.6) + frand() * 1.2; e.hopT = HOP_T; e.mdx = nx; e.mdy = ny; return; }
         if (d > .7) chase(e, t, .9 * spd, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
         return;
@@ -1776,7 +1785,8 @@ function hostSendSnapshot() {
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
       if (!alt && [E.BEAR, E.BUBBLE, E.SLICK, E.BOT, E.ALGO].includes(e.type)) alt = (e.anim % .6) < .3 && (e.awake || e.type === E.BOT || e.type === E.ALGO);
-      return [e.type, r2(e.x), r2(e.y), (e.alive ? 1 : 0) | (e.hurt > 0 ? 2 : 0) | (alt ? 4 : 0)];
+      const z = hopZ(e);
+      return z > 0 ? [e.type, r2(e.x), r2(e.y), (e.alive ? 1 : 0) | (e.hurt > 0 ? 2 : 0) | (alt ? 4 : 0), r2(z)] : [e.type, r2(e.x), r2(e.y), (e.alive ? 1 : 0) | (e.hurt > 0 ? 2 : 0) | (alt ? 4 : 0)];
     }),
     it: items.filter(i => i.active).map(i => [r2(i.x), r2(i.y), i.type]), vx: vaultPos, k: hasKey ? 1 : 0,
     pr: projs.map(p => [r2(p.x), r2(p.y), p.spr, r2(p.dx), r2(p.dy)]),
@@ -2718,9 +2728,9 @@ function collectSprites() {
     const iv = Math.max(20, snapTimeCur - snapTimePrev), a = clamp((performance.now() - snapTimeCur) / iv, 0, 1);
     const prev = snapPrev && snapPrev.en.length === snapCur.en.length ? snapPrev.en : null;
     snapCur.en.forEach((c, i) => {
-      const [type, x, y, fl] = c, p = prev && prev[i][0] === type ? prev[i] : c;
+      const [type, x, y, fl, z = 0] = c, p = prev && prev[i][0] === type ? prev[i] : c;
       const ti = TYPES[type], alive = fl & 1;
-      list.push({ x: p[1] + (x - p[1]) * a, y: p[2] + (y - p[2]) * a, tex: alive ? ti.spr + ((fl & 4) ? 1 : 0) : S.DEAD, sc: alive ? ti.scale : .6, hurt: alive && (fl & 2) });
+      list.push({ x: p[1] + (x - p[1]) * a, y: p[2] + (y - p[2]) * a, tex: alive ? ti.spr + ((fl & 4) ? 1 : 0) : S.DEAD, sc: alive ? ti.scale : .6, hurt: alive && (fl & 2), z });
     });
     for (const [x, y, type] of snapCur.it) list.push({ x, y, tex: itemSpr(type), sc: .5 });
     const age = Math.min(.15, (performance.now() - snapTimeCur) / 1000);   // Geschosse zwischen zwei Updates weiterfliegen lassen
@@ -2730,7 +2740,7 @@ function collectSprites() {
       if (e.gone) continue;
       const ti = TYPES[e.type];
       if (!e.alive) list.push({ x: e.x, y: e.y, tex: S.DEAD, sc: .6 });
-      else list.push({ x: e.x, y: e.y, tex: ti.spr + (ENEMY_ALT(e) ? 1 : 0), sc: ti.scale, hurt: e.hurt > 0 });
+      else list.push({ x: e.x, y: e.y, tex: ti.spr + (ENEMY_ALT(e) ? 1 : 0), sc: ti.scale, hurt: e.hurt > 0, z: hopZ(e) });
     }
     for (const it of items) if (it.active) { if (it.flash > 0) it.flash -= 1 / 60; list.push({ x: it.x, y: it.y, tex: itemSpr(it.type), sc: it.flash > 0 ? .5 + .15 * Math.abs(Math.sin(gameTime * 10)) : .5 }); }
     for (const p of projs) list.push({ x: p.x, y: p.y, tex: p.spr, sc: .35 });
@@ -2755,7 +2765,7 @@ function renderSprites() {
     if (tY < .15) continue;
     const scrX = Math.floor(RW / 2 * (1 + tX / tY)), full = Math.floor(PROJ / tY), size = Math.floor(full * s.sc);
     if (size < 1) continue;
-    const vMove = floating.has(s.tex) ? 0 : (full - size) >> 1;
+    const vMove = (floating.has(s.tex) ? 0 : (full - size) >> 1) - Math.floor(full * (s.z || 0));   // z: Sprunghoehe
     const top = (VH >> 1) - (size >> 1) + vMove, left = scrX - (size >> 1), step = TEX / size;
     const xs = Math.max(0, left), xe = Math.min(RW, left + size), ys = Math.max(0, top), ye = Math.min(VH, top + size);
     const tex = sprTex[s.tex];

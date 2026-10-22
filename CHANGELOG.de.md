@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.33.0 – Der Ölschlick springt (22.10.2026)
+
+- **Ölschlick:** Er kriecht nicht mehr nur, sondern springt immer wieder ein Stück auf dich zu. Ist er 1,2–7 Felder entfernt und sieht dich, hebt er etwa alle 1,5–3 Sekunden ab, fliegt schneller als er kriecht und landet mit einem Platsch. Landet er direkt neben dir, klebt das Öl wie bei seinem normalen Angriff. Als Kleinanleger springt er seltener, als Day-Trader öfter. Seine Landung erscheint auch in der Geräuschanzeige.
+
+Gilt für PC, Browser, Multiplayer und Cardputer.
+
 ## Version 3.32.0 – Treffer und Geräusche sehen (22.10.2026)
 
 Für alle, die ohne Ton spielen:
