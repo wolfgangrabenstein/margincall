@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.28.1 – Gegner greifen wieder an, Schnellhandel-Bonus (22.10.2026)
+
+- **Wichtiger Fehler behoben:** Seit 3.27.0 griffen Bullen und Bären im Spiel nicht mehr an, weil ihre Denk- und Angriffstimer stehen blieben (PC, Browser und Cardputer).
+- **Schnellhandel-Bonus:** Wer den Tresor zügig erreicht, bekommt 2000 $ minus 5 $ je Sekunde im Level (nach 6:40 Minuten nichts mehr), im Hardcore-Modus ×1,5. Der Abschlussbildschirm zeigt Zeit und Bonus. Auch auf dem Cardputer.
+- **Öl-Hinweis:** In der Statuszeile steht jetzt, was der Ölkurs bewirkt, z. B. „(GEGNER-FEUER +31 %)“ oder „(DU +10 % SCHNELLER)“. Die Zeile verkleinert sich bei Bedarf, damit alles passt (PC und Browser).
+
 ## Version 3.28.0 – Multiplayer-Balancing (22.10.2026)
 
 - **Zielhilfe gegen Spieler fair dosiert:** Semi bleibt auch gegen menschliche Gegner, damit Handy- und Touchpad-Spieler mithalten können. Gegen Spieler rastet der Schuss aber nur noch so weit ein, wie die Trefferfläche breit ist, die Ansicht dreht halb so stark und halb so schnell nach, und die Reichweite ist 6 Felder; Full wirkt gegen Spieler wie Semi. Gegen Börsen-Gegner ändert sich nichts.

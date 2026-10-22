@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.28.0"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.28.1"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -692,6 +692,7 @@ static int replayIdx;
 static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // Marktphasen: 1 = Bullrun, -1 = Baerenmarkt. sentiment steigt mit erlegten Baeren, faellt mit erlegten Bullen; echter Kurs = Grundstimmung
 static float stampHitT;   // Schutz nach einem Stampede-Treffer
+static float levelTime;   // Zeit im Level (Schnellhandel-Bonus am Tresor: 2000 - 5 je Sekunde)
 static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, bearHintAt;
 static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
@@ -987,7 +988,7 @@ static void loadLevel(int lv) {
   histN = 0; histT = 0;
   spawnT = 6; cashT = 40 + frand() * 30; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
-  phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navOk = false;
+  phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navOk = false; levelTime = 0;
   char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, L(LEVEL_NAMES_EN[lv], LEVEL_NAMES[lv]));
   say(b, 3.0f);
   sfxPlay(SFX_ID_BELL);   // Eroeffnungsglocke
@@ -1244,6 +1245,7 @@ static void tryMove(float mx, float my) {
     }
     else {
       state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += hardcore ? (500 + hp * 5) * 3 / 2 : 500 + hp * 5;
+      { int quick = max(0, 2000 - 5 * (int)levelTime); if (quick) { pnl += hardcore ? quick * 3 / 2 : quick; char qb[48]; snprintf(qb, sizeof(qb), L("QUICK TRADE BONUS +$%d", "SCHNELLHANDEL +$%d"), quick); say(qb, 3.0f); } }
       if (state == ST_WIN) {   // Bullenmarkt-Bonus: 10.000 + 25 % des P&L + 5.000 ohne Tod, Hardcore x1,5
         winBonus = 10000 + pnl / 4 + (deaths ? 0 : 5000);
         if (hardcore) winBonus = winBonus * 3 / 2;
@@ -1307,7 +1309,7 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
   const float bearRage = bearMkt() && e.faction == F_BEAR ? 1.3f : 1.0f;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f));   // Gesamttakt hoechstens x2 e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;   // Gesamttakt hoechstens x2
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
   const float spdMul = min(1.6f, (crashT > 0 ? 1.4f : 1.0f) * bearRage);
@@ -2082,7 +2084,7 @@ static void updateGame(float dt) {
     momentum = (m.series[replayIdx] - m.series[i0]) / m.series[i0] * 100.0f;
   }
 
-  updatePhase(dt); updateNav(dt);
+  updatePhase(dt); updateNav(dt); levelTime += dt;
   // Gegner
   bullsAlive = bearsAlive = 0;
   for (int i = 0; i < nEnemies; i++) {

@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.28.1 – Enemies attack again, quick trade bonus (22.10.2026)
+
+- **Major bug fix:** Since 3.27.0 bulls and bears no longer attacked because their think and attack timers stopped (PC, browser and Cardputer).
+- **Quick trade bonus:** Reach the vault fast and earn $2000 minus $5 per second in the level (nothing after 6:40 minutes), ×1.5 in hardcore. The level-end screen shows time and bonus. Also on the Cardputer.
+- **Oil hint:** The status line now shows what the oil price does, e.g. "(ENEMY FIRE +31 %)" or "(YOU +10 % FASTER)". The line shrinks if needed so everything fits (PC and browser).
+
 ## Version 3.28.0 – Multiplayer balancing (2026-10-22)
 
 - **Fair aim assist against players:** semi stays against human opponents so phone and touchpad players can keep up. Against players, however, shots only snap as far as the hitbox is wide, the view turns half as strongly and half as fast, and the range is 6 cells; full acts like semi against players. Nothing changes against market creatures.
