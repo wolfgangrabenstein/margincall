@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.30.5 – Klarere Namenseingabe (22.10.2026)
+
+- **Highscore-Eingabe:** Die Schaltfläche „OHNE NAMEN“ heißt jetzt „KEIN EINTRAG“. Sie speichert den Lauf nicht, weder lokal noch online.
+
 ## Version 3.30.4 – Bärenrudel und Bullen-Herde in voller Stärke (22.10.2026)
 
 - **Bärenfalle:** Die drei Rudel-Bären kommen jetzt aus verschiedenen Verstecken statt aus einem einzigen. Während der Bärenfalle greifen Bullen sie nicht mehr an, sie erreichen dich also vollzählig.

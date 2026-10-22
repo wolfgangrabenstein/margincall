@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.30.5 – Clearer name entry (22.10.2026)
+
+- **Highscore entry:** The “SKIP” button is now called “DON’T SAVE”. It does not save the run, neither locally nor online.
+
 ## Version 3.30.4 – Full-strength bear pack and bull herd (22.10.2026)
 
 - **Bear trap:** The three pack bears now come from different hiding spots instead of one. Bulls no longer attack them during the bear trap, so the whole pack reaches you.

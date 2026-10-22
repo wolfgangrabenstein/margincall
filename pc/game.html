@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.30.4";
+const APP_VERSION = "3.30.5";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -4130,7 +4130,7 @@ function renderNameEntry() {
   // Jeder Upload braucht diesen ausdruecklich beschrifteten Knopf (SignPath: nur auf ausdruecklichen Wunsch uebertragen)
   const up = onlineOn() && ONLINE_HS_URL;
   zoneButton(170, 366, 380, 40, up ? L("[ENTER] SAVE & POST ONLINE", "[ENTER] SPEICHERN & ONLINE STELLEN") : local ? L("[ENTER] SAVE LOCALLY", "[ENTER] LOKAL SPEICHERN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#50ff82", "enter", 16);
-  zoneButton(570, 366, 220, 40, L("SKIP", "OHNE NAMEN"), "#8290b0", "Escape");
+  zoneButton(570, 366, 220, 40, L("DON'T SAVE", "KEIN EINTRAG"), "#8290b0", "Escape");
   text(CREDITS, DW / 2, 440, "#6b7896", 13, "center");
 }
 function renderHighscores() {
