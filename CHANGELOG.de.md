@@ -2,6 +2,16 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.32.0 – Treffer und Geräusche sehen (22.10.2026)
+
+Für alle, die ohne Ton spielen:
+
+- **Trefferrichtung (innerer Kreis):** Ein dünner roter Pixelbogen mit dunklem Rand um das Fadenkreuz zeigt, woher ein Treffer kam: oben für vorne, unten für hinten, links und rechts entsprechend. Er dreht sich beim Umdrehen mit und verblasst nach gut einer Sekunde. Starke Treffer lassen zusätzlich den Bildrand in dieser Richtung rot glühen. Bei Schüssen zählt die Flugrichtung des Geschosses.
+- **Geräusche anzeigen (äußerer Kreis):** Brüllt, schnaubt oder schießt ein Gegner in Hörweite, leuchtet ein gelber Abschnitt auf dem äußeren Kreis in seiner Richtung auf. Nahe Geräusche sind schmal und hell (sehr nahe mit hellem Kern), ferne breiter und blasser, die Richtung wirkt dann diffuser. Stille Gegner zeigen nichts an. Auch Stampede und Bärenrudel kündigen sich so an.
+- **Optionen:** „Trefferrichtung“ und „Geräusche anzeigen“ lassen sich einzeln abschalten (beide standardmäßig an). Das Optionsmenü rückt bei vielen Zeilen enger zusammen.
+- **Multiplayer:** Beides funktioniert auch für Mitspieler, auch bei Treffern durch andere Spieler.
+- **Cardputer:** Ein roter Balken am Bildrand zeigt die Trefferrichtung, ein gelbes Randstück die Richtung eines Geräuschs (nah kurz und hell, fern länger und blasser).
+
 ## Version 3.31.5 – Rudel und Herde wachsen mit dem Level (22.10.2026)
 
 - **Bärenfalle und Bullrun:** Rudel und Herde wachsen jetzt auch bei Spekulant und Day-Trader mit dem Level.

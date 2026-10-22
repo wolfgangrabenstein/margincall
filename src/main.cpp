@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.31.5"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.32.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -746,7 +746,19 @@ static State state = ST_TITLE;
 
 static void say(const char* s, float t = 2.0f) { strncpy(msg, s, sizeof(msg) - 1); msg[sizeof(msg) - 1] = 0; msgT = t; }
 static float dist2Player(float x, float y) { float dx = x - px, dy = y - py; return dx * dx + dy * dy; }
-static void sfxNear(SfxId id, float x, float y, float range = 7.0f) { if (dist2Player(x, y) < range * range) sfxPlay(id); }
+// Geraeuschanzeige: Gegner-Geraeusche in Hoerweite (Ort und Restzeit)
+struct SoundCue { float x, y, t; };
+static SoundCue soundCues[6];
+static void addSoundCue(float x, float y) {
+  int slot = 0;
+  for (int i = 0; i < 6; i++) { float dx = soundCues[i].x - x, dy = soundCues[i].y - y; if (soundCues[i].t > 0 && dx * dx + dy * dy < 2) { slot = i; break; } if (soundCues[i].t < soundCues[slot].t) slot = i; }
+  soundCues[slot] = {x, y, 1.5f};
+}
+static void sfxNear(SfxId id, float x, float y, float range = 7.0f) {
+  if (dist2Player(x, y) >= range * range) return;
+  sfxPlay(id);
+  if (id == SFX_ID_ROAR || id == SFX_ID_BULL || id == SFX_ID_ZAP || id == SFX_ID_LASER || id == SFX_ID_OIL || id == SFX_ID_POP) addSoundCue(x, y);
+}
 
 static bool isBoss(const Enemy& e) { return TYPES[e.type].boss; }
 static bool hostileFactions(uint8_t a, uint8_t b) { return (a == F_BULL && b == F_BEAR) || (a == F_BEAR && b == F_BULL); }
@@ -1097,7 +1109,10 @@ static void unstick(float& ex, float& ey, float r) {
 }
 
 static int hurtAmt;   // Staerke des letzten Treffers (fuer roten Blitz und Schadenszahl)
+// Trefferrichtung: Herkunft des letzten Treffers (Weltkoordinaten); hitSrcOk = Quelle fuer den naechsten Treffer gesetzt
+static float hitSrcX, hitSrcY, hitDirX, hitDirY, hitDirT; static bool hitSrcOk;
 static void damagePlayer(int d, const char* why) {
+  if (hitSrcOk && state == ST_PLAY) { hitDirX = hitSrcX; hitDirY = hitSrcY; hitDirT = 1.0f; }
   if (state != ST_PLAY) return;
   if (hardcore) d = (int)roundf(d * 1.65f); else if (easy) d = (int)roundf(d * 0.7f);
   hp -= d; hurtT = 0.35f; hurtAmt = d; sfxPlay(SFX_ID_PHONE);
@@ -1186,7 +1201,7 @@ static void stampedeHerd() {
       if (v >= 5 && v <= 12 && !lineOfSight(cx + 0.5f, cy + 0.5f, px, py) && rnd() % ++cnt == 0) { x = cx + 0.5f; y = cy + 0.5f; }
     }
     if (!cnt && !findHiddenCell(x, y, 5)) continue;
-    for (int j = 0; j < 3 && n < herdSize(); j++) { static const float OX[3] = {-0.3f, 0.3f, 0}, OY[3] = {0, 0, 0.3f}; int i = spawnEnemy(E_BULL, x + OX[j], y + OY[j]); if (i < 0) continue; Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.stampede = true; e.chargeCd = 1 + g + j * 0.5f; e.rushT = 6; n++; }   // stuermt mit erhoehtem Tempo los
+    for (int j = 0; j < 3 && n < herdSize(); j++) { static const float OX[3] = {-0.3f, 0.3f, 0}, OY[3] = {0, 0, 0.3f}; int i = spawnEnemy(E_BULL, x + OX[j], y + OY[j]); if (i < 0) continue; Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.stampede = true; e.chargeCd = 1 + g + j * 0.5f; e.rushT = 6; n++; if (dist2Player(e.x, e.y) < 196) addSoundCue(e.x, e.y); }   // stuermt mit erhoehtem Tempo los
   }
   if (n) { say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL); }
 }
@@ -1205,7 +1220,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
   for (int k = 0; k < herdSize(); k++) {
     int i = spawnEnemy(E_BULL, sx - bdx * k * 0.7f + bdy * (k % 2 ? 0.2f : -0.2f), sy - bdy * k * 0.7f + bdx * (k % 2 ? 0.2f : -0.2f));   // gestaffelt, damit man alle vier sieht
     if (i < 0) continue;
-    Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f; e.stampede = true;
+    Enemy& e = enemies[i]; if (k == 0 && dist2Player(e.x, e.y) < 196) addSoundCue(e.x, e.y); e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f; e.stampede = true;
   }
   say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL);
   return true;
@@ -1214,7 +1229,7 @@ static void bearTrap() {   // Baerenfalle: ein Baerenrudel greift an (Gegenstuec
   sfxPlay(SFX_ID_ROAR);
   for (int k = 0; k < packSize(); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
     float x, y; if (!findHiddenCell(x, y, 5)) continue;
-    int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; enemies[i].pack = true; }
+    int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; enemies[i].pack = true; if (dist2Player(x, y) < 196) addSoundCue(x, y); }
   }
 }
 // letzte 4 Sekunden der Baerenfalle: der Markt dreht, die Baeren sitzen in der Falle (3 s benommen, Fallen-Bonus)
@@ -2038,7 +2053,7 @@ static void updateIsland(float dt) {
     Enemy& e = enemies[i];
     if (e.gone) continue;
     if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
-    bearsAlive++; e.awake = true; updateEnemy(e, i, dt);
+    bearsAlive++; e.awake = true; hitSrcX = e.x; hitSrcY = e.y; hitSrcOk = true; updateEnemy(e, i, dt); hitSrcOk = false;
     if (state != ST_PLAY) return;
   }
   isleSpawnT -= dt;
@@ -2222,7 +2237,8 @@ static void updateGame(float dt) {
   gameTime += dt;
   musicSetPanic(hp > 0 && hp < 30);
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; slowT -= dt;
-  aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt; quakeT -= dt; stampHitT -= dt;
+  aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt; quakeT -= dt; stampHitT -= dt; hitDirT -= dt;
+  for (auto& c : soundCues) c.t -= dt;
   { float vx = (px - lastPx) / max(dt, 0.001f), vy = (py - lastPy) / max(dt, 0.001f);
     if (fabsf(vx) > 6 || fabsf(vy) > 6) vx = vy = 0;   // Sprung (Levelstart)
     pvx = pvx * 0.7f + vx * 0.3f; pvy = pvy * 0.7f + vy * 0.3f; lastPx = px; lastPy = py; }
@@ -2352,7 +2368,7 @@ static void updateGame(float dt) {
     if (e.gone) continue;
     if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
     if (e.faction == F_BULL) bullsAlive++; else if (e.faction == F_BEAR) bearsAlive++;
-    updateEnemy(e, i, dt);
+    hitSrcX = e.x; hitSrcY = e.y; hitSrcOk = true; updateEnemy(e, i, dt); hitSrcOk = false;
     if (state != ST_PLAY) return;
   }
 
@@ -2395,7 +2411,7 @@ static void updateGame(float dt) {
     }
     if (!p.active) continue;
     if (dist2Player(p.x, p.y) < 0.12f && !segBlocked(p.x, p.y, px, py)) {
-      p.active = false;
+      p.active = false; hitSrcX = px - p.dx; hitSrcY = py - p.dy; hitSrcOk = true;   // Schuss: Richtung, aus der er kam
       damagePlayer(p.dmg, p.spr == S_LASER ? L("ALGO ORDER EXECUTED!", "ALGO-ORDER AUSGEFUEHRT!") : p.spr == S_PROJ_OIL ? L("OIL BARREL! ENERGY CRISIS", "OELFASS! ENERGIEKRISE") : "MARGIN CALL!");
       if (p.spr == S_PROJ_OIL) slowT = 2;
       continue;
@@ -2557,6 +2573,40 @@ static void renderCrashTint() {
     fb[i] = swp((max(r, 0) << 11) | (g << 5) | b);
   }
 }
+// Bildschirm-Richtung zu einem Punkt (Einheitsvektor): vorne = oben, rechts = rechts
+static void screenDir(float x, float y, float& ox, float& oy) {
+  float sx = x - px, sy = y - py, l = sqrtf(sx * sx + sy * sy) + 1e-4f, pl = sqrtf(planeX * planeX + planeY * planeY) + 1e-4f;
+  ox = (sx * planeX + sy * planeY) / (l * pl); oy = -(sx * dirX + sy * dirY) / l;
+}
+// Trefferrichtung: roter Balken am Bildrand in Richtung des Angreifers (vorne = oben, hinten = unten, schraeg = Ecke)
+static void renderHitDir() {
+  if (hitDirT <= 0) return;
+  float x, y; screenDir(hitDirX, hitDirY, x, y);
+  uint16_t c = hitDirT > 0.5f || ((int)(gameTime * 8) % 2) ? c565(255, 30, 30) : c565(150, 0, 0);
+  for (int k = 0; k < 3; k++) {
+    if (y < -0.38f) canvas.drawFastHLine(0, k, SW, c);
+    if (y > 0.38f) canvas.drawFastHLine(0, VH - 1 - k, SW, c);
+    if (x < -0.38f) canvas.drawFastVLine(k, 0, VH, c);
+    if (x > 0.38f) canvas.drawFastVLine(SW - 1 - k, 0, VH, c);
+  }
+}
+// Geraeuschanzeige: gelbes Randstueck in Richtung des Geraeuschs; nah kurz und hell, fern laenger und blasser
+static void renderSounds() {
+  if (island || state != ST_PLAY) return;
+  for (auto& c : soundCues) {
+    if (c.t <= 0) continue;
+    float x, y; screenDir(c.x, c.y, x, y);
+    float d = sqrtf(dist2Player(c.x, c.y)), a = atan2f(y, x), co = cosf(a), si = sinf(a), cx = SW / 2.0f, cy = VH / 2.0f;
+    float t = min((cx - 2) / max(0.01f, fabsf(co)), (cy - 2) / max(0.01f, fabsf(si)));
+    int ex = (int)(cx + co * t), ey = (int)(cy + si * t), len = 10 + (int)(min(d, 14.0f) * 2.5f);
+    uint16_t col = d < 3 ? c565(255, 240, 160) : d < 8 ? c565(255, 200, 50) : c565(170, 130, 30);
+    bool horiz = fabsf(si) * cx > fabsf(co) * cy;   // trifft oben/unten -> waagrechtes Stueck, sonst senkrechtes
+    for (int k = 0; k < 2; k++) {
+      if (horiz) canvas.drawFastHLine(constrain(ex - len / 2, 0, SW - len), ey < cy ? k : VH - 1 - k, len, col);
+      else canvas.drawFastVLine(ex < cx ? k : SW - 1 - k, constrain(ey - len / 2, 0, VH - len), len, col);
+    }
+  }
+}
 static void renderHurt() {   // roter Bildblitz
   if (hurtT <= 0) return;
   float k = min(1.0f, hurtT / 0.35f) * min(1.0f, 0.45f + hurtAmt / 40.0f) * 0.65f;
@@ -2684,7 +2734,7 @@ static void renderHUD() {
     canvas.drawLine(x0, y0, x1, y1, hist[i] >= hist[i - 1] ? c565(60, 230, 100) : c565(255, 60, 60));
   }
   // Rahmen-Effekte
-  if (hurtT > 0) { canvas.drawRect(0, 0, SW, VH, c565(255, 0, 0)); canvas.drawRect(1, 1, SW - 2, VH - 2, c565(255, 0, 0)); canvas.drawRect(2, 2, SW - 4, VH - 4, c565(160, 0, 0)); }
+  if (hurtT > 0 && hitDirT <= 0) { canvas.drawRect(0, 0, SW, VH, c565(255, 0, 0)); canvas.drawRect(1, 1, SW - 2, VH - 2, c565(255, 0, 0)); canvas.drawRect(2, 2, SW - 4, VH - 4, c565(160, 0, 0)); }
   if (pickT > 0) { canvas.drawRect(0, 0, SW, VH, c565(60, 255, 120)); canvas.drawRect(1, 1, SW - 2, VH - 2, c565(60, 255, 120)); }
   if (phaseT > 0 && !island && ((int)(gameTime * 3) % 2)) {   // Marktphase: pulsierender gruener bzw. roter Rand
     uint16_t pc = phase > 0 ? c565(60, 220, 110) : c565(230, 50, 50);
@@ -2956,7 +3006,7 @@ void loop() {
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
       updateGame(dt);
       if (island) renderIsland(); else { renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
-      renderCrashTint(); renderHurt(); renderWeapon(); renderHUD();
+      renderCrashTint(); renderHurt(); renderWeapon(); renderHitDir(); renderSounds(); renderHUD();
       if (hurtT > 0) { char hb[16]; snprintf(hb, sizeof(hb), "v -%d%%", hurtAmt); centerText(hb, 30 + (int)((0.35f - hurtT) * 60), 2, c565(255, 50, 50)); }
       if (island) {   // HUD in der Steueroase: Gold und Zeit statt Bullen/Baeren und Kurs
         canvas.fillRect(146, VH + 10, SW - 146, 17, c565(8, 12, 26));

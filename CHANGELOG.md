@@ -2,6 +2,16 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.32.0 – See hits and sounds (22.10.2026)
+
+For everyone who plays without sound:
+
+- **Hit direction (inner circle):** A thin red pixel arc with a dark outline around the crosshair shows where a hit came from: top for front, bottom for behind, left and right accordingly. It turns with you and fades after just over a second. Strong hits also make the screen edge on that side glow red. For shots, the projectile’s flight direction counts.
+- **Show sounds (outer circle):** When an enemy within earshot roars, snorts or fires, a yellow section of the outer circle lights up in its direction. Close sounds are narrow and bright (very close ones with a bright core), distant ones wider and fainter, so the direction feels vaguer. Silent enemies show nothing. Stampedes and bear packs announce themselves this way too.
+- **Options:** “Hit direction” and “Show sounds” can be switched off separately (both on by default). The options menu packs rows tighter when there are many.
+- **Multiplayer:** Both work for all players, including hits from other players.
+- **Cardputer:** A red bar at the screen edge shows the hit direction, a yellow edge segment the direction of a sound (close: short and bright, distant: longer and fainter).
+
 ## Version 3.31.5 – Packs and herds grow with the level (22.10.2026)
 
 - **Bear trap and bull run:** The pack and the herd now grow with the level for speculator and day trader too.

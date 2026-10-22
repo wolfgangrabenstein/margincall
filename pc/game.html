@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.31.5";
+const APP_VERSION = "3.32.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -633,8 +633,10 @@ let level = 0, marketKills = 0;
 let fireCd = 0, flashT = 0, hurtT = 0, pickT = 0, msgT = 0, bobT = 0, gameTime = 0;
 // Trefferfeedback: Staerke des letzten Treffers, fallende Schadenszahlen, Blickrichtung des Trader-Gesichts im HUD
 let hurtAmt = 0, hurtPops = [], faceLook = 0, faceT = 0;
-function hurtFeedback(amt) {
+let hitDirs = [], hitSrc = null, curEnemy = null;   // Trefferrichtungen (Herkunftspunkt), Quelle des naechsten Treffers, gerade handelnder Gegner
+function hurtFeedback(amt, sx, sy) {
   hurtT = .35; hurtAmt = amt;
+  if (sx !== undefined && sy !== undefined) { hitDirs.push({ x: sx, y: sy, t: 1.2, k: Math.min(1, amt / 25) }); if (hitDirs.length > 6) hitDirs.shift(); }
   hurtPops.push({ v: Math.round(amt), t: 0, x: (Math.random() - .5) * 160 });
   if (hurtPops.length > 6) hurtPops.shift();
 }
@@ -723,7 +725,7 @@ const levelMarket = () => markets[LEVEL_MARKET[level]];
 // Ereignisse: lokal ausfuehren, im Multiplayer zusaetzlich an Mitspieler senden
 function emit(ev) { if (isMP() && isHost()) outEvents.push(ev); }
 function sfxAt(name, x, y, r = 7, except = -1) {
-  if (me && me.id !== except && dist2P(x, y) < r * r) sfx(name);
+  if (me && me.id !== except && dist2P(x, y) < r * r) { sfx(name); if (SOUND_CUES.has(name)) addSoundCue(x, y); }
   emit(["sfx", name, +x.toFixed(2), +y.toFixed(2), r, except]);
 }
 const sfxNear = (name, x, y, r = 7) => sfxAt(name, x, y, r);
@@ -733,10 +735,10 @@ function sayAll(text, t = 2) { say(text, t); emit(["msg", 0, text, t]); }
 function sayTo(pl, text, t = 2) { if (pl.local) say(text, t); else emit(["msg", pl.id, text, t]); }
 function applyEvent(ev) {   // beim Mitspieler
   switch (ev[0]) {
-    case "sfx": if (ev[5] !== net.id && (ev[4] === 0 || dist2P(ev[2], ev[3]) < ev[4] * ev[4])) sfx(ev[1]); break;
+    case "sfx": if (ev[5] !== net.id && (ev[4] === 0 || dist2P(ev[2], ev[3]) < ev[4] * ev[4])) { sfx(ev[1]); if (ev[4] && SOUND_CUES.has(ev[1])) addSoundCue(ev[2], ev[3]); } break;
     case "sfxto": if (ev[1] === net.id) sfx(ev[2]); break;
     case "msg": if (ev[1] === 0 || ev[1] === net.id) say(ev[2], ev[3]); break;
-    case "hurt": if (ev[1] === net.id) hurtFeedback(ev[2] || 10); break;
+    case "hurt": if (ev[1] === net.id) hurtFeedback(ev[2] || 10, ev[3], ev[4]); break;
     case "pick": if (ev[1] === net.id) pickT = .25; break;
     case "clip": if (ev[1] === net.id) me.noclip = !!ev[2]; break;
     case "psy": if (ev[1] === net.id) me.psy = !!ev[2]; break;
@@ -1067,7 +1069,8 @@ function damagePlayer(pl, d, why, attacker = null) {
   if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
   if (HC()) d *= 1.65; else if (EZ()) d *= .7;
   pl.hp -= Math.round(d);
-  if (pl.local) hurtFeedback(d); else emit(["hurt", pl.id, Math.round(d)]);
+  const src = hitSrc || attacker || curEnemy; hitSrc = null;   // woher der Treffer kam (fuer die Trefferrichtung)
+  if (pl.local) hurtFeedback(d, src?.x, src?.y); else emit(src ? ["hurt", pl.id, Math.round(d), r2(src.x), r2(src.y)] : ["hurt", pl.id, Math.round(d)]);
   sfxTo(pl, "PHONE");
   if (why) sayTo(pl, why, 1.2);
   if (pl.hp > 0) return;
@@ -1143,7 +1146,7 @@ function stampedeHerd() {
   }
   for (let g = 0; g < 2; g++) {
     const c = near.length ? near.splice(rnd() % near.length, 1)[0] : findHiddenCell(5); if (!c) continue;
-    for (let j = 0; j < 3 && n < herdSize(); j++) { const e = spawnEnemy(E.BULL, c[0] + [-.3, .3, 0][j], c[1] + [0, 0, .3][j]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; }   // stuermt mit erhoehtem Tempo los
+    for (let j = 0; j < 3 && n < herdSize(); j++) { const e = spawnEnemy(E.BULL, c[0] + [-.3, .3, 0][j], c[1] + [0, 0, .3][j]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; if (dist2P(e.x, e.y) < 196) addSoundCue(e.x, e.y); }   // stuermt mit erhoehtem Tempo los
   }
   if (!n) return;
   if (mode === "team") alive.forEach(p => sayTo(p, L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2)); else sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2);
@@ -1166,6 +1169,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
     const e = spawnEnemy(E.BULL, sx - best.dx * k * .7 + best.dy * (k % 2 ? .2 : -.2), sy - best.dy * k * .7 + best.dx * (k % 2 ? .2 : -.2));   // gestaffelt, damit man alle vier sieht
     if (e.gone) continue;
     Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7, stampede: true });
+    if (k === 0 && dist2P(e.x, e.y) < 196) addSoundCue(e.x, e.y);
   }
   if (mode === "team") alive.forEach(p => sayTo(p, L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2)); else sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2);
   sfxAll("BULL");
@@ -1176,7 +1180,7 @@ function bearTrap() {
   sfxAll("ROAR");
   for (let k = 0; k < packSize(); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
     const c = findHiddenCell(5); if (!c) continue;
-    const e = spawnEnemy(E.BEAR, c[0], c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; e.pack = true; }
+    const e = spawnEnemy(E.BEAR, c[0], c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; e.pack = true; if (dist2P(e.x, e.y) < 196) addSoundCue(e.x, e.y); }
   }
 }
 // letzte 4 Sekunden der Baerenfalle: der Markt dreht, die Baeren sitzen in der Falle (3 s benommen, Fallen-Bonus)
@@ -2001,14 +2005,14 @@ const optRow = (kind, en, de, extra = {}) => ({ kind, ...extra, get name() { ret
 const OPT_MAIN = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindlichkeit und grosse Zeilen
   optRow("touchHelp", "Touch controls ▶", "Touch-Steuerung ▶"),
   optRow("touchSens", "Turn sensitivity", "Drehempfindlichkeit"), optRow("aimMode", "Auto aim", "Auto-Aim"), optRow("invert", "Invert turning", "Drehen umkehren"),
-  optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
+  optRow("fullscreen", "Fullscreen", "Vollbild"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("hitDir", "Hit direction", "Trefferrichtung"), optRow("soundViz", "Show sounds", "Geräusche anzeigen"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"),
   optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard", "Online-Rangliste")] : []),
   optRow("onlineMP", "Online multiplayer", "Online-Multiplayer"), optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")] : [
   optRow("keys", "Controls ▶", "Steuerung ▶"),
   optRow("aimMode", "Auto aim (e.g. for trackpads)", "Auto-Aim (z. B. fürs Trackpad)"),
-  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
+  optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("hitDir", "Hit direction", "Trefferrichtung"), optRow("soundViz", "Show sounds", "Geräusche anzeigen"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
   optRow("onlineMP", "Online multiplayer (Cloudflare)", "Online-Multiplayer (Cloudflare)"),
   optRow("lang", "Language", "Sprache"),
@@ -2020,7 +2024,7 @@ const OPT_KEYS = [...ACTIONS.map(([id, en, de]) => optRow("bind", en, de, { id }
 let OPT_ROWS = OPT_MAIN, optPage = "main", OPT_Y0 = 0, OPT_DY = 0;
 function setOptPage(p) {
   optPage = p; OPT_ROWS = p === "keys" ? OPT_KEYS : OPT_MAIN; optSel = 0; optCol = 0; optWaiting = false;
-  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = COARSE ? 30 : p === "keys" ? 19 : 32;
+  OPT_Y0 = COARSE ? 66 : p === "keys" ? 84 : 82; OPT_DY = Math.min(COARSE ? 30 : p === "keys" ? 19 : 32, Math.floor((DH - 56 - OPT_Y0) / OPT_ROWS.length));   // mehr Zeilen: enger zusammenruecken
 }
 let optSel = 0, optCol = 0, optWaiting = false, optReturn = 0, optMsg = "", optMsgT = 0;
 function openOptions() { optReturn = state; state = ST.OPTIONS; setOptPage("main"); document.exitPointerLock?.(); }
@@ -2045,6 +2049,8 @@ function optActivate() {
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "shake": settings.shake = settings.shake === false; saveSettings(); break;
+    case "hitDir": settings.hitDir = settings.hitDir === false; saveSettings(); break;
+    case "soundViz": settings.soundViz = settings.soundViz === false; saveSettings(); break;
     case "sens": settings.sens = settings.sens % 10 + 1; saveSettings(); break;
     case "aimMode": settings.aimMode = { off: "semi", semi: "full", full: "off" }[aimModeSet()] || "off"; settings.aimTouched = true; saveSettings(); break;
     case "touchSens": settings.touchSens = (settings.touchSens || 6) % 10 + 1; saveSettings(); break;
@@ -2075,7 +2081,7 @@ function optKey(k) {
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
     else if (row.kind === "touchSens") { settings.touchSens = clamp((settings.touchSens || 6) + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "hitDir" || row.kind === "soundViz" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
     else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(aimModeSet()) + (d > 0 ? 1 : 2)) % 3]; settings.aimTouched = true; saveSettings(); }
   }
   else if (k === "enter" || k === " ") optActivate();
@@ -2117,8 +2123,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "shake" ? settings.shake !== false : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "hitDir" || row.kind === "soundViz" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "shake" ? settings.shake !== false : row.kind === "hitDir" ? settings.hitDir !== false : row.kind === "soundViz" ? settings.soundViz !== false : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "aimMode") {
       const m = aimModeSet() || "off";
@@ -2597,7 +2603,7 @@ function updateGame(dt) {
     if (e.gone) continue;
     if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
     if (e.f === F.BULL) bullsAlive++; else if (e.f === F.BEAR) bearsAlive++;
-    updateEnemy(e, dt);
+    curEnemy = e; updateEnemy(e, dt); curEnemy = null;
     if (state !== ST.PLAY) return;
   }
   spawnT -= dt;
@@ -2638,7 +2644,7 @@ function updateGame(dt) {
     for (const pl of players) {
       if (pl.dead || (pl.x - p.x) ** 2 + (pl.y - p.y) ** 2 >= .12 || segBlocked(p.x, p.y, pl.x, pl.y)) continue;
       if (mode === "team" && (p.f === F.BULL || p.f === F.BEAR) && p.f === teamFaction(pl)) continue;
-      p.active = false;
+      p.active = false; hitSrc = { x: pl.x - p.dx, y: pl.y - p.dy };   // Schuss: Richtung, aus der er kam
       damagePlayer(pl, p.dmg, p.spr === S.LASER ? L("ALGO ORDER EXECUTED!", "ALGO-ORDER AUSGEFÜHRT!") : p.spr === S.PROJ_OIL ? L("OIL BARREL! ENERGY CRISIS", "ÖLFASS! ENERGIEKRISE") : "MARGIN CALL!");
       if (p.spr === S.PROJ_OIL) pl.slowT = 2;
       break;
@@ -2999,7 +3005,7 @@ function updateIsland(dt) {
   for (const e of enemies) {
     if (e.gone) continue;
     if (!e.alive) { e.deadT += dt; if (e.deadT > 7) e.gone = true; continue; }
-    bearsAlive++; e.awake = true; updateEnemy(e, dt);
+    bearsAlive++; e.awake = true; curEnemy = e; updateEnemy(e, dt); curEnemy = null;
     if (state !== ST.PLAY) return;
   }
   isleSpawnT -= dt;
@@ -4513,6 +4519,70 @@ function renderScoreOverlay() {
 
 // ---------------------------------------------------------------- Hauptschleife
 let last = performance.now(), lobbyT = 0;
+// Bildschirm-Richtung zu einem Punkt (Einheitsvektor): vorne = oben, rechts = rechts
+function screenDir(x, y) {
+  const sx = x - px, sy = y - py, l = Math.hypot(sx, sy) || 1, pl = Math.hypot(planeX, planeY) || 1;
+  return [(sx * planeX + sy * planeY) / (l * pl), -(sx * dirX + sy * dirY) / l];
+}
+// Treffer- und Gefahrenanzeige werden in der groben Aufloesung der Spielwelt gezeichnet (4 Bildpunkte je Pixel), damit sie zum Pixel-Look passen
+const FX_SC = 4; let fxCv = null, fxG = null;
+function fxBegin() {
+  const w = Math.ceil(DW / FX_SC), h = Math.ceil(HUD_Y / FX_SC);
+  if (!fxCv || fxCv.width !== w || fxCv.height !== h) { fxCv = document.createElement("canvas"); fxCv.width = w; fxCv.height = h; fxG = fxCv.getContext("2d"); }
+  fxG.clearRect(0, 0, w, h); return fxG;
+}
+function fxEnd() {   // harte Pixelkanten, Transparenz in wenigen Stufen
+  const d = fxG.getImageData(0, 0, fxCv.width, fxCv.height), p = d.data;
+  for (let i = 3; i < p.length; i += 4) p[i] = p[i] < 70 ? 0 : Math.round(p[i] / 64) * 64 - 1;
+  fxG.putImageData(d, 0, 0);
+  g.imageSmoothingEnabled = false; g.drawImage(fxCv, 0, 0, fxCv.width * FX_SC, fxCv.height * FX_SC);
+}
+// Trefferrichtung: duenner roter Pixelbogen mit dunklem Rand um das Fadenkreuz, dreht sich beim Umdrehen mit; starke Treffer lassen den Bildrand gluehen
+function renderHitDirs(dt) {
+  hitDirs = hitDirs.filter(h => (h.t -= dt) > 0);
+  if (!hitDirs.length || settings.hitDir === false) return;
+  const x = fxBegin(), cx = fxCv.width / 2, cy = fxCv.height / 2, r = Math.min(110, HUD_Y * .3) / FX_SC;
+  for (const pass of [0, 1]) for (const h of hitDirs) {   // erst alle dunklen Raender, dann die roten Linien
+    const [vx, vy] = screenDir(h.x, h.y), ang = Math.atan2(vy, vx), span = .36 * (.75 + .25 * h.k), lw = 1 + h.k, al = Math.min(1, h.t / .5);
+    x.strokeStyle = pass ? `rgba(255,40,40,${al})` : `rgba(40,0,0,${al})`; x.lineWidth = pass ? lw : lw + 2;
+    x.beginPath(); x.arc(cx, cy, r, ang - span, ang + span); x.stroke();
+  }
+  fxEnd();
+  for (const h of hitDirs) if (h.k >= .6 && h.t > .6) {   // starker Treffer: Bildrand in dieser Richtung glueht
+    const [vx, vy] = screenDir(h.x, h.y), al = Math.min(1, h.t / .5), side = Math.abs(vx) > Math.abs(vy), sg = side ? Math.sign(vx) : Math.sign(vy), W = 64;
+    for (let k = 0; k < 4; k++) {   // in vier Stufen statt weichem Verlauf
+      g.fillStyle = `rgba(255,30,30,${(.45 - k * .1) * al})`; const o = k * W / 4;
+      if (side) g.fillRect(sg > 0 ? DW - o - W / 4 : o, 0, W / 4, HUD_Y); else g.fillRect(0, sg > 0 ? HUD_Y - o - W / 4 : o, DW, W / 4);
+    }
+  }
+}
+// Geraeuschanzeige fuer alle, die ohne Ton spielen: Gegner-Geraeusche leuchten als gelber Abschnitt auf dem aeusseren Kreis auf.
+// Nahe Geraeusche schmal und hell (unter 3 Feldern mit hellem Kern), ferne breit und schwaecher – die Richtung wirkt dann diffuser.
+const SOUND_CUES = new Set(["ROAR", "BULL", "ZAP", "LASER", "OIL", "POP"]);
+let soundCues = [];
+function addSoundCue(x, y) {
+  const old = soundCues.find(c => (c.x - x) ** 2 + (c.y - y) ** 2 < 2);
+  if (old) { old.x = x; old.y = y; old.t = 1.5; return; }
+  soundCues.push({ x, y, t: 1.5 }); if (soundCues.length > 8) soundCues.shift();
+}
+function renderSounds(dt) {
+  soundCues = soundCues.filter(c => (c.t -= dt) > 0);
+  if (!soundCues.length || settings.soundViz === false || !me || me.dead) return;
+  const x = fxBegin(), cx = fxCv.width / 2, cy = fxCv.height / 2, R = Math.min(175, HUD_Y * .4) / FX_SC, N = 96;
+  const cs = soundCues.map(c => { const [sx, sy] = screenDir(c.x, c.y), d = Math.hypot(c.x - px, c.y - py), f = Math.min(1, c.t / .6);
+    return { a: Math.atan2(sy, sx), d, f, inten: Math.max(.6, 1 - d / 14) * f, sp: .12 + .05 * Math.min(d, 14) }; });
+  for (let i = 0; i < N; i++) {
+    const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2; let v = 0;
+    for (const c of cs) { const dd = Math.abs(((am - c.a) + 9.4248) % 6.2832 - 3.1416); v += c.inten * Math.exp(-((dd / c.sp) ** 2)); }
+    v = Math.min(1, v); if (v < .15) continue;
+    x.strokeStyle = `rgba(255,210,50,${v})`; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, R, a0, a1 + .02); x.stroke();
+  }
+  for (const c of cs) if (c.d < 6) {   // nahes Geraeusch: Kern, unter 3 Feldern hell mit dunklem Rand, bis 6 Felder halbhell
+    if (c.d < 3) { x.strokeStyle = `rgba(40,30,0,${c.f})`; x.lineWidth = 4; x.beginPath(); x.arc(cx, cy, R, c.a - .1, c.a + .1); x.stroke(); }
+    x.strokeStyle = c.d < 3 ? `rgba(255,240,160,${c.f})` : `rgba(255,240,160,${.6 * c.f})`; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, R, c.a - .08, c.a + .08); x.stroke();
+  }
+  fxEnd();
+}
 function renderPlay(dt) {
   if (island) renderIsland(); else { marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
   renderPsy();
@@ -4544,6 +4614,7 @@ function renderPlay(dt) {
     const a = .35 + .25 * Math.sin(gameTime * 6);
     g.strokeStyle = phase > 0 ? `rgba(80,255,130,${a})` : `rgba(255,60,60,${a})`; g.lineWidth = 14; g.strokeRect(7, 7, DW - 14, HUD_Y - 14);
   }
+  renderHitDirs(dt); renderSounds(dt);
   renderHUD();
   if (down("scores") && !chatTyping) renderScoreOverlay();
 }
