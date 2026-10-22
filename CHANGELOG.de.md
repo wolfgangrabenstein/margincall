@@ -2,6 +2,11 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.30.3 – Zurück-Taste belegbar, Texte (22.10.2026)
+
+- **Zurück-Taste:** Die Taste für „Zurück“ in den Menüs (Standard B) lässt sich jetzt unter Optionen › Steuerung frei belegen. ESC funktioniert weiterhin. Alle Schaltflächen und Hinweise zeigen die eingestellte Taste an.
+- **Texte:** Der Crash beginnt mit „⚠ BÖRSENCRASH!“; ein verfehlter Margin Call meldet „MARGIN CALL VERFEHLT! EIN LEBEN VERLOREN“.
+
 ## Version 3.30.2 – Cleverere Gegner im Hardcore-Modus (22.10.2026)
 
 - **Vorhalten:** Short Seller, Ölbaron und Trading-Bot zielen im Hardcore-Modus dorthin, wo du gleich sein wirst, statt auf deine aktuelle Position.

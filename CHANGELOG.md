@@ -2,6 +2,11 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.30.3 – Rebindable back key, texts (22.10.2026)
+
+- **Back key:** The key for “back” in menus (default B) can now be rebound under Options › Controls. ESC still works. All buttons and hints show the chosen key.
+- **Texts:** The crash now starts with “⚠ STOCK MARKET CRASH!”; a missed margin call reports “MARGIN CALL MISSED! ONE LIFE LOST”.
+
 ## Version 3.30.2 – Smarter enemies in hardcore mode (22.10.2026)
 
 - **Leading shots:** In hardcore, short sellers, oil barons and trading bots aim where you are about to be instead of where you are.

@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.30.2"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.30.3"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1222,7 +1222,7 @@ static void endCrash(bool ok) {
     long bonus = (long)(marginDue * 0.25f / 50) * 50; pnl += hardcore ? bonus * 3 / 2 : bonus; sfxPlay(SFX_ID_KACHING);
     char b[48]; snprintf(b, sizeof(b), L("MARGIN CALL MET! +$%ld", "MARGIN CALL ERFUELLT! +$%ld"), bonus); say(b, 3.5f);
   } else {
-    say(L("MARGIN CALL MISSED - 1 LIFE LOST", "MARGIN CALL VERFEHLT - 1 LEBEN WEG"), 3.5f);
+    say(L("MARGIN CALL MISSED! 1 LIFE LOST", "MARGIN CALL VERFEHLT! 1 LEBEN WEG"), 3.5f);
     if (hardcore || deaths >= SOLO_LIVES - 1) damagePlayer(9999, nullptr);   // letztes Leben: Insolvenz
     else { deaths++; sfxPlay(SFX_ID_CRASH); }
   }

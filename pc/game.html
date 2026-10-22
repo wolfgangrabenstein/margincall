@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.30.2";
+const APP_VERSION = "3.30.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1165,7 +1165,7 @@ function startCrash() {
   crashDone = true; crashStage = 1; crashStT = 3; rallySaid = false;
   phase = 0; phaseT = 0; stampedeAt = 0; bearHintAt = 0;
   sfxAll("ALARM");
-  sayAll(L("⚠ TRADING HALT – STOCK MARKET CRASH!", "⚠ HANDELSSTOPP – BÖRSENCRASH!"), 3);
+  sayAll(L("⚠ STOCK MARKET CRASH!", "⚠ BÖRSENCRASH!"), 3);
   for (const e of enemies) { e.lurkT = 0; e.lurking = false; e.coverT = 0; e.chargeT = 0; }
 }
 function beginCrash() {   // nach dem Handelsstopp: Margin Call, Notverkaeufe mit Waechtern, Jagdrudel
@@ -1189,7 +1189,7 @@ function endCrash(ok) {
     players.forEach(p => addScore(p, bonus)); sfxAll("KACHING");
     sayAll(L(`MARGIN CALL MET! CRISIS PROFIT +$${bonus.toLocaleString(LOC())}`, `MARGIN CALL ERFÜLLT! KRISENGEWINN +$${bonus.toLocaleString(LOC())}`), 3.5);
   } else {
-    sayAll(L("MARGIN CALL MISSED – ONE LIFE LOST", "MARGIN CALL VERFEHLT – EIN LEBEN WEG"), 3.5);
+    sayAll(L("MARGIN CALL MISSED! ONE LIFE LOST", "MARGIN CALL VERFEHLT! EIN LEBEN VERLOREN"), 3.5);
     for (const p of players) {
       if (p.dead || p.god) continue;
       if (isMP() || HC() || livesLeft() <= 1) damagePlayer(p, 9999, null);   // letztes Leben bzw. Koop: Insolvenz
@@ -1766,12 +1766,12 @@ function clientSnapshot(m) {
 const ACTIONS = [
   ["fwd", "Forward", "Vorwärts"], ["back", "Backward", "Rückwärts"], ["turnL", "Turn left", "Links drehen"], ["turnR", "Turn right", "Rechts drehen"],
   ["strafeL", "Strafe left", "Seitwärts links"], ["strafeR", "Strafe right", "Seitwärts rechts"], ["fire", "Fire", "Feuern"], ["pause", "Pause", "Pause"], ["music", "Mute music", "Musik stumm"],
-  ["chat", "Chat (multiplayer)", "Chat (Multiplayer)"], ["log", "Event log", "Ereignisverlauf"], ["scores", "Stats (hold)", "Statistik (halten)"],
+  ["chat", "Chat (multiplayer)", "Chat (Multiplayer)"], ["log", "Event log", "Ereignisverlauf"], ["scores", "Stats (hold)", "Statistik (halten)"], ["menuBack", "Back (menus)", "Zurück (Menüs)"],
 ];
 const DEFAULTS = {
   // PC-Standard: WASD + Maus (der Cardputer nutzt weiterhin EASD)
   binds: { fwd: ["w", "ArrowUp"], back: ["s", "ArrowDown"], turnL: ["ArrowLeft", null], turnR: ["ArrowRight", null],
-    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], log: ["l", null], scores: ["Tab", null] },
+    strafeL: ["a", null], strafeR: ["d", null], fire: [" ", "Mouse0"], pause: ["p", "Escape"], music: ["m", null], chat: ["t", null], log: ["l", null], scores: ["Tab", null], menuBack: ["b", null] },
   mouseLook: true, sens: 5, invert: false, avatar: "m", lang: "en", musicVol: 3, sfxVol: 7,   // Lautstaerke 0-10
 };
 const SETTINGS_KEY = "margincall.settings.v2";   // v2: WASD-Standard
@@ -2083,9 +2083,9 @@ function renderOptions() {
     }
   });
   const help = COARSE ? L("Tap a row to change it · tap a box to set a slider", "Zeile antippen zum Ändern · auf ein Kästchen tippen für den Regler")
-    : optPage === "main" ? L("↑↓ select · ←→ change value · ENTER/click change · B back", "↑↓ wählen · ←→ Wert ändern · ENTER/Klick ändern · B zurück")
+    : optPage === "main" ? L(`↑↓ select · ←→ change value · ENTER/click change · ${bindText("menuBack")} back`, `↑↓ wählen · ←→ Wert ändern · ENTER/Klick ändern · ${bindText("menuBack")} zurück`)
     : optWaiting ? L("Press a new key or mouse button · ESC cancels", "Neue Taste oder Maustaste drücken · ESC bricht ab")
-    : L("↑↓ select · ←→ column/value · ENTER/click change · DEL clear · B back", "↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · B zurück");
+    : L(`↑↓ select · ←→ column/value · ENTER/click change · DEL clear · ${bindText("menuBack")} back`, `↑↓ wählen · ←→ Spalte/Wert · ENTER/Klick ändern · ENTF leeren · ${bindText("menuBack")} zurück`);
   text(help, DW / 2, DH - 32, "#8290b0", 15, "center");
   if (optMsgT > 0) text(optMsg, DW / 2, DH - 56, "#50ff82", 16, "center");
 }
@@ -2255,7 +2255,7 @@ const typingText = () => !!edit || (chatTyping && (state === ST.LOBBY || state =
   || (state === ST.ONLINE && codeAsk) || (state === ST.JOIN && joinText.length > 0);
 const pauseKey = () => bindLabel(settings.binds.pause.find(Boolean) || "p");
 function onKeyPress(k) {
-  if (k === "b" && state !== ST.PLAY && !typingText() && !(state === ST.OPTIONS && optWaiting)) k = "Escape";   // B = Zurueck (Esc geht weiterhin)
+  if (isBound("menuBack", k) && state !== ST.PLAY && !typingText() && !(state === ST.OPTIONS && optWaiting)) k = "Escape";   // Zurueck-Taste (Standard B, in der Steuerung belegbar; Esc geht weiterhin)
   audioUnlock();
   if (k === "F4" && !(state === ST.OPTIONS && optWaiting)) { toggleFullscreen(); return; }
   if (serverGone) { if (k === "h" && IN_APP) goHome(); if (k === "q") quitGame(); return; }
@@ -3480,7 +3480,7 @@ function renderLobby() {
     zoneButton(bx, by + bh + 6, bw, 24, L("[Y] COPY CODE", "[Y] CODE KOPIEREN"), "#ffd232", "y", 13);
     text(net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE", "ONLINE · PRIVAT"), bx + bw / 2, by + bh + 36, net.pub ? "#50c8ff" : "#c890ff", 12, "center");
   }
-  if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDUNG ZUM SPIELSERVER HERSTELLEN …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16); return; }
+  if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDUNG ZUM SPIELSERVER HERSTELLEN …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16); return; }
   const host = isHost();
   const list = host ? lobbyPlayers() : lobbyInfo;
   const modeIdx = lobbyMode;
@@ -3553,7 +3553,7 @@ function renderLobby() {
     zoneButton(150, 442, 210, 36, r ? L("✔ READY ([E] UNDO)", "✔ BEREIT ([E] ZURÜCK)") : L("[E] READY", "[E] BEREIT"), r ? "#50ff82" : "#ffd232", "e", 15);
   }
   zoneButton(375, 442, 210, 36, L("⚙ [S] MATCH SETTINGS", "⚙ [S] MATCH-EINSTELLUNGEN"), "#50c8ff", "s", 13);
-  zoneButton(600, 442, 210, 36, L("[B] LEAVE", "[B] VERLASSEN"), "#ff7050", "Escape", 15);
+  zoneButton(600, 442, 210, 36, L(`[${bindText("menuBack")}] LEAVE`, `[${bindText("menuBack")}] VERLASSEN`), "#ff7050", "Escape", 15);
   if (matchSetOpen) renderMatchSettings(host);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
   text(net.online ? (net.pub ? L(`Others find your game under ONLINE PLAY – or join by code ${net.code}`, `Mitspieler finden dein Spiel unter ONLINE SPIELEN – oder treten mit Code ${net.code} bei`)
@@ -3579,7 +3579,7 @@ function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Kno
     [L("On: teammates (team/co-op) can be hit.", "An: Teamkollegen (Team/Koop) können getroffen werden.")]);
   row(326, "NPCs", lobbyNPC ? L("ON", "AN") : L("OFF", "AUS"), lobbyNPC ? "#50ff82" : "#ff7050", "n",
     [L("Market creatures in team and deathmatch. Always on in co-op.", "Börsen-Gegner in Team und Deathmatch. Im Koop immer an.")]);
-  zoneButton(380, 418, 200, 38, L("[B] DONE", "[B] FERTIG"), "#50c8ff", "Escape", 16);
+  zoneButton(380, 418, 200, 38, L(`[${bindText("menuBack")}] DONE`, `[${bindText("menuBack")}] FERTIG`), "#50c8ff", "Escape", 16);
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
@@ -4146,7 +4146,7 @@ function renderHighscores() {
     else if (!onlineOn()) text(L("Online submission is off – turn it on in the options or after a run.", "Online-Eintrag ist aus – einschalten im Optionsmenü oder nach einem Lauf."), 140, 424, "#6b7896", 12);
   }
   if (hsNote) text(hsNote, DW / 2, 430, "#ff7050", 14, "center");
-  zoneButton(250, 452, 220, 38, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(250, 452, 220, 38, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16);
   zoneButton(490, 452, 220, 38, [L("[X] TO ☠ HARDCORE", "[X] ZU ☠ HARDCORE"), L("[X] TO ♥ EASY", "[X] ZU ♥ EINFACH"), L("[X] TO NORMAL", "[X] ZU NORMAL")][hsMode], ["#ff5050", "#50c8ff", "#ffd232"][hsMode], "x", 16);
 }
 
@@ -4198,7 +4198,7 @@ function renderMpChoice() {
   text(L("Open games on the network are found automatically", "Offene Spiele im Netzwerk werden automatisch gesucht"), DW / 2, 300, "#a0a0b4", 14, "center");
   zoneButton(300, 332, 360, 40, L("[O] ONLINE PLAY", "[O] ONLINE SPIELEN"), "#ffd232", "o", 22);
   text(L("Online games – public or with a private code", "Spiele übers Internet – öffentlich oder mit privatem Code"), DW / 2, 378, "#a0a0b4", 14, "center");
-  zoneButton(390, 440, 180, 34, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(390, 440, 180, 34, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16);
 }
 // ---------------------------------------------------------------- Online-Multiplayer (Cloudflare)
 // Ein Raum beim MARGIN-CALL-Server leitet die Nachrichten weiter wie der eingebaute Server im LAN; der Host rechnet das Spiel.
@@ -4285,7 +4285,7 @@ function renderOnline() {
     const label = (r.name || "?") + (r.host ? "  ·  " + r.host : "") + "  ·  " + modeName(r.mode | 0) + "  ·  " + r.players + "/4";
     zoneButton(150, y, DW - 300, 30, (sel ? "▶ " : "") + label, sel ? "#50ff82" : "#c8c8d7", "room:" + i, 15);
   });
-  zoneButton(390, 456, 180, 36, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(390, 456, 180, 36, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16);
   text(L("Version", "Version") + " " + APP_VERSION, DW - 130, 488, "#4a5672", 12, "right");
   if (codeAsk) {   // Dialog: Code eines privaten Spiels eingeben
     g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
@@ -4324,7 +4324,7 @@ function renderJoin() {
   g.strokeStyle = joinText ? "#50ff82" : "#2a3656"; g.lineWidth = 2; g.strokeRect(170, 374, DW - 340, 40);
   text((joinText || (Math.floor(gameTime * 3) % 2 ? "" : "z. B. 192.168.1.20:8080")) + (joinText && Math.floor(gameTime * 3) % 2 ? "▌" : ""), 182, 384, joinText ? "#ffffff" : "#4a5672", 20);
   zoneButton(250, 434, 220, 40, L("[ENTER] CONNECT", "[ENTER] VERBINDEN"), "#50ff82", "enter");
-  zoneButton(490, 434, 220, 40, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape");
+  zoneButton(490, 434, 220, 40, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape");
 }
 function joinTo(addr) {
   const host = addr.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -4379,7 +4379,7 @@ function renderSoloAsk() {
   col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives.", "unbegrenzt Leben.")], "#b4dcf0");
   col(380, "[ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives.`, `${SOLO_LIVES} Leben.`), L("Broke? A new loan", "Pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
   col(590, "☠  [X] HARDCORE", "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
-  zoneButton(380, 362, 200, 40, L("[B] BACK", "[B] ZURÜCK"), "#8290b0", "Escape", 16);
+  zoneButton(380, 362, 200, 40, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16);
 }
 let creditsMenu = false;   // Abspann aus dem Hauptmenue: danach zurueck ins Menue statt in die Steueroase
 function startMenuCredits() { creditsMenu = true; creditsT = 0; state = ST.CREDITS; musicStart(); }
