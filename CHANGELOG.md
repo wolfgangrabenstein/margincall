@@ -2,6 +2,14 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.30.4 – Full-strength bear pack and bull herd (22.10.2026)
+
+- **Bear trap:** The three pack bears now come from different hiding spots instead of one. Bulls no longer attack them during the bear trap, so the whole pack reaches you.
+- **Bull run:** The four stampede bulls run staggered instead of on top of each other, and bears no longer attack them during the bull run. If there is no long straight corridor near you, the herd comes from two nearby hiding spots instead and charges in at higher speed. Previously the stampede was skipped entirely on such levels.
+- **Spacing:** Enemies no longer walk exactly on top of each other, so several enemies are visible as several even in corridors.
+
+Applies to PC, browser and Cardputer.
+
 ## Version 3.30.3 – Rebindable back key, texts (22.10.2026)
 
 - **Back key:** The key for “back” in menus (default B) can now be rebound under Options › Controls. ESC still works. All buttons and hints show the chosen key.

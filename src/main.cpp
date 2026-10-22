@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.30.3"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.30.4"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -676,7 +676,8 @@ struct Enemy {
   bool stampede, summoned; int8_t orb;   // Stampede-Bulle, vom Boss gerufener Bot, Kreisrichtung des Hais in Phase 2
   float aggroT, coverT, coverCd, covX, covY;   // beschossen: verfolgt den Spieler; Deckung bei covX/covY
   float lurkT, lurkCd, rushT; bool lurking;
-  float sideT, sideCd, sdx, sdy;   // Hardcore: Seitschritt aus dem Fadenkreuz   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
+  float sideT, sideCd, sdx, sdy;   // Hardcore: Seitschritt aus dem Fadenkreuz
+  bool pack;   // gehoert zum Rudel der Baerenfalle   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
   float trapT;   // Baerenfalle: benommen (role 3 = Crash-Waechter bei gx/gy, role 4 = Crash-Jaeger)
 };
 struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; bool crash; };   // crash: Notverkauf-Bargeld (150 $)   // slide > 0: schlittert gerade (Baerenfalle)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
@@ -1157,6 +1158,20 @@ static void killEnemy(Enemy& e, bool byPlayer) {
 }
 
 // ---- Marktphasen
+// kein langer gerader Gang in der Naehe: die Herde kommt aus zwei Verstecken und jagt den Spieler
+static void stampedeHerd() {
+  int n = 0;
+  for (int g = 0; g < 2; g++) {
+    float x, y; int cnt = 0;   // Versteck, das auf dem Laufweg 5 bis 12 Felder entfernt ist (die Herde soll zuegig ankommen)
+    if (navOk) for (int cy = 1; cy < MAP_H - 1; cy++) for (int cx = 1; cx < MAP_W - 1; cx++) {
+      int v = navDist[cy * MAP_W + cx];
+      if (v >= 5 && v <= 12 && !lineOfSight(cx + 0.5f, cy + 0.5f, px, py) && rnd() % ++cnt == 0) { x = cx + 0.5f; y = cy + 0.5f; }
+    }
+    if (!cnt && !findHiddenCell(x, y, 5)) continue;
+    for (int j = 0; j < 2; j++) { int i = spawnEnemy(E_BULL, x + (j ? 0.3f : -0.3f), y); if (i < 0) continue; Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.stampede = true; e.chargeCd = 1 + g + j * 0.5f; e.rushT = 6; n++; }   // stuermt mit erhoehtem Tempo los
+  }
+  if (n) { say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL); }
+}
 static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf den Spieler zu; false = gerade kein Gang frei
   int best = 0, bdx = 0, bdy = 0, cx = 0, cy = 0;
   static const int8_t OFF[5][2] = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}, DIR[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -1170,7 +1185,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
   if (!best) return false;
   float sx = cx + bdx * best + 0.5f, sy = cy + bdy * best + 0.5f;
   for (int k = 0; k < 4; k++) {
-    int i = spawnEnemy(E_BULL, sx - bdx * (k % 2) * 0.5f + bdy * (k < 2 ? -0.2f : 0.2f), sy - bdy * (k % 2) * 0.5f + bdx * (k < 2 ? -0.2f : 0.2f));
+    int i = spawnEnemy(E_BULL, sx - bdx * k * 0.7f + bdy * (k % 2 ? 0.2f : -0.2f), sy - bdy * k * 0.7f + bdx * (k % 2 ? 0.2f : -0.2f));   // gestaffelt, damit man alle vier sieht
     if (i < 0) continue;
     Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f; e.stampede = true;
   }
@@ -1179,8 +1194,10 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
 }
 static void bearTrap() {   // Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede)
   sfxPlay(SFX_ID_ROAR);
-  float x, y;
-  if (findHiddenCell(x, y, 5)) for (int k = 0; k < 3; k++) { int i = spawnEnemy(E_BEAR, x + (k - 1) * 0.35f, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; } }   // Rudel greift gestaffelt an
+  for (int k = 0; k < 3; k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
+    float x, y; if (!findHiddenCell(x, y, 5)) continue;
+    int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; enemies[i].pack = true; }
+  }
 }
 // letzte 4 Sekunden der Baerenfalle: der Markt dreht, die Baeren sitzen in der Falle (3 s benommen, Fallen-Bonus)
 static void snapTrap() {
@@ -1267,7 +1284,7 @@ static void updatePhase(float dt) {
   if (phaseT > 0) {
     phaseT -= dt;
     if (phase < 0 && !trapSnapped && phaseT <= 4) snapTrap();
-    if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede() && phaseT > 3) stampedeAt = 2;
+    if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede()) { stampedeHerd(); }   // kein langer Gang frei: Ersatz-Herde aus Verstecken
     if (phaseT <= 0) {
       phase = 0; phaseCd = 35;
       if (canCrash() && overheated()) say(L("MARKET OVERHEATED! KILL BULLS", "MARKT UEBERHITZT! BULLEN ERLEGEN"), 3);
@@ -1437,7 +1454,7 @@ static void chooseTarget(Enemy& e, int self) {
     for (int j = 0; j < nEnemies; j++) {
       if (j == self) continue;
       const Enemy& o = enemies[j];
-      if (!o.alive || !hostileFactions(e.faction, o.faction)) continue;
+      if (!o.alive || !hostileFactions(e.faction, o.faction) || (o.pack && bearMkt()) || (o.stampede && bullRun())) continue;   // Rudel der Baerenfalle und Stampede laesst man in Ruhe
       float dx = o.x - e.x, dy = o.y - e.y, d = sqrtf(dx * dx + dy * dy);
       if (d > 8 || d * 0.6f > best) continue;
       if (!lineOfSight(e.x, e.y, o.x, o.y)) continue;
@@ -1460,6 +1477,14 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
   if (crashStage == 1) return;   // Handelsstopp: alles erstarrt
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
+  if (!TYPES[e.type].boss) for (int j = 0; j < nEnemies; j++) {   // Abstand halten: Gegner laufen nicht deckungsgleich uebereinander
+    Enemy& o = enemies[j];
+    if (&o == &e || !o.alive || o.pir >= 0 || TYPES[o.type].boss) continue;
+    float ox = e.x - o.x, oy = e.y - o.y, q = ox * ox + oy * oy;
+    if (q >= 0.36f) continue;
+    if (q < 1e-6f) { moveEntity(e.x, e.y, (frand() - 0.5f) * 0.1f, (frand() - 0.5f) * 0.1f, 0.25f); continue; }
+    float l = sqrtf(q), push = (0.6f - l) * 4 * dt; moveEntity(e.x, e.y, ox / l * push, oy / l * push, 0.25f);
+  }
   const float spdMul = min(1.6f, (crashT > 0 ? 1.4f : 1.0f) * bearRage);
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
   if (animal && e.trapT > 0) {   // in der Falle: benommen

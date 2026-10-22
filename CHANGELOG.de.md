@@ -2,6 +2,14 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.30.4 – Bärenrudel und Bullen-Herde in voller Stärke (22.10.2026)
+
+- **Bärenfalle:** Die drei Rudel-Bären kommen jetzt aus verschiedenen Verstecken statt aus einem einzigen. Während der Bärenfalle greifen Bullen sie nicht mehr an, sie erreichen dich also vollzählig.
+- **Bullrun:** Die vier Stampede-Bullen laufen gestaffelt statt übereinander, und während des Bullruns greifen Bären sie nicht mehr an. Gibt es in deiner Nähe keinen langen geraden Gang, kommt die Herde stattdessen aus zwei nahen Verstecken und stürmt mit erhöhtem Tempo heran. Bisher fiel die Stampede in solchen Levels ganz aus.
+- **Abstand halten:** Gegner laufen nicht mehr deckungsgleich übereinander. Mehrere Gegner sind dadurch auch in Gängen als mehrere zu erkennen.
+
+Gilt für PC, Browser und Cardputer.
+
 ## Version 3.30.3 – Zurück-Taste belegbar, Texte (22.10.2026)
 
 - **Zurück-Taste:** Die Taste für „Zurück“ in den Menüs (Standard B) lässt sich jetzt unter Optionen › Steuerung frei belegen. ESC funktioniert weiterhin. Alle Schaltflächen und Hinweise zeigen die eingestellte Taste an.

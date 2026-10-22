@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.30.3";
+const APP_VERSION = "3.30.4";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -800,7 +800,7 @@ function spawnEnemy(type, x, y) {
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0,
-    trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
+    trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0, pack: false });   // wiederverwendete Objekte: Merkmale zuruecksetzen
   return e;
 }
 // Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
@@ -1126,6 +1126,22 @@ function startPhase(dir, noCrash = false) {
   }
 }
 // Bullen-Stampede: eine Herde stuermt durch einen langen Gang auf einen Spieler zu
+// kein langer gerader Gang in der Naehe: die Herde kommt aus zwei Verstecken und jagt den Spieler
+function stampedeHerd() {
+  const alive = players.filter(p => !p.dead && (mode !== "team" || p.team === 1)); if (noNPC() || !alive.length) return;
+  const pl = alive[rnd() % alive.length]; let n = 0;
+  const near = [];   // Verstecke, die auf dem Laufweg 5 bis 12 Felder entfernt sind (die Herde soll zuegig ankommen)
+  if (navDist) for (let y = 1; y < MAP - 1; y++) for (let x = 1; x < MAP - 1; x++) {
+    const v = navDist[y * MAP + x]; if (v >= 5 && v <= 12 && !players.some(p => !p.dead && lineOfSight(x + .5, y + .5, p.x, p.y))) near.push([x + .5, y + .5]);
+  }
+  for (let g = 0; g < 2; g++) {
+    const c = near.length ? near.splice(rnd() % near.length, 1)[0] : findHiddenCell(5); if (!c) continue;
+    for (let j = 0; j < 2; j++) { const e = spawnEnemy(E.BULL, c[0] + (j ? .3 : -.3), c[1]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; }   // stuermt mit erhoehtem Tempo los
+  }
+  if (!n) return;
+  if (mode === "team") alive.forEach(p => sayTo(p, L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2)); else sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2);
+  sfxAll("BULL");
+}
 function stampede() {   // liefert false, wenn gerade kein passender Gang da ist (dann spaeter nochmal)
   const alive = players.filter(p => !p.dead && (mode !== "team" || p.team === 1)); if (noNPC()) return true; if (!alive.length) return false;   // Team: die Bullen jagen Team Baer
   const pl = alive[rnd() % alive.length];
@@ -1140,7 +1156,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
   if (!best) return false;
   const sx = cx + best.dx * best.n + .5, sy = cy + best.dy * best.n + .5;
   for (let k = 0; k < 4; k++) {
-    const e = spawnEnemy(E.BULL, sx - best.dx * (k % 2) * .5 + best.dy * (k < 2 ? -.2 : .2), sy - best.dy * (k % 2) * .5 + best.dx * (k < 2 ? -.2 : .2));
+    const e = spawnEnemy(E.BULL, sx - best.dx * k * .7 + best.dy * (k % 2 ? .2 : -.2), sy - best.dy * k * .7 + best.dx * (k % 2 ? .2 : -.2));   // gestaffelt, damit man alle vier sieht
     if (e.gone) continue;
     Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7, stampede: true });
   }
@@ -1151,8 +1167,10 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
 // Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede), Baeren zaehlen als Short-Gewinn doppelt
 function bearTrap() {
   sfxAll("ROAR");
-  const c = findHiddenCell(5);
-  if (c) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, c[0] + (k - 1) * .35, c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; } }   // Rudel greift gestaffelt an
+  for (let k = 0; k < 3; k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
+    const c = findHiddenCell(5); if (!c) continue;
+    const e = spawnEnemy(E.BEAR, c[0], c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; e.pack = true; }
+  }
 }
 // letzte 4 Sekunden der Baerenfalle: der Markt dreht, die Baeren sitzen in der Falle (3 s benommen, Fallen-Bonus)
 function snapTrap() {
@@ -1236,7 +1254,7 @@ function updatePhase(dt) {
   if (phaseT > 0) {
     phaseT -= dt;
     if (phase < 0 && !trapSnapped && phaseT <= 4) snapTrap();
-    if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede() && phaseT > 3) stampedeAt = 2;   // kein Gang frei: gleich nochmal versuchen
+    if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede()) { stampedeHerd(); }   // kein langer Gang frei: Ersatz-Herde aus Verstecken
     if (phaseT <= 0) { phase = 0; phaseCd = 35; sayAll(canCrash() && overheated() ? L("MARKET OVERHEATED! KILLING BULLS COOLS IT DOWN", "MARKT ÜBERHITZT! BULLEN ERLEGEN KÜHLT IHN AB") : L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), canCrash() && overheated() ? 3 : 1.8); }
     return;
   }
@@ -1489,7 +1507,7 @@ function chooseTarget(e) {
   const pl = nearestPlayer(e, 11, true);
   if (pl) { bt = pl; best = Math.hypot(pl.x - e.x, pl.y - e.y); }
   if (crashT <= 0) for (const o of enemies) {
-    if (o === e || !o.alive || !hostile(e.f, o.f)) continue;
+    if (o === e || !o.alive || !hostile(e.f, o.f) || (o.pack && bearMkt()) || (o.stampede && bullRun())) continue;   // Rudel der Baerenfalle und Stampede laesst man in Ruhe
     const d = Math.hypot(o.x - e.x, o.y - e.y);
     if (d > 8 || d * .6 > best || !lineOfSight(e.x, e.y, o.x, o.y)) continue;
     best = d * .6; bt = o;
@@ -1508,6 +1526,13 @@ function updateEnemy(e, dt) {
   if (crashStage === 1) return;   // Handelsstopp: alles erstarrt
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
   unstick(e, e.type === E.SHARK ? .35 : .25);
+  if (!TYPES[e.type].boss) for (const o of enemies) {   // Abstand halten: Gegner laufen nicht deckungsgleich uebereinander
+    if (o === e || !o.alive || o.pir !== undefined || TYPES[o.type].boss) continue;
+    const ox = e.x - o.x, oy = e.y - o.y, q = ox * ox + oy * oy;
+    if (q >= .36) continue;
+    if (q < 1e-6) { moveEntity(e, (frand() - .5) * .1, (frand() - .5) * .1, .25); continue; }
+    const l = Math.sqrt(q), push = (.6 - l) * 4 * dt; moveEntity(e, ox / l * push, oy / l * push, .25);
+  }
   const spd = Math.min(1.6, (crashT > 0 ? 1.4 : 1) * bearRage), animal = e.f === F.BULL || e.f === F.BEAR;
   if (animal && e.trapT > 0) { if (frand() < dt * 2) { const a = frand() * 6.283; e.mdx = Math.cos(a); e.mdy = Math.sin(a); } moveEntity(e, e.mdx * .4 * dt, e.mdy * .4 * dt, .25); return; }   // in der Falle: benommen
   if (crashStage === 2 && e.f === F.BULL) {   // Crash: Panik, die Bullen fliehen
