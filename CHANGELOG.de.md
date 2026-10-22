@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.35.1 – Ohne NPCs keine Gegner-Ereignisse (22.10.2026)
+
+- **Multiplayer:** Sind die NPCs in den Match-Einstellungen ausgeschaltet, gibt es keine Bullruns, Bärenfallen und Börsencrashs mehr. ALGO-9000 löst dann nur noch Ereignisse ohne Gegner aus: Flash Crash und Systemmanipulation.
+
 ## Version 3.35.0 – Countdown, NPC-Stärke und Ergebnis-Pause (22.10.2026)
 
 - **Countdown vor jedem Level:** Vor jeder Karte zählt eine große Zahl in der Mitte von 3 herunter. So lange steht alles still: Karte, Gegner und Spieler. Erst danach läutet die Börsenglocke und das Level beginnt. Das gilt auch für die Steueroase.

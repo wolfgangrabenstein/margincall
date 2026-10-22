@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.35.1 – No enemy events without NPCs (22.10.2026)
+
+- **Multiplayer:** With NPCs switched off in the match settings there are no more bull runs, bear traps or stock market crashes. ALGO-9000 then only triggers events without enemies: flash crash and system manipulation.
+
 ## Version 3.35.0 – Countdown, NPC strength and results break (22.10.2026)
 
 - **Countdown before every level:** Before each map a big number in the middle counts down from 3. Until then everything is frozen: map, enemies and players. Only then does the opening bell ring and the level begin. This also applies to the tax haven.

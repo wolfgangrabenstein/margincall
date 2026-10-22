@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.35.0";
+const APP_VERSION = "3.35.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1290,11 +1290,11 @@ function updatePhase(dt) {
   }
   const base = clamp(levelChg * .08, -.2, .2);   // echter Kurs als Grundstimmung
   sentiment += (base - sentiment) * dt * .01;
+  if (noNPC()) return;   // ohne NPCs keine Bullruns und Baerenfallen
   if ((phaseCd -= dt) > 0) return;
   if (Math.abs(sentiment) >= .97) startPhase(sentiment > 0 ? 1 : -1);
   else if (phaseCd < -45) {
-    if (noNPC() && mode === "team" && teamScore[0] !== teamScore[1]) startPhase(teamScore[0] < teamScore[1] ? 1 : -1);   // ohne NPCs: Rueckenwind fuers zurueckliegende Team
-    else startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);
+    startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);
   }   // spaetestens nach rund einer Minute
 }
 function killEnemy(e, byPlayer) {
@@ -1395,7 +1395,7 @@ function ambush(e, t, d, sp, dt) {
 }
 
 function aiEvent(forced = -1) {
-  const ev = forced >= 0 ? forced : level === 0 ? [0, 2, 3][rnd() % 3] : rnd() % 6;   // Level 1: nur die harmloseren Ereignisse
+  const ev = forced >= 0 ? forced : noNPC() ? [1, 4][rnd() % 2] : level === 0 ? [0, 2, 3][rnd() % 3] : rnd() % 6;   // Level 1: nur die harmloseren Ereignisse; ohne NPCs nur die ohne Gegner
   aiFaceT = 2.2; glitchT = Math.max(glitchT, .6); sfxAll("GLITCH");
   switch (ev) {
     case 0: fakeT = 10; spawnNear(frand() < .5 ? E.BULL : E.BEAR, 2); manipulate((frand() < .5 ? -1 : 1) * (2 + frand() * 2), 20, L("ALGO-9000: FAKE NEWS SPREAD!", "ALGO-9000: FAKE NEWS GESTREUT!")); break;
