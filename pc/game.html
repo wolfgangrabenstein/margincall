@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.31.4";
+const APP_VERSION = "3.31.5";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1529,9 +1529,11 @@ function meleeHit(e, dmgP, dmgE, why) {
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
 let attackers = null;   // Kleinanleger: Gegner, die gerade angreifen duerfen
-// Rudel der Baerenfalle und Herde des Bullruns: fest 3 Baeren / 4 Bullen; Kleinanleger startet mit einem weniger und waechst bis dorthin mit
+// Groesse von Baerenrudel und Bullen-Herde je Level (Index 0–4) und Schwierigkeitsgrad
 // Kleinanleger: gleichzeitige Angreifer Level 1: 3, Level 2–3: 4, Level 4–5: 5
-const packSize = () => EZ() ? Math.min(3, 2 + Math.floor(level / 2)) : 3, herdSize = () => EZ() ? Math.min(4, 3 + Math.floor(level / 2)) : 4;
+const PACK = { easy: [2, 2, 3, 3, 3], normal: [2, 3, 3, 3, 4], hard: [3, 3, 4, 4, 5] }, HERD = { easy: [3, 3, 4, 4, 4], normal: [3, 4, 4, 4, 5], hard: [4, 4, 5, 5, 6] };
+const diffKey = () => EZ() ? "easy" : HC() ? "hard" : "normal";
+const packSize = () => PACK[diffKey()][Math.min(4, level)], herdSize = () => HERD[diffKey()][Math.min(4, level)];
 const attackSlots = () => 3 + Math.floor((level + 1) / 2);
 // Kleinanleger: wer gerade keinen Angriffsplatz hat, haelt Abstand und kreist, statt anzugreifen
 function holdBack(e, t, d, nx, ny, dt) {

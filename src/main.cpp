@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.31.4"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.31.5"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1169,10 +1169,12 @@ static void killEnemy(Enemy& e, bool byPlayer) {
 }
 
 // ---- Marktphasen
-// Rudel der Baerenfalle und Herde des Bullruns: fest 3 Baeren / 4 Bullen; Kleinanleger startet mit einem weniger und waechst bis dorthin mit
+// Groesse von Baerenrudel und Bullen-Herde je Level (Index 0–4) und Schwierigkeitsgrad (Kleinanleger, Spekulant, Day-Trader)
 // Kleinanleger: gleichzeitige Angreifer Level 1: 3, Level 2–3: 4, Level 4–5: 5
-static int packSize() { return easy ? min(3, 2 + level / 2) : 3; }
-static int herdSize() { return easy ? min(4, 3 + level / 2) : 4; }
+static const uint8_t PACK[3][5] = {{2, 2, 3, 3, 3}, {2, 3, 3, 3, 4}, {3, 3, 4, 4, 5}}, HERD[3][5] = {{3, 3, 4, 4, 4}, {3, 4, 4, 4, 5}, {4, 4, 5, 5, 6}};
+static int diffIdx() { return easy ? 0 : hardcore ? 2 : 1; }
+static int packSize() { return PACK[diffIdx()][min(4, level)]; }
+static int herdSize() { return HERD[diffIdx()][min(4, level)]; }
 static int attackSlots() { return 3 + (level + 1) / 2; }
 // kein langer gerader Gang in der Naehe: die Herde kommt aus zwei Verstecken und jagt den Spieler
 static void stampedeHerd() {

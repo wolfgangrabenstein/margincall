@@ -2,6 +2,22 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.31.5 – Rudel und Herde wachsen mit dem Level (22.10.2026)
+
+- **Bärenfalle und Bullrun:** Rudel und Herde wachsen jetzt auch bei Spekulant und Day-Trader mit dem Level.
+
+| Level | Bären Spekulant / Day-Trader | Bullen Spekulant / Day-Trader |
+|---|---|---|
+| 1 | 2 / 3 | 3 / 4 |
+| 2 | 3 / 3 | 4 / 4 |
+| 3 | 3 / 4 | 4 / 5 |
+| 4 | 3 / 4 | 4 / 5 |
+| 5 | 4 / 5 | 5 / 6 |
+
+- Kleinanleger bleibt wie in 3.31.4.
+
+Gilt für PC, Browser und Cardputer.
+
 ## Version 3.31.4 – Kleinanleger wird mit jedem Level fordernder (22.10.2026)
 
 - **Kleinanleger:**

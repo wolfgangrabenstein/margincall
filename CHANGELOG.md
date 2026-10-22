@@ -2,6 +2,22 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.31.5 – Packs and herds grow with the level (22.10.2026)
+
+- **Bear trap and bull run:** The pack and the herd now grow with the level for speculator and day trader too.
+
+| Level | Bears speculator / day trader | Bulls speculator / day trader |
+|---|---|---|
+| 1 | 2 / 3 | 3 / 4 |
+| 2 | 3 / 3 | 4 / 4 |
+| 3 | 3 / 4 | 4 / 5 |
+| 4 | 3 / 4 | 4 / 5 |
+| 5 | 4 / 5 | 5 / 6 |
+
+- Small investor stays as in 3.31.4.
+
+Applies to PC, browser and Cardputer.
+
 ## Version 3.31.4 – Small investor gets more demanding with each level (22.10.2026)
 
 - **Small investor:**
