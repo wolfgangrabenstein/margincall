@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.37.0 – Geister in Last Man Standing (22.10.2026)
+
+- **Last Man Standing:** Wer ausgeschieden ist, schaut nicht mehr nur aus einer Stelle zu, sondern schwebt als Geist frei über die Karte, etwas schneller als zu Fuß und durch Innenwände hindurch. Nur die Außenmauer hält ihn auf. Der Geist ist für die übrigen Spieler unsichtbar und hat keinen Einfluss aufs Spiel: Er kann nicht schießen, nichts einsammeln, nicht getroffen werden und wird von NPCs ignoriert. Statt des abgedunkelten Bildes erscheint oben nur noch ein kurzer Hinweis.
+
 ## Version 3.36.0 – Treffsicherheit für Mitspieler (22.10.2026)
 
 - **Multiplayer – sofortige Geldscheine:** Wer einem Spiel beitritt, sieht seine eigenen Geldscheine jetzt sofort beim Abdrücken fliegen. Bisher erschienen sie erst nach dem Umweg über den Host, online oft 150–250 ms später und schon ein Stück weiter vorne.

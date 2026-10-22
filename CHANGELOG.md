@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.37.0 – Ghosts in Last Man Standing (22.10.2026)
+
+- **Last Man Standing:** Eliminated players no longer watch from one spot but float across the map as a ghost, a bit faster than on foot and through inner walls. Only the outer wall stops them. The ghost is invisible to the remaining players and has no effect on the game: it can’t shoot, pick anything up or be hit, and NPCs ignore it. Instead of the darkened screen there is just a short note at the top.
+
 ## Version 3.36.0 – Accuracy for joined players (22.10.2026)
 
 - **Multiplayer – instant banknotes:** Players who join a game now see their own banknotes fly the moment they fire. Previously they only appeared after the round trip via the host, online often 150–250 ms later and already further ahead.

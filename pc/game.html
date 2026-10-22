@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.36.0";
+const APP_VERSION = "3.37.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1414,7 +1414,11 @@ function aiEvent(forced = -1) {
 }
 
 // lokale Bewegung (Kollision; der Tresor wird zentral in checkExit geprueft)
+// Geist: ausgeschieden in Last Man Standing. Bleibt fuer das Spiel "tot" (keine Treffer, keine Beute, fuer andere unsichtbar),
+// kann aber frei umherschweben und durch Innenwaende gleiten.
+const isGhost = () => !!(me && me.dead && me.out && mode === "lms");
 function tryMove(mx, my) {
+  if (isGhost()) { px = clamp(px + mx, 1.2, MAP - 1.2); py = clamp(py + my, 1.2, MAP - 1.2); return; }   // nur die Aussenmauer haelt ihn auf
   if (me.noclip) { px = clamp(px + mx, .3, MAP - .3); py = clamp(py + my, .3, MAP - .3); return; }
   const o = { x: px, y: py }; moveEntity(o, mx, my, .22); px = o.x; py = o.y;
 }
@@ -2057,7 +2061,7 @@ document.addEventListener("pointerlockchange", () => {
   if (document.pointerLockElement) { hadLock = true; return; }
   if (!hadLock) return;   // manche Handy-Browser melden auch einen fehlgeschlagenen Versuch – das ist keine Pause
   hadLock = false;
-  if (state !== ST.PLAY || mpMenu || (me && me.dead)) return;
+  if (state !== ST.PLAY || mpMenu || (me && me.dead && !isGhost())) return;
   if (isMP()) mpMenu = true; else state = ST.PAUSE;
   pausedAt = performance.now();
 });
@@ -2590,8 +2594,8 @@ function updateGame(dt) {
   }
 
   // lokale Steuerung
-  if (!me.dead) {
-    const mv = 2.8 * playerSpeedMul(me) * dt, rot = 2.4 * dt;
+  if (!me.dead || isGhost()) {
+    const mv = (isGhost() ? 3.6 : 2.8 * playerSpeedMul(me)) * dt, rot = 2.4 * dt;
     let fwd = 0, side = 0, turn = 0;
     if (down("fwd")) fwd += 1;
     if (down("back")) fwd -= 1;
@@ -3493,7 +3497,7 @@ function renderHUD() {
     const max = HC() ? 1 : SOLO_LIVES, left = HC() ? (me.dead ? 0 : 1) : livesLeft();
     for (let i = 0; i < max; i++) text("♥", 940 - (max - i) * 22, HUD_Y + 8, i < left ? "#ff4060" : "#3a3f55", 20);
   }
-  if (!COARSE && settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && !me.dead)
+  if (!COARSE && settings.mouseLook && document.pointerLockElement !== screen && !mpMenu && (!me.dead || isGhost()))
     text(L("CLICK THE VIEW FOR MOUSE LOOK", "KLICK INS BILD FÜR MAUSSTEUERUNG"), DW / 2, HUD_Y - 30, "rgba(255,255,255,.75)", 15, "center");
   if (mode === "team" || mode === "dm") {
     text(`⏱ ${fmtTime(roundT)}`, DW - 14, HUD_Y + 10, roundT < 30 ? "#ff5050" : "#dcdce6", 17, "right");
@@ -3596,10 +3600,10 @@ function renderHUD() {
       text(m.length > 62 ? m.slice(0, 61) + "…" : m, 234, 100 + i * 20, m.startsWith("ALGO") ? "#ff5050" : "#dcdce6", 14);
     });
   }
-  if (me.dead && me.out) {   // Last Man Standing: ausgeschieden, zuschauen
-    g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(0, 26, DW, HUD_Y - 26);
-    text(L("YOU'RE OUT", "AUSGESCHIEDEN"), DW / 2, 170, "#ff3c3c", 48, "center");
-    text(L("Watching until the round is over", "Du schaust zu, bis die Runde vorbei ist"), DW / 2, 232, "#dcdce6", 20, "center");
+  if (me.dead && me.out) {   // Last Man Standing: ausgeschieden, als Geist zuschauen
+    g.fillStyle = "rgba(120,170,255,.12)"; g.fillRect(0, 26, DW, HUD_Y - 26);
+    text(L("👻 YOU'RE OUT", "👻 AUSGESCHIEDEN"), DW / 2, 40, "#ff3c3c", 30, "center");
+    text(L("As a ghost you float freely and through walls – invisible, without any effect on the game", "Als Geist schwebst du frei und durch Wände – unsichtbar und ohne Einfluss aufs Spiel"), DW / 2, 78, "#dcdce6", 15, "center");
   } else if (me.dead) {
     g.fillStyle = "rgba(60,0,0,.55)"; g.fillRect(0, 26, DW, HUD_Y - 26);
     text(L("BANKRUPT", "INSOLVENZ"), DW / 2, 170, "#ff3c3c", 54, "center");
@@ -4800,7 +4804,7 @@ function frame(now) {
   if (isClient() && net.connected && myMpAim() !== lastAimSent) { lastAimSent = myMpAim(); netSend({ t: "aim", m: lastAimSent }); }
   if (matchSetOpen && state !== ST.LOBBY) matchSetOpen = false;   // Spiel gestartet oder Lobby verlassen
   if (COARSE) {
-    const playing = state === ST.PLAY && !mpMenu && !chatTyping && !(me && me.dead);
+    const playing = state === ST.PLAY && !mpMenu && !chatTyping && !(me && me.dead && !isGhost());
     if (document.body.classList.toggle("playing", playing) !== playing) { }
     document.body.classList.toggle("touchhelp", state === ST.TOUCHHELP);
     if (!playing) { touchMv.x = touchMv.y = 0; touchFire = false; }
