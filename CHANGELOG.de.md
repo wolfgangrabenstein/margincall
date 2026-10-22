@@ -2,12 +2,13 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
-## Version 3.31.4 – Rudel, Herde und Angreifer wachsen mit dem Level (22.10.2026)
+## Version 3.31.4 – Kleinanleger wird mit jedem Level fordernder (22.10.2026)
 
-- **Bärenfalle und Bullrun:** Rudel und Herde wachsen alle zwei Level um ein Tier.
-  - Spekulant und Day-Trader: 3–5 Bären und 4–6 Bullen.
-  - Kleinanleger: je eines weniger, also 2–4 Bären und 3–5 Bullen.
-- **Kleinanleger:** Die Zahl gleichzeitiger Angreifer steigt mit dem Level: 3 in Level 1, 4 in Level 2–3, 5 in Level 4–5. Der leichteste Grad bleibt so auch in den späteren Leveln fordernd, bleibt aber deutlich leichter als Spekulant (im Test etwa ein Drittel des Schadens).
+- **Kleinanleger:**
+  - Die Zahl gleichzeitiger Angreifer steigt mit dem Level: 3 in Level 1, 4 in Level 2–3, 5 in Level 4–5.
+  - Rudel und Herde wachsen mit: 2 Bären und 3 Bullen in Level 1–2, ab Level 3 wie bei Spekulant 3 Bären und 4 Bullen.
+  - Der leichteste Grad bleibt so auch in späteren Leveln fordernd, aber deutlich leichter als Spekulant.
+- Spekulant und Day-Trader bleiben unverändert.
 
 Gilt für PC, Browser und Cardputer.
 

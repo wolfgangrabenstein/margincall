@@ -1169,10 +1169,10 @@ static void killEnemy(Enemy& e, bool byPlayer) {
 }
 
 // ---- Marktphasen
-// Rudel der Baerenfalle und Herde des Bullruns wachsen alle zwei Level um eins, Kleinanleger je einer weniger;
+// Rudel der Baerenfalle und Herde des Bullruns: fest 3 Baeren / 4 Bullen; Kleinanleger startet mit einem weniger und waechst bis dorthin mit
 // Kleinanleger: gleichzeitige Angreifer Level 1: 3, Level 2–3: 4, Level 4–5: 5
-static int packSize() { return (easy ? 2 : 3) + level / 2; }
-static int herdSize() { return (easy ? 3 : 4) + level / 2; }
+static int packSize() { return easy ? min(3, 2 + level / 2) : 3; }
+static int herdSize() { return easy ? min(4, 3 + level / 2) : 4; }
 static int attackSlots() { return 3 + (level + 1) / 2; }
 // kein langer gerader Gang in der Naehe: die Herde kommt aus zwei Verstecken und jagt den Spieler
 static void stampedeHerd() {
