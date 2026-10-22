@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.35.3";
+const APP_VERSION = "3.36.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -821,7 +821,7 @@ function spawnEnemy(type, x, y) {
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
   const coop = mode === "coop" ? 1 + (ti.boss ? .8 : .6) * (players.length - 1) : 1;   // Bosse wachsen staerker mit   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
-  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (nHC() ? 1.4 : nEZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (nHC() ? 1.4 : nEZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
+  Object.assign(e, { trail: null, x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (nHC() ? 1.4 : nEZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (nHC() ? 1.4 : nEZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0,
     trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0, pack: false, hopT: 0, hopV: 0, hopCd: 1 + frand() * 1.5 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
@@ -894,6 +894,7 @@ function startSpots() {
   return spots;
 }
 function placePlayer(pl, x, y, dx, dy) {
+  pl.trail = null;   // Sprung: alte Positionen gelten nicht mehr (Lag-Ausgleich)
   pl.x = x; pl.y = y; pl.dirX = dx; pl.dirY = dy;
   if (pl.local) { px = x; py = y; dirX = dx; dirY = dy; planeX = -dy * PLANE; planeY = dx * PLANE; }
   else emit(["tp", pl.id, x, y, dx, dy]);
@@ -1452,26 +1453,44 @@ function castRay(ox, oy, dx, dy) {
 }
 const isOpponent = (a, b) => mode === "dm" || mode === "lms" || (mode === "team" && a.team !== b.team);   // Gegner, nicht Teamkollege
 const canHitPlayer = (shooter, pl) => pl !== shooter && !pl.dead && (isOpponent(shooter, pl) || (lobbyFF && (mode === "team" || mode === "coop")));
-function doShot(pl, ox, oy, dx, dy) {   // nur auf dem Host
+// Lag-Ausgleich: der Host merkt sich die Positionen der letzten halben Sekunde. Schuesse von Mitspielern pruefen gegen
+// die Stelle, an der sie das Ziel beim Abdruecken gesehen haben (Ping plus Anzeigeverzoegerung, hoechstens 350 ms).
+const TRAIL_LEN = .5;
+function recordTrails() {
+  const t = performance.now() / 1000;
+  const add = o => { const tr = o.trail || (o.trail = []); tr.push(t, o.x, o.y); while (tr.length > 3 && tr[0] < t - TRAIL_LEN) tr.splice(0, 3); };
+  for (const e of enemies) if (e.alive) add(e);
+  for (const pl of players) add(pl);
+}
+function posAt(o, t) {   // Position zur Zeit t (Sekunden, performance.now) aus der Geschichte, sonst die aktuelle
+  const tr = o.trail;
+  if (!tr || tr.length < 6 || t >= tr[tr.length - 3]) return [o.x, o.y];
+  for (let i = tr.length - 6; i >= 0; i -= 3) if (tr[i] <= t) {
+    const k = (t - tr[i]) / Math.max(1e-6, tr[i + 3] - tr[i]);
+    return [tr[i + 1] + (tr[i + 4] - tr[i + 1]) * k, tr[i + 2] + (tr[i + 5] - tr[i + 2]) * k];
+  }
+  return [tr[1], tr[2]];
+}
+function doShot(pl, ox, oy, dx, dy, lag = 0, lagP = 0) {   // nur auf dem Host; lag/lagP: Rueckblick fuer Gegner/Spieler in Sekunden
   if (pl.dead) return;
   if (pl.ammo <= 0) { sayTo(pl, L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! HOL DIR ETWAS BARGELD"), 1.2); sfxTo(pl, "DECLINED"); return; }
   pl.ammo--;
   if (!pl.local) sfxAt("SHOT", ox, oy, 9, pl.id);
   // die Kanone feuert einen Geldschein ab; Schaden gibt es erst, wenn er trifft
-  projs.push({ x: ox + dx * .3, y: oy + dy * .3, dx: dx * 13, dy: dy * 13, active: true, owner: pl, spr: S.NOTE, z: island ? isleGround(ox, oy) + .3 : 0 });
+  projs.push({ x: ox + dx * .3, y: oy + dy * .3, dx: dx * 13, dy: dy * 13, active: true, owner: pl, spr: S.NOTE, z: island ? isleGround(ox, oy) + .3 : 0, lag, lagP });
 }
 function stepShot(p, dt) {   // Geldschein bewegen, in zwei Teilschritten, damit er duenne Gegner nicht ueberspringt
-  const pl = p.owner;
+  const pl = p.owner, now = performance.now() / 1000;
   for (let k = 0; k < 2 && p.active; k++) {
     const ox = p.x, oy = p.y; p.x += p.dx * dt / 2; p.y += p.dy * dt / 2;
     if (segBlocked(ox, oy, p.x, p.y)) { p.active = false; break; }
     for (const e of enemies) {
       if (!e.alive || (mode === "team" && e.f === teamFaction(pl))) continue;   // eigene Tiere nicht treffbar
-      const r = .32 * TYPES[e.type].scale + .05;
-      if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < r * r && !segBlocked(p.x, p.y, e.x, e.y)) { hurtEnemy(e, Math.round(2 * teamDmgMul(pl)), pl); p.active = false; break; }
+      const r = .32 * TYPES[e.type].scale + .05, [ex, ey] = p.lag ? posAt(e, now - p.lag) : [e.x, e.y];
+      if ((ex - p.x) ** 2 + (ey - p.y) ** 2 < r * r && !segBlocked(p.x, p.y, ex, ey)) { hurtEnemy(e, Math.round(2 * teamDmgMul(pl)), pl); p.active = false; break; }
     }
     if (!p.active) break;
-    for (const o of players) if (canHitPlayer(pl, o) && (o.x - p.x) ** 2 + (o.y - p.y) ** 2 < .09) { damagePlayer(o, 12 * teamDmgMul(pl), L("HIT!", "TREFFER!"), pl); sfxTo(pl, "HIT"); p.active = false; break; }
+    for (const o of players) if (canHitPlayer(pl, o) && (([qx, qy]) => (qx - p.x) ** 2 + (qy - p.y) ** 2 < .09)(p.lagP ? posAt(o, now - p.lagP) : [o.x, o.y])) { damagePlayer(o, 12 * teamDmgMul(pl), L("HIT!", "TREFFER!"), pl); sfxTo(pl, "HIT"); p.active = false; break; }
   }
 }
 // Zielhilfe am Handy (Optionen, Standard aus): naechster sichtbarer Gegner innerhalb eines Blickwinkels
@@ -1505,6 +1524,16 @@ function aimTarget(maxAng, maxDist = 14, kind = "steer") {
   for (const o of players) if (o !== me && !o.dead && isOpponent(me, o)) consider(o.x, o.y, o, true);
   return best;
 }
+let myShots = [], shownEn = [];
+function stepMyShots(dt) {
+  for (const sh of myShots) {
+    sh.t += dt; const ox = sh.x, oy = sh.y; sh.x += sh.dx * dt; sh.y += sh.dy * dt;
+    if (sh.t > 3 || segBlocked(ox, oy, sh.x, sh.y)) { sh.dead = true; continue; }
+    for (const [x, y, r, f] of shownEn) if (!(mode === "team" && f === teamFaction(me)) && (x - sh.x) ** 2 + (y - sh.y) ** 2 < r * r) { sh.dead = true; break; }
+    for (const o of players) if (o.sx !== undefined && canHitPlayer(me, o) && (o.sx - sh.x) ** 2 + (o.sy - sh.y) ** 2 < .09) sh.dead = true;
+  }
+  myShots = myShots.filter(sh => !sh.dead);
+}
 function shoot() {
   if (fireCd > 0 || me.dead) return;
   let sdx = dirX, sdy = dirY;
@@ -1515,7 +1544,12 @@ function shoot() {
   }
   if (me.ammo <= 0) { fireCd = .4; if (!isClient()) doShot(me, px, py, dirX, dirY); else { say(L("NO LIQUIDITY! GRAB SOME CASH", "KEINE LIQUIDITÄT! HOL DIR ETWAS BARGELD"), 1.2); sfx("DECLINED"); } return; }
   fireCd = .28; flashT = .12; sfx("SHOT");
-  if (isClient()) { me.ammo--; netSend({ t: "shot", x: +px.toFixed(3), y: +py.toFixed(3), dx: +sdx.toFixed(4), dy: +sdy.toFixed(4) }); }
+  if (isClient()) {
+    me.ammo--;
+    const iv = clamp(snapTimeCur - snapTimePrev, 20, 200);   // Gegner werden um ein Update verzoegert angezeigt
+    netSend({ t: "shot", x: +px.toFixed(3), y: +py.toFixed(3), dx: +sdx.toFixed(4), dy: +sdy.toFixed(4), lg: Math.round(myPing + iv), lp: Math.round(myPing + 50) });
+    if (!island) myShots.push({ x: px + sdx * .3, y: py + sdy * .3, dx: sdx * 13, dy: sdy * 13, t: 0 });
+  }
   else doShot(me, px, py, sdx, sdy);
 }
 
@@ -1787,7 +1821,7 @@ function netReceive(m) {
     if (!pl) return;
     switch (m.t) {
       case "me": if (!pl.dead) { pl.x = m.x; pl.y = m.y; pl.dirX = m.dx; pl.dirY = m.dy; } break;
-      case "shot": if (state === ST.PLAY) doShot(pl, m.x, m.y, m.dx, m.dy); break;
+      case "shot": if (state === ST.PLAY) doShot(pl, m.x, m.y, m.dx, m.dy, clamp(+m.lg || 0, 0, 350) / 1000, clamp(+m.lp || 0, 0, 300) / 1000); break;
       case "team": if (state === ST.LOBBY) pl.team = m.team ? 1 : 0; break;
       case "avatar": pl.avatar = m.avatar === "f" ? "f" : "m"; break;
       case "nick": { const n = cleanName(m.name, 15); if (n) { pl.name = n; hostSendLobby(); } break; }
@@ -1832,7 +1866,7 @@ function hostSendSnapshot() {
       return z > 0 ? [e.type, r2(e.x), r2(e.y), (e.alive ? 1 : 0) | (e.hurt > 0 ? 2 : 0) | (alt ? 4 : 0), r2(z)] : [e.type, r2(e.x), r2(e.y), (e.alive ? 1 : 0) | (e.hurt > 0 ? 2 : 0) | (alt ? 4 : 0)];
     }),
     it: items.filter(i => i.active).map(i => [r2(i.x), r2(i.y), i.type]), vx: vaultPos, k: hasKey ? 1 : 0,
-    pr: projs.map(p => [r2(p.x), r2(p.y), p.spr, r2(p.dx), r2(p.dy)]),
+    pr: projs.map(p => [r2(p.x), r2(p.y), p.spr, r2(p.dx), r2(p.dy), p.owner && p.owner.isPlayer ? p.owner.id : 0]),
     ev: outEvents,
   };
   outEvents = [];
@@ -1845,7 +1879,7 @@ function clientSnapshot(m) {
     clientSeq = m.seq; level = m.lv;
     applyMarket(); buildWorld(level);
     for (let y = 0; y < MAP; y++) for (let x = 0; x < MAP; x++) if (/[PAubscHoltK$+]/.test(world[y][x])) world[y][x] = ".";
-    hist = []; snapPrev = null; makeKeySprite(level);
+    hist = []; snapPrev = null; makeKeySprite(level); myShots = [];
   }
   if (m.vx && !island && (m.vx[0] !== vaultPos[0] || m.vx[1] !== vaultPos[1] || world[m.vx[1]][m.vx[0]] !== "X")) setVault(m.vx[0], m.vx[1]);
   hasKey = !!m.k;
@@ -2609,7 +2643,7 @@ function updateGame(dt) {
 
   if (isClient()) {   // Mitspieler: nur Position melden, den Rest rechnet der Host
     if (performance.now() - lastSent > (net.online ? 100 : 45)) { lastSent = performance.now(); netSend({ t: "me", x: r2(px), y: r2(py), dx: +dirX.toFixed(3), dy: +dirY.toFixed(3) }); }
-    me.slowT -= dt;
+    me.slowT -= dt; stepMyShots(dt);
     return;
   }
 
@@ -2744,6 +2778,7 @@ function updateGame(dt) {
     const alive = players.filter(p => !p.out);
     if (alive.length <= 1 && (players.length >= 2 || !alive.length)) lmsEnd(alive[0] || null);
   }
+  if (isMP() && net.connected) recordTrails();
   if (isMP() && performance.now() - lastSent > (net.online ? 100 : 50)) { lastSent = performance.now(); hostSendSnapshot(); }
 }
 
@@ -2796,14 +2831,17 @@ function collectSprites() {
     // Positionen zwischen den letzten beiden Snapshots interpolieren
     const iv = Math.max(20, snapTimeCur - snapTimePrev), a = clamp((performance.now() - snapTimeCur) / iv, 0, 1);
     const prev = snapPrev && snapPrev.en.length === snapCur.en.length ? snapPrev.en : null;
+    shownEn = [];
     snapCur.en.forEach((c, i) => {
       const [type, x, y, fl, z = 0] = c, p = prev && prev[i][0] === type ? prev[i] : c;
-      const ti = TYPES[type], alive = fl & 1;
-      list.push({ x: p[1] + (x - p[1]) * a, y: p[2] + (y - p[2]) * a, tex: alive ? ti.spr + ((fl & 4) ? 1 : 0) : S.DEAD, sc: alive ? ti.scale : .6, hurt: alive && (fl & 2), z });
+      const ti = TYPES[type], alive = fl & 1, sx = p[1] + (x - p[1]) * a, sy = p[2] + (y - p[2]) * a;
+      if (alive) shownEn.push([sx, sy, .32 * ti.scale + .05, ti.f]);   // so, wie der Spieler sie sieht (fuer die eigenen Geldscheine)
+      list.push({ x: sx, y: sy, tex: alive ? ti.spr + ((fl & 4) ? 1 : 0) : S.DEAD, sc: alive ? ti.scale : .6, hurt: alive && (fl & 2), z });
     });
     for (const [x, y, type] of snapCur.it) list.push({ x, y, tex: itemSpr(type), sc: .5 });
     const age = Math.min(.15, (performance.now() - snapTimeCur) / 1000);   // Geschosse zwischen zwei Updates weiterfliegen lassen
-    for (const [x, y, spr, dx = 0, dy = 0] of snapCur.pr) list.push({ x: x + dx * age, y: y + dy * age, tex: spr, sc: .35 });
+    for (const [x, y, spr, dx = 0, dy = 0, own = 0] of snapCur.pr) if (own !== net.id) list.push({ x: x + dx * age, y: y + dy * age, tex: spr, sc: .35 });   // eigene zeigt der Spieler selbst
+    for (const sh of myShots) list.push({ x: sh.x, y: sh.y, tex: S.NOTE, sc: .35 });
   } else {
     for (const e of enemies) {
       if (e.gone) continue;

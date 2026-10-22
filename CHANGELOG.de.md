@@ -2,6 +2,11 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.36.0 – Treffsicherheit für Mitspieler (22.10.2026)
+
+- **Multiplayer – sofortige Geldscheine:** Wer einem Spiel beitritt, sieht seine eigenen Geldscheine jetzt sofort beim Abdrücken fliegen. Bisher erschienen sie erst nach dem Umweg über den Host, online oft 150–250 ms später und schon ein Stück weiter vorne.
+- **Multiplayer – Lag-Ausgleich:** Der Host merkt sich die Positionen aller Gegner und Spieler der letzten halben Sekunde. Schüsse von Mitspielern prüft er gegen die Stelle, an der sie das Ziel beim Abdrücken gesehen haben (Ping plus Anzeigeverzögerung, höchstens 350 ms). Wer auf ein laufendes Ziel zielt, trifft jetzt auch bei höherem Ping.
+
 ## Version 3.35.3 – Mauszeiger nach der Partie (22.10.2026)
 
 - **Multiplayer:** Kehrte ein Mitspieler im Vollbild nach einer fertigen Partie in die Lobby zurück, blieb sein Mauszeiger unsichtbar, bis er das Vollbild verließ. Die Maus wird jetzt auch bei Mitspielern freigegeben, sobald der Host die Runde beendet.

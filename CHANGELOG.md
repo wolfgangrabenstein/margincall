@@ -2,6 +2,11 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.36.0 – Accuracy for joined players (22.10.2026)
+
+- **Multiplayer – instant banknotes:** Players who join a game now see their own banknotes fly the moment they fire. Previously they only appeared after the round trip via the host, online often 150–250 ms later and already further ahead.
+- **Multiplayer – lag compensation:** The host remembers the positions of all enemies and players over the last half second. It checks joined players’ shots against where they saw the target when firing (ping plus display delay, at most 350 ms). Aiming at a moving target now hits even with a higher ping.
+
 ## Version 3.35.3 – Mouse pointer after the match (22.10.2026)
 
 - **Multiplayer:** When a joined player returned to the lobby in fullscreen after a finished match, their mouse pointer stayed invisible until they left fullscreen. The mouse is now released for joined players too as soon as the host ends the round.
