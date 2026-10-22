@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.31.1";
+const APP_VERSION = "3.31.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1968,12 +1968,17 @@ function bindLabel(k) {
   return special[k] || k.toUpperCase();
 }
 const bindText = a => settings.binds[a].filter(Boolean).map(bindLabel).join("/") || "–";
+// Hilfezeile unten: zeigt nur die Tasten, die gerade gelten (im Spiel, im Hauptmenue, in den uebrigen Menues)
+let hintCtx = "";
 function updateHint() {
-  document.getElementById("hint").textContent =
-    L(`${bindText("fwd")}/${bindText("back")} move · ${bindText("turnL")}/${bindText("turnR")} turn · ${bindText("strafeL")}/${bindText("strafeR")} strafe · ${bindText("fire")} fire · ${bindLabel(settings.binds.pause.find(Boolean) || "p")} pause · ` +
-      `${bindText("music")} music · 2× direction dodge · H highscores · O options · ${bindText("chat")} chat · ${bindText("log")} event log · Tab stats · F4 fullscreen · L language (title screen)`,
-    `${bindText("fwd")}/${bindText("back")} laufen · ${bindText("turnL")}/${bindText("turnR")} drehen · ${bindText("strafeL")}/${bindText("strafeR")} seitwärts · ${bindText("fire")} feuern · ${bindLabel(settings.binds.pause.find(Boolean) || "p")} Pause · ` +
-      `${bindText("music")} Musik · 2× Richtung Ausweichen · H Highscores · O Optionen · ${bindText("chat")} Chat · ${bindText("log")} Ereignisse · Tab Statistik · F4 Vollbild · L Sprache (Titelbild)`);
+  const b = bindText, pause = bindLabel(settings.binds.pause.find(Boolean) || "p");
+  document.getElementById("hint").textContent = hintCtx === "play"
+    ? L(`${b("fwd")}/${b("back")} move · ${b("turnL")}/${b("turnR")} turn · ${b("strafeL")}/${b("strafeR")} strafe · ${b("fire")} fire · 2× direction dodge · ${pause} pause · ${b("music")} music · ${b("chat")} chat · ${b("log")} log · ${b("scores")} stats · F4 fullscreen`,
+        `${b("fwd")}/${b("back")} laufen · ${b("turnL")}/${b("turnR")} drehen · ${b("strafeL")}/${b("strafeR")} seitwärts · ${b("fire")} feuern · 2× Richtung Ausweichen · ${pause} Pause · ${b("music")} Musik · ${b("chat")} Chat · ${b("log")} Log · ${b("scores")} Statistik · F4 Vollbild`)
+    : hintCtx === "title"
+    ? L(`ENTER play solo · N multiplayer · H highscores · O options · C credits · L language · ${b("music")} music · F4 fullscreen · Q quit`,
+        `ENTER Solo spielen · N Multiplayer · H Highscores · O Optionen · C Credits · L Sprache · ${b("music")} Musik · F4 Vollbild · Q Beenden`)
+    : L(`${b("menuBack")}/ESC back · ${b("music")} music · F4 fullscreen`, `${b("menuBack")}/ESC zurück · ${b("music")} Musik · F4 Vollbild`);
 }
 
 // Optionsmenue
@@ -4518,6 +4523,8 @@ function renderPlay(dt) {
   if (down("scores") && !chatTyping) renderScoreOverlay();
 }
 function frame(now) {
+  const hc = state === ST.PLAY || state === ST.PAUSE ? "play" : state === ST.TITLE ? "title" : "menu";
+  if (hc !== hintCtx) { hintCtx = hc; updateHint(); }   // Hilfezeile passend zum Bildschirm
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   g.imageSmoothingEnabled = false;
   netMsgT -= dt;

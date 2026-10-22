@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.31.2 – Hilfezeile passend zum Bildschirm (22.10.2026)
+
+- **Hilfezeile unten (PC und Browser):** Sie zeigt jetzt nur die Tasten, die gerade gelten. Im Spiel stehen die Spieltasten mit „L Log“, im Hauptmenü die Menütasten mit „L Sprache“, in den übrigen Menüs „Zurück“, Musik und Vollbild. Eigene Tastenbelegungen werden angezeigt.
+
 ## Version 3.31.1 – Öffentlich oder privat in der Lobby (22.10.2026)
 
 - **Online spielen:** Statt zwei Knöpfen für öffentliches und privates Spiel gibt es nur noch „SPIEL HOSTEN“. Ob das Spiel öffentlich in der Liste steht oder nur per Code erreichbar ist, stellt der Host in der Lobby mit [V] um – jederzeit, auch wenn schon Mitspieler da sind. Die zuletzt gewählte Einstellung wird gemerkt.

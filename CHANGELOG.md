@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.31.2 – Hint line that fits the screen (22.10.2026)
+
+- **Hint line at the bottom (PC and browser):** It now only shows the keys that apply right now. In game you see the game keys with “L log”, in the main menu the menu keys with “L language”, in other menus back, music and fullscreen. Custom key bindings are shown.
+
 ## Version 3.31.1 – Public or private in the lobby (22.10.2026)
 
 - **Online play:** Instead of two buttons for public and private games there is just “HOST GAME”. Whether the game is listed publicly or only reachable by code is switched by the host in the lobby with [V] – at any time, even with players already in. The last choice is remembered.
