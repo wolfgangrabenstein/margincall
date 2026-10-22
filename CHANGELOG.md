@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.38.0 – Resources as a match setting, revised texts (22.10.2026)
+
+- **Multiplayer – resources:** In the match settings [C] picks the amount of cash and depot. **Normal** stays as before. **Plenty** puts 2.5 times as much cash and depot on the map, as loot and as new supplies, which also arrive 40 % more often. **Few** matches the day trader values of the solo game: 40 % less loot, cash +7 instead of +10, depot +15 % instead of +20 %, a smaller liquidity boost, stray cash less often and rarer packages. Nothing changes in the solo game. In multiplayer the NPC strength now only affects the NPCs themselves.
+- **Last Man Standing:** Ghosts can no longer chat. An open chat window closes when you’re eliminated.
+- **Texts:** New and changed texts since 3.30.3 revised. The hint when starting solo as speculator now reads “SPECULATOR: 5 LIVES” instead of “NORMAL: 5 LIVES”.
+
 ## Version 3.37.0 – Ghosts in Last Man Standing (22.10.2026)
 
 - **Last Man Standing:** Eliminated players no longer watch from one spot but float across the map as a ghost, a bit faster than on foot and through inner walls. Only the outer wall stops them. The ghost is invisible to the remaining players and has no effect on the game: it can’t shoot, pick anything up or be hit, and NPCs ignore it. Instead of the darkened screen there is just a short note at the top.

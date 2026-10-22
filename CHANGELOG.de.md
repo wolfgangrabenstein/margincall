@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.38.0 – Ressourcen als Match-Einstellung, überarbeitete Texte (22.10.2026)
+
+- **Multiplayer – Ressourcen:** In den Match-Einstellungen lässt sich mit [C] die Menge an Cash und Depot wählen. **Normal** bleibt wie bisher. **Viel** bringt 2,5-mal so viel Cash und Depot auf die Karte, als Beute und als Nachschub, der zudem in 40 % kürzeren Abständen kommt. **Wenig** entspricht den Werten von Day-Trader im Solospiel: 40 % weniger Beute, Cash +7 statt +10, Depot +15 % statt +20 %, ein kleinerer Liquiditätsschub, seltener verstreutes Bargeld und seltenere Pakete. Im Solospiel ändert sich nichts. Die NPC-Stärke wirkt im Multiplayer nur noch auf die NPCs selbst.
+- **Last Man Standing:** Geister können nicht mehr chatten. Ein offenes Chatfenster schließt sich beim Ausscheiden.
+- **Texte:** Neue und geänderte Texte seit 3.30.3 überarbeitet. Der Hinweis beim Solostart als Spekulant lautet jetzt „SPEKULANT: 5 LEBEN“ statt „NORMAL: 5 LEBEN“.
+
 ## Version 3.37.0 – Geister in Last Man Standing (22.10.2026)
 
 - **Last Man Standing:** Wer ausgeschieden ist, schaut nicht mehr nur aus einer Stelle zu, sondern schwebt als Geist frei über die Karte, etwas schneller als zu Fuß und durch Innenwände hindurch. Nur die Außenmauer hält ihn auf. Der Geist ist für die übrigen Spieler unsichtbar und hat keinen Einfluss aufs Spiel: Er kann nicht schießen, nichts einsammeln, nicht getroffen werden und wird von NPCs ignoriert. Statt des abgedunkelten Bildes erscheint oben nur noch ein kurzer Hinweis.
