@@ -2,6 +2,14 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.29.0 – Deckung, Hinterhalt und Bärenfalle (22.10.2026)
+
+- **Schützen nutzen Deckung:** Short Seller, Ölbaron und Trading-Bot laden nach einem Schuss hinter einer Wand in der Nähe nach, lehnen sich zum nächsten Schuss heraus und ziehen sich wieder zurück. Ohne Deckung in der Nähe kämpfen sie offen. Bosse bleiben stehen.
+- **Hinterhalt:** Sieht der Spieler einen Bullen oder Bären aus 4 bis 10 Feldern kommen, versteckt sich das Tier hinter einer Ecke und lauert. Es schlägt zu, sobald der Spieler auf 3 Felder herankommt oder wegschaut, spätestens nach 4–6 Sekunden, und bricht dann mit 1,7-facher Geschwindigkeit hervor. In Bullrun und Bärenfalle stürmen die Tiere wie bisher direkt los.
+- **Leichter Modus:** Deckung und Hinterhalt gibt es dort nicht.
+- **Bärenfalle statt Börsencrash:** Die häufige Marktphase heißt jetzt „Bärenfalle“, weil ein echter Börsencrash viel seltener ist. Der Boden bebt dabei nicht mehr.
+- **Fehler behoben:** Der Short Seller blieb stehen, wenn er näher als 4 Felder, aber ohne Sicht auf den Spieler war.
+
 ## Version 3.28.2 – Gegner reagieren auf Beschuss aus der Ferne (22.10.2026)
 
 - **Beschuss aus der Ferne:** Bullen und Bären, die von weit weg getroffen werden, merken sich den Schützen 20 Sekunden lang und jagen ihn über die Wegsuche, statt ihn sofort zu vergessen.

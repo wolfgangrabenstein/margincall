@@ -2,6 +2,14 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.29.0 – Cover, ambushes and bear trap (22.10.2026)
+
+- **Shooters use cover:** Short sellers, oil barons and trading bots reload behind a nearby wall after each shot, lean out for the next one and pull back again. With no cover nearby they fight in the open. Bosses hold their ground.
+- **Ambush:** If the player sees a bull or bear coming from 4 to 10 tiles away, the animal hides behind a corner and lies in wait. It strikes as soon as the player is within 3 tiles or looks away, after 4–6 seconds at the latest, and bursts out at 1.7× speed. During a bull run or bear trap the animals still charge straight in.
+- **Easy mode:** No cover or ambushes.
+- **Bear trap instead of stock market crash:** The common market phase is now called "bear trap", since a real crash is far rarer. The floor no longer shakes.
+- **Bug fix:** The short seller stood still when closer than 4 tiles but without line of sight to the player.
+
 ## Version 3.28.2 – Enemies react to long-range fire (22.10.2026)
 
 - **Long-range fire:** Bulls and bears hit from far away now remember the shooter for 20 seconds and hunt them down using pathfinding instead of forgetting them at once.

@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.28.2"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.29.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -666,8 +666,9 @@ struct Enemy {
   uint8_t role; bool alert; float gx, gy, delay, alertT;   // Piraten: 0 Jaeger, 2 Waechter (bewacht den Schatz bei gx/gy)
   bool stampede, summoned; int8_t orb;   // Stampede-Bulle, vom Boss gerufener Bot, Kreisrichtung des Hais in Phase 2
   float aggroT, coverT, coverCd, covX, covY;   // beschossen: verfolgt den Spieler; Deckung bei covX/covY
+  float lurkT, lurkCd, rushT; bool lurking;   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
 };
-struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; };   // slide > 0: schlittert gerade (Boersencrash)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
+struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; };   // slide > 0: schlittert gerade (Baerenfalle)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
 static constexpr uint8_t F_SHOT = 9;   // Geldschein aus der Waffe des Spielers
 
@@ -1093,7 +1094,7 @@ static void dropItem(float x, float y, uint8_t type, bool stray = false) {
   items[i] = {x, y, type, true, stray};
 }
 
-// Stimmung nach einem Abschuss: Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Boersencrash (Level 1: groessere Schritte)
+// Stimmung nach einem Abschuss: Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Baerenfalle (Level 1: groessere Schritte)
 static void moveSentiment(const Enemy& e, float k) {
   float st = (level == 0 ? 0.34f : 0.2f) * k;
   if (e.faction == F_BEAR) sentiment = min(1.2f, sentiment + st); else if (e.faction == F_BULL) sentiment = max(-1.2f, sentiment - st);
@@ -1156,8 +1157,8 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
   say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL);
   return true;
 }
-static void marketCrash() {   // Boden bebt, Baerenrudel, Bargeld schlittert weg
-  quakeT = 1.3f; sfxPlay(SFX_ID_ROAR);
+static void marketCrash() {   // Baerenfalle: Baerenrudel, Bargeld schlittert weg
+  sfxPlay(SFX_ID_ROAR);
   float x, y;
   if (findHiddenCell(x, y, 5)) for (int k = 0; k < 3; k++) { int i = spawnEnemy(E_BEAR, x + (k - 1) * 0.35f, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; } }   // Rudel greift gestaffelt an
   for (int i = 0; i < nItems; i++) {
@@ -1174,7 +1175,7 @@ static void startPhase(int dir) {
     for (int k = 0; k < 2; k++) { float x, y; if (findHiddenCell(x, y, 4)) dropItem(x, y, 0, true); }
     stampedeAt = 4;
   } else {
-    say(L("STOCK MARKET CRASH!", "BOERSENCRASH!"), 3);
+    say(L("BEAR TRAP!", "BAERENFALLE!"), 3);
     marketCrash(); bearHintAt = 3.5f;
   }
 }
@@ -1217,6 +1218,33 @@ static void provoke(Enemy& e) {
   if (e.coverCd > 0 || e.stampede || dist2Player(e.x, e.y) < 36 || frand() < 0.5f) return;
   e.coverCd = 6;
   if (findCover(e, e.covX, e.covY)) e.coverT = 1.2f + frand() * 0.8f;
+}
+// Schuetzen: in Deckung nachladen, zum Schiessen kurz herauslehnen (nicht im leichten Modus)
+static bool shooterCover(Enemy& e, bool los, float d, float sp, float dt) {
+  if (easy) return false;
+  if (e.coverT <= 0 && e.coverCd <= 0 && e.cd > 0.8f && los && d < 12) {
+    e.coverCd = 2;
+    if (findCover(e, e.covX, e.covY)) { e.coverT = min(2.5f, e.cd - 0.3f); e.aggroT = max(e.aggroT, 6.0f); }   // hinter der Deckung den Spieler nicht vergessen
+  }
+  if (e.coverT <= 0) return false;
+  float cx = e.covX - e.x, cy = e.covY - e.y;
+  if (cx * cx + cy * cy > 0.01f) chase(e.x, e.y, e.covX, e.covY, false, sp, dt);
+  return true;
+}
+// Bullen und Baeren: vom Spieler gesehen und noch nicht nah -> hinter einer Ecke lauern, bis er nah ist oder wegschaut
+static bool ambush(Enemy& e, float d, float sp, float dt) {
+  if (easy || e.target != -1 || e.stampede || (bullRun() && e.type == E_BULL) || (bearMkt() && e.type == E_BEAR)) { e.lurkT = 0; return false; }
+  bool seen = lineOfSight(e.x, e.y, px, py), watched = seen && ((e.x - px) * dirX + (e.y - py) * dirY) / d > 0.7f;
+  if (e.lurkT > 0 && (d < 3 || (seen && !watched))) e.lurkT = 0;   // Spieler nah oder schaut weg: zuschlagen
+  if (e.lurkT > 0) {
+    float cx = e.covX - e.x, cy = e.covY - e.y;
+    if (cx * cx + cy * cy > 0.01f) chase(e.x, e.y, e.covX, e.covY, false, sp, dt);
+    return true;
+  }
+  if (e.lurking) { e.lurking = false; e.rushT = 2.5f; e.lurkCd = 8; return false; }   // aus dem Versteck hervorbrechen
+  if (e.lurkCd > 0 || d < 4 || d > 10 || !watched) return false;
+  e.lurkCd = 3; if (!findCover(e, e.covX, e.covY)) return false;
+  e.lurkT = 4 + frand() * 2; e.lurking = true; e.aggroT = max(e.aggroT, 9.0f); return true;
 }
 static void hurtEnemy(Enemy& t, int dmg, bool byPlayer) {
   if (!t.alive) return;
@@ -1329,7 +1357,7 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
   const float bearRage = bearMkt() && e.faction == F_BEAR ? 1.3f : 1.0f;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt;   // Gesamttakt hoechstens x2
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt;   // Gesamttakt hoechstens x2
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
   const float spdMul = min(1.6f, (crashT > 0 ? 1.4f : 1.0f) * bearRage);
@@ -1372,6 +1400,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         }
         return;
       case E_BARON:
+        if (shooterCover(e, los, d, 1.2f, dt)) return;
         if (d > 4.5f || !los) chase(e.x, e.y, tx, ty, toPl, 1.0f, dt);
         else if (d < 2.5f) moveEntity(e.x, e.y, -nx * 0.8f * dt, -ny * 0.8f * dt, 0.25f);
         if (los && e.cd <= 0 && d < 10) {
@@ -1385,6 +1414,7 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
         return;
       case E_BOT: {
+        if (shooterCover(e, los, d, 2.0f, dt)) return;
         float w = sinf(e.anim * 3) * 0.6f;
         if (!los) chase(e.x, e.y, tx, ty, toPl, 2.0f, dt, 0.2f);
         else if (d > 3.2f) moveEntity(e.x, e.y, (nx - ny * w) * 2.0f * dt, (ny + nx * w) * 2.0f * dt, 0.2f);
@@ -1439,7 +1469,8 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       // Gebruell auf der Jagd (spawnCd dient beim Baer als Gebruell-Timer)
       e.spawnCd -= dt;
       if (e.target == -1 && e.spawnCd <= 0 && d < 8) { e.spawnCd = 5 + frand() * 4; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
-      if (d > 0.75f) { float ps = e.pir >= 0 ? 1.15f : 1.0f; chase(e.x, e.y, tx, ty, toPl, 1.5f * spdMul * ps, dt); }
+      if (ambush(e, d, 1.5f * spdMul, dt)) break;
+      if (d > 0.75f) { float ps = e.pir >= 0 ? 1.15f : 1.0f; chase(e.x, e.y, tx, ty, toPl, 1.5f * spdMul * ps * (e.rushT > 0 ? 1.7f : 1.0f), dt); }
       else if (e.cd <= 0) {
         e.cd = 1.0f; e.attackAnim = 0.3f;
         if (e.target == -1 && e.spawnCd < 3) { e.spawnCd = 3; sfxNear(SFX_ID_ROAR, e.x, e.y, 9); }
@@ -1455,7 +1486,8 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
           if (e.stampede && e.target == -1) stampHitT = 0.7f;
         }
       } else if (d > 0.75f) {
-        chase(e.x, e.y, tx, ty, toPl, 1.3f * spdMul, dt);
+        if (ambush(e, d, 1.3f * spdMul, dt)) break;
+        chase(e.x, e.y, tx, ty, toPl, 1.3f * spdMul * (e.rushT > 0 ? 1.7f : 1.0f), dt);
         if (e.chargeCd <= 0 && d > 1.5f && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
           e.chargeT = 0.7f; e.chargeCd = 3.5f + frand() * 2; e.mdx = nx; e.mdy = ny; e.attackAnim = 0.7f;
           sfxNear(SFX_ID_BULL, e.x, e.y, 8);
@@ -1463,7 +1495,8 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
       } else if (e.cd <= 0) { e.cd = 1.1f; e.attackAnim = 0.3f; meleeHit(e, e.target, 10, 2, hitMsg); }
       break;
     case E_SELLER:
-      if (d > 4.0f) chase(e.x, e.y, tx, ty, toPl, 1.1f, dt);
+      if (e.target == -1 && shooterCover(e, lineOfSight(e.x, e.y, px, py), d, 1.4f, dt)) break;
+      if (d > 4.0f || !lineOfSight(e.x, e.y, tx, ty)) chase(e.x, e.y, tx, ty, toPl, 1.1f, dt);
       else if (d < 2.2f) moveEntity(e.x, e.y, -nx * 0.9f * dt, -ny * 0.9f * dt, 0.25f);
       float fx, fy, fa;
       if (e.cd <= 0 && d < 10 && fireOrigin(e, tx, ty, fx, fy, fa)) {
@@ -2809,6 +2842,6 @@ void loop() {
   audioUpdate();
   // Stream: WLAN-Menues (Passwort!) werden nie uebertragen
   if (fb && state != ST_WIFI_PASS && state != ST_WIFI_LIST && streamWantsFrame()) streamSubmitFrame(fb, SW, SH);
-  if (quakeT > 0 && state == ST_PLAY) canvas.pushSprite((int)(esp_random() % 5) - 2, (int)(esp_random() % 3) - 1);   // Boersencrash: Boden bebt
+  if (quakeT > 0 && state == ST_PLAY) canvas.pushSprite((int)(esp_random() % 5) - 2, (int)(esp_random() % 3) - 1);   // Boden bebt (derzeit ungenutzt)
   else canvas.pushSprite(0, 0);
 }
