@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.33.2";
+const APP_VERSION = "3.34.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -659,8 +659,11 @@ let tickerSegs = [], tickerW = 0, bullsAlive = 0, bearsAlive = 0;
 const zbuf = new Float32Array(RW);
 
 // ---------------------------------------------------------------- Spieler & Multiplayer
-// mode: "solo" | "coop" | "team" | "dm".  Im Multiplayer rechnet nur der Host das Spiel.
-const MODES = [["coop", "CO-OP", "KOOP"], ["team", "TEAM BULL VS. TEAM BEAR", "TEAM BULLE VS. TEAM BÄR"], ["dm", "DEATHMATCH", "DEATHMATCH"]];
+// mode: "solo" | "coop" | "team" | "dm" | "lms" (Last Man Standing).  Im Multiplayer rechnet nur der Host das Spiel.
+const MODES = [["coop", "CO-OP", "KOOP"], ["team", "TEAM BULL VS. TEAM BEAR", "TEAM BULLE VS. TEAM BÄR"], ["dm", "DEATHMATCH", "DEATHMATCH"], ["lms", "LAST MAN STANDING", "LAST MAN STANDING"]];
+const pvpMode = () => mode === "team" || mode === "dm" || mode === "lms";   // Spieler gegen Spieler (ohne Bosse und Tresor)
+// Last Man Standing: Leben pro Spieler (1–5); genau 2 Spieler spielen ein Duell ueber mehrere Runden (Best of 3/5/7/9)
+let lobbyLives = 1, lobbyBestOf = 3, lmsDuel = false, lmsRound = 1, lmsWins = {}, lmsWinner = 0, lmsOver = false;
 const modeName = i => L(MODES[i][1], MODES[i][2]);
 const PNAMES_I18N = [["GREEN", "GRÜN"], ["BLUE", "BLAU"], ["ORANGE", "ORANGE"], ["PINK", "PINK"]];
 const pName = i => L(...PNAMES_I18N[i]);
@@ -668,6 +671,14 @@ const ROUND_TIME = 240, ROUND_TARGET = 3000, ROUND_BREAK = 5;   // Rundenpause i
 // Team-Modus: kleineres Team braucht anteilig weniger Punkte (2 gegen 1: 3000 gegen 1500)
 function teamTarget(t) { const n = [0, 0]; players.forEach(p => n[p.team ? 1 : 0]++); const mx = Math.max(n[0], n[1]); return n[t] && mx ? Math.round(ROUND_TARGET * n[t] / mx) : ROUND_TARGET; }
 function nextRound() { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fireCd = .4; }
+// Last Man Standing: Runde vorbei (w = letzter Ueberlebender oder null bei gleichzeitigem Ausscheiden)
+function lmsEnd(w) {
+  lmsWinner = w ? w.id : 0;
+  if (lmsDuel && w) lmsWins[w.id] = (lmsWins[w.id] || 0) + 1;
+  lmsOver = !lmsDuel || (!!w && lmsWins[w.id] >= Math.ceil(lobbyBestOf / 2)) || players.length < 2;
+  state = ST.ROUNDEND; roundT = ROUND_BREAK + (lmsOver ? 2 : 0); musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
+}
+function backToLobby() { mode = "solo"; state = ST.LOBBY; players.forEach(p => p.ready = false); hostSendLobby(); musicStart(); }
 let mode = "solo";
 const net = { ws: null, id: 0, hostId: 0, connected: false, online: false, code: "", pub: true };
 const isMP = () => mode !== "solo";
@@ -676,7 +687,7 @@ const isClient = () => net.connected && net.id !== net.hostId;
 let players = [], me = null;
 let lobbyFF = false;     // Match-Einstellung des Hosts: Friendly Fire (Teamkollegen in Team und Koop treffbar)
 let lobbyNPC = true;     // Match-Einstellung des Hosts: Boersen-Gegner (NPCs) in Team und Deathmatch; im Koop immer an
-const noNPC = () => !lobbyNPC && (mode === "team" || mode === "dm");
+const noNPC = () => !lobbyNPC && pvpMode();
 let lobbyAim = "semi";   // Match-Einstellung des Hosts: erlaubtes Auto-Aim im Multiplayer ("full", "semi" = nur Semi, "off")
 let matchSetOpen = false;    // Fenster "Match-Einstellungen" in der Lobby
 let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [], netMsg = "", netMsgT = 0;
@@ -948,16 +959,16 @@ function loadLevel(lv) {
   for (const t of spawns) { const c = randomEnemyCell(reach, TYPES[t].boss ? 9 : 5); if (c) spawnEnemy(t, c[0], c[1]); }
   levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
-  if (mode === "dm" || mode === "team") {   // Bosse nur im Koop/Solo
+  if (pvpMode()) {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
     roundT = ROUND_TIME; teamScore = [0, 0];
-    players.forEach(p => { p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.hp = 100; p.ammo = 30; });   // jede Runde frisch
+    players.forEach(p => { p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.hp = 100; p.ammo = 30; p.lives = lobbyLives; p.out = false; });   // jede Runde frisch
   }
   const spots = startSpots();
   players.forEach((pl, i) => {
     if (mode === "coop" && (pl.dead || pl.hp <= 0)) { pl.hp = 60; pl.ammo = Math.max(pl.ammo, 20); }   // wer tot war, kommt wie beim Respawn zurueck
     pl.dead = false; pl.respawnT = 0; pl.slowT = 0;
-    const s = mode === "dm" || mode === "team" ? (findHiddenCell(4) || spots[i % spots.length]) : spots[i % spots.length];
+    const s = pvpMode() ? (findHiddenCell(4) || spots[i % spots.length]) : spots[i % spots.length];
     placePlayer(pl, s[0], s[1], startDir[0], startDir[1]);
   });
   if (mode === "coop" && players.length > 1) {   // Koop: 3 zusaetzliche Gegner pro Mitspieler, passend zum Level
@@ -1085,12 +1096,13 @@ function damagePlayer(pl, d, why, attacker = null) {
     state = ST.DEAD; musicStop(); sfx("CRASH"); document.exitPointerLock?.(); return;
   }
   pl.dead = true; pl.deaths = (pl.deaths || 0) + 1; pl.respawnT = mode === "coop" ? 6 : mode === "team" && pl.team === phaseTeam() ? 1.5 : 3;
+  if (mode === "lms" && --pl.lives <= 0) { pl.out = true; pl.respawnT = 1e9; sayAll(L(`${pl.name.replace("TRADER ", "")} IS OUT`, `${pl.name.replace("TRADER ", "")} SCHEIDET AUS`), 2.5); }   // keine Leben mehr: zuschauen
   sfxTo(pl, "CRASH");
   if (attacker && attacker.isPlayer && !isOpponent(attacker, pl)) sayAll(`TEAMKILL: ${attacker.name} → ${pl.name}`, 2);   // Friendly Fire: keine Belohnung
   else if (attacker && attacker.isPlayer) {
     attacker.frags = (attacker.frags || 0) + 1; addScore(attacker, 500);
     sayAll(killLine(attacker.name, pl.name), 2.5);
-  } else if (mode === "team" || mode === "dm") {   // Tod durch Boersen-Gegner ist kein kostenloses Nachladen
+  } else if (pvpMode()) {   // Tod durch Boersen-Gegner ist kein kostenloses Nachladen
     const pen = Math.min(100, pl.score); pl.score -= pen; if (mode === "team") teamScore[pl.team] = Math.max(0, teamScore[pl.team] - pen);
     sayTo(pl, L("BANKRUPT −100", "INSOLVENZ −100"), 3);
   } else sayTo(pl, L("BANKRUPT! RESTARTING SOON …", "INSOLVENZ! WIRD NEU GESTARTET …"), 3);
@@ -1302,7 +1314,7 @@ function killEnemy(e, byPlayer) {
     if (dist2P(e.x, e.y) < 64) say(e.f === F.BEAR ? L("BULLS TRAMPLE THE BEARS", "BULLEN TRAMPELN BÄREN NIEDER") : L("BEARS MAUL THE BULLS", "BÄREN ZERFLEISCHEN BULLEN"), 1.5);
   }
   sfxNear(e.type === E.BUBBLE ? "POP" : e.type === E.SLICK ? "OIL" : "STAMP", e.x, e.y, 10);
-  if (!island && !keyDropped && mode !== "team" && mode !== "dm") {
+  if (!island && !keyDropped && !pvpMode()) {
     if (ti.boss) { if (!enemies.some(o => o.alive && TYPES[o.type].boss)) dropKey(e.x, e.y); }
     else if (!levelHasBoss && byPlayer && ++keyKills >= keyNeed) dropKey(e.x, e.y);
   }
@@ -1398,7 +1410,7 @@ function tryMove(mx, my) {
 }
 const touchesVault = pl => [[.32, 0], [-.32, 0], [0, .32], [0, -.32]].some(([dx, dy]) => (world[Math.floor(pl.y + dy)] || [])[Math.floor(pl.x + dx)] === "X");
 function checkExit() {
-  if (mode === "team" || mode === "dm") return;
+  if (pvpMode()) return;
   const pl = players.find(p => !p.dead && touchesVault(p));
   if (!pl) return;
   if (!hasKey) { if (msgT <= 0) { sayTo(pl, L(`VAULT LOCKED – YOU NEED THE ${keyColName()} KEYCARD`, `TRESOR VERSCHLOSSEN – DU BRAUCHST DIE ${keyColName()} KEYCARD`), 1.5); sfxTo(pl, "DECLINED"); } return; }
@@ -1429,7 +1441,7 @@ function castRay(ox, oy, dx, dy) {
   }
   return 64;
 }
-const isOpponent = (a, b) => mode === "dm" || (mode === "team" && a.team !== b.team);   // Gegner, nicht Teamkollege
+const isOpponent = (a, b) => mode === "dm" || mode === "lms" || (mode === "team" && a.team !== b.team);   // Gegner, nicht Teamkollege
 const canHitPlayer = (shooter, pl) => pl !== shooter && !pl.dead && (isOpponent(shooter, pl) || (lobbyFF && (mode === "team" || mode === "coop")));
 function doShot(pl, ox, oy, dx, dy) {   // nur auf dem Host
   if (pl.dead) return;
@@ -1727,6 +1739,10 @@ function leaveMP() {
 }
 function enterLobby() { netConnect(); state = ST.LOBBY; lobbyInfo = []; }
 function syncPlayersWithPeers(ids) {
+  if (isHost() && net.connected && mode === "lms" && state !== ST.LOBBY) {   // laufende Partie: niemand kommt mehr dazu
+    for (const id of ids) if (!players.some(p => p.id === id)) netSend({ t: "started", to: id });
+    ids = ids.filter(id => players.some(p => p.id === id));
+  }
   for (const id of ids) if (!players.some(p => p.id === id)) players.push(makePlayer(id, id === net.id));
   players = players.filter(p => ids.includes(p.id));
   me = players.find(p => p.id === net.id) || me;
@@ -1735,6 +1751,7 @@ function netReceive(m) {
   switch (m.t) {
     case "full": netNotice(L("GAME IS FULL (MAX. 4 PLAYERS)", "SPIEL IST VOLL (MAX. 4 SPIELER)")); { const o = net.online; netDisconnect(); state = o ? ST.ONLINE : ST.TITLE; } return;
     case "room": net.code = m.code; net.pub = !!m.pub; return;   // Online: Code des Raums
+    case "started": netNotice(L("THIS MATCH IS ALREADY RUNNING – YOU CAN'T JOIN NOW", "DIESE PARTIE LÄUFT BEREITS – BEITRETEN NICHT MÖGLICH")); { const o = net.online; netDisconnect(); state = o ? ST.ONLINE : ST.TITLE; } return;
     case "gone": netNotice(L("GAME NOT FOUND", "SPIEL NICHT GEFUNDEN")); netDisconnect(); state = ST.ONLINE; return;
     case "version": netNotice(L(`THE HOST PLAYS VERSION ${m.v} – BOTH NEED THE SAME VERSION`, `DER HOST SPIELT VERSION ${m.v} – IHR BRAUCHT DIESELBE VERSION`)); netDisconnect(); state = ST.ONLINE; return;
     case "retry": { const pub = net.pub; netDisconnect(); hostOnline(pub); return; }
@@ -1772,16 +1789,17 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub;
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub; lobbyLives = m.lives || 1; lobbyBestOf = m.bo || 3;
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF, npc: lobbyNPC, pub: net.online ? net.pub : undefined });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF, npc: lobbyNPC, pub: net.online ? net.pub : undefined, lives: lobbyLives, bo: lobbyBestOf });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
+  if (mode === "lms") { lmsDuel = players.length === 2; lmsRound = 1; lmsWins = {}; lmsWinner = 0; lmsOver = false; }
   players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.dead = false; });
   newGame(); state = ST.PLAY; fireCd = .4; sfxAll("KACHING"); lockMouse();
 }
@@ -1790,7 +1808,8 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT), crashStage, r2(crashStT), marginDue, marginPaid, r2(crashChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off"]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0]),
+    lms: mode === "lms" ? [lmsRound, lobbyBestOf, lmsDuel ? 1 : 0, Object.entries(lmsWins), lmsWinner, lmsOver ? 1 : 0] : undefined,
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
       if (!alt && [E.BEAR, E.BUBBLE, E.SLICK, E.BOT, E.ALGO].includes(e.type)) alt = (e.anim % .6) < .3 && (e.awake || e.type === E.BOT || e.type === E.ALGO);
@@ -1821,9 +1840,10 @@ function clientSnapshot(m) {
   marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim] of m.pl) {
+  if (m.lms) { [lmsRound, lobbyBestOf] = m.lms; lmsDuel = !!m.lms[2]; lmsWins = Object.fromEntries(m.lms[3]); lmsWinner = m.lms[4]; lmsOver = !!m.lms[5]; }
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out] of m.pl) {
     const p = players.find(q => q.id === id);
-    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off" });
+    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off", lives: lives || 0, out: !!out });
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -2391,6 +2411,8 @@ function onKeyPress(k) {
         if (k === "a" && isHost() && net.connected) { lobbyAim = { full: "semi", semi: "off", off: "full" }[lobbyAim]; sfx("HIT"); hostSendLobby(); }
         else if (k === "f" && isHost() && net.connected) { lobbyFF = !lobbyFF; sfx("HIT"); hostSendLobby(); }
         else if (k === "n" && isHost() && net.connected) { lobbyNPC = !lobbyNPC; sfx("HIT"); hostSendLobby(); }
+        else if (k === "l" && isHost() && net.connected && lobbyMode === 3) { lobbyLives = lobbyLives % 5 + 1; sfx("HIT"); hostSendLobby(); }
+        else if (k === "r" && isHost() && net.connected && lobbyMode === 3) { lobbyBestOf = lobbyBestOf >= 9 ? 3 : lobbyBestOf + 2; sfx("HIT"); hostSendLobby(); }
         else if (k === "Escape" || k === "enter" || k === "s") { matchSetOpen = false; sfx("HIT"); }
         break;
       }
@@ -2412,7 +2434,7 @@ function onKeyPress(k) {
         sfx("HIT");
       }
       if (isHost() && net.connected) {
-        if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? 2 : 1)) % 3; sfx("HIT"); hostSendLobby(); }
+        if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? MODES.length - 1 : 1)) % MODES.length; sfx("HIT"); hostSendLobby(); }
         if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = L("NOT ALL PLAYERS ARE READY YET", "EINIGE MITSPIELER NOCH NICHT BEREIT"); lobbyNoteT = 2.5; sfx("DECLINED"); } }
       }
       break;
@@ -2448,7 +2470,7 @@ function onKeyPress(k) {
       }
       break;
     case ST.ROUNDEND:
-      if (k === "enter" && isHost()) { nextRound(); lockMouse(); }
+      if (k === "enter" && isHost()) { if (mode === "lms" && lmsOver) backToLobby(); else { if (mode === "lms") lmsRound++; nextRound(); lockMouse(); } }
       if (k === "Escape") leaveMP();
       break;
     case ST.DEAD:
@@ -2464,7 +2486,7 @@ function onKeyPress(k) {
       break;
     case ST.WIN:
       if (k === "enter" && isHost()) {
-        if (isMP()) { mode = "solo"; state = ST.LOBBY; players.forEach(p => p.ready = false); hostSendLobby(); musicStart(); }
+        if (isMP()) backToLobby();
         else if (islandDone) finishRun(true); else startCredits();
       }
       if (k === "Escape" && isMP()) leaveMP();
@@ -2683,6 +2705,10 @@ function updateGame(dt) {
     if (roundT <= 0 || done) {
       state = ST.ROUNDEND; roundT = ROUND_BREAK; musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
     }
+  }
+  if (mode === "lms" && players.length >= 1) {   // Last Man Standing: nur noch einer (oder keiner) uebrig
+    const alive = players.filter(p => !p.out);
+    if (alive.length <= 1 && (players.length >= 2 || !alive.length)) lmsEnd(alive[0] || null);
   }
   if (isMP() && performance.now() - lastSent > (net.online ? 100 : 50)) { lastSent = performance.now(); hostSendSnapshot(); }
 }
@@ -3413,6 +3439,11 @@ function renderHUD() {
       text(`FRAGS ${me.frags || 0}   ·   ${L("DEATHS", "TODE")} ${me.deaths || 0}   ·   KILLS ${me.kills}`, 560, HUD_Y + 36, "#ffd232", 16);
       rank.slice(0, 4).forEach((p, i) => text(`${i + 1}.${p.name.replace("TRADER ", "").slice(0, 6)} ${p.frags || 0}/${p.deaths || 0}`, 560 + i * 96, HUD_Y + 62, rgbCss(playerColor(p)), 12));
     }
+  } else if (mode === "lms") {   // Last Man Standing: Leben, Mitspieler im Spiel, Duell-Stand
+    const alive = players.filter(p => !p.out).length, other = players.find(p => !p.local);
+    text(`${"♥".repeat(Math.max(0, me.lives || 0))}${me.out ? L(" OUT", " AUS") : ""}`, 560, HUD_Y + 36, "#ff6080", 18);
+    text(lmsDuel && other ? L(`ROUND ${lmsRound} · BEST OF ${lobbyBestOf} · ${lmsWins[me.id] || 0} : ${lmsWins[other.id] || 0}`, `RUNDE ${lmsRound} · BEST OF ${lobbyBestOf} · ${lmsWins[me.id] || 0} : ${lmsWins[other.id] || 0}`)
+      : L(`LAST MAN STANDING · ${alive} STILL IN`, `LAST MAN STANDING · NOCH ${alive} IM SPIEL`), 560, HUD_Y + 62, "#ffd232", 14);
   } else if (island) {
     const tl = Math.max(0, Math.ceil(isleT)), warn = isleT < 15, blink = warn && Math.floor(gameTime * 4) % 2;
     g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(DW - 196, 68, 182, 72);
@@ -3493,7 +3524,11 @@ function renderHUD() {
       text(m.length > 62 ? m.slice(0, 61) + "…" : m, 234, 100 + i * 20, m.startsWith("ALGO") ? "#ff5050" : "#dcdce6", 14);
     });
   }
-  if (me.dead) {
+  if (me.dead && me.out) {   // Last Man Standing: ausgeschieden, zuschauen
+    g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(0, 26, DW, HUD_Y - 26);
+    text(L("YOU'RE OUT", "AUSGESCHIEDEN"), DW / 2, 170, "#ff3c3c", 48, "center");
+    text(L("Watching until the round is over", "Du schaust zu, bis die Runde vorbei ist"), DW / 2, 232, "#dcdce6", 20, "center");
+  } else if (me.dead) {
     g.fillStyle = "rgba(60,0,0,.55)"; g.fillRect(0, 26, DW, HUD_Y - 26);
     text(L("BANKRUPT", "INSOLVENZ"), DW / 2, 170, "#ff3c3c", 54, "center");
     text(`${L("NEW LOAN IN", "NEUER KREDIT IN")} ${Math.max(0, Math.ceil(me.respawnT))} s`, DW / 2, 240, "#dcdce6", 22, "center");
@@ -3589,7 +3624,10 @@ function renderLobby() {
   } else text(modeName(modeIdx), 110, 116, "#50c8ff", 26);
   const desc = { coop: L("Together through all 5 levels: the more players, the tougher the enemies.", "Gemeinsam durch alle 5 Level: Je mehr Mitspieler, desto stärkere Gegner."),
     team: L("Team Bull vs. Team Bear: when the market rises, the bulls hit harder.", "Team Bulle gegen Team Bär: Wenn der Markt steigt, treffen die Bullen härter."),
-    dm: L("Free for all.", "Jeder gegen jeden.") }[MODES[modeIdx][0]];
+    dm: L("Free for all.", "Jeder gegen jeden."),
+    lms: (host ? players.length : lobbyInfo.length) === 2
+      ? L(`Duel: best of ${lobbyBestOf}, ${lobbyLives} ${lobbyLives === 1 ? "life" : "lives"} per round. A third player turns it into a free-for-all.`, `Duell: Best of ${lobbyBestOf}, ${lobbyLives} ${lobbyLives === 1 ? "Leben" : "Leben"} pro Runde. Mit einem dritten Spieler wird es ein Jeder gegen jeden.`)
+      : L(`Everyone has ${lobbyLives} ${lobbyLives === 1 ? "life" : "lives"} – the last one standing wins. No joining once it starts.`, `Jeder hat ${lobbyLives} Leben – wer als Letzter übrig bleibt, gewinnt. Nach dem Start kein Einstieg mehr.`) }[MODES[modeIdx][0]];
   text(desc, 110, 152, "#a0a0b4", 15);
   // ---- Spielerliste (links)
   text(`${L("PLAYERS", "SPIELER")} (${list.length}/4)`, 110, 186, "#6b7896", 14);
@@ -3660,23 +3698,30 @@ function renderLobby() {
 }
 function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Knoepfe sind anklickbar
   clickZones = [];
+  const lms = lobbyMode === 3, top = lms ? 20 : 72, hgt = lms ? 500 : 400, ys = lms ? [100, 190, 255, 320, 385] : [156, 250, 326];
   g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
-  g.fillStyle = "#07090f"; g.fillRect(190, 72, 580, 400); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(190, 72, 580, 400);
-  text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, 86, "#50c8ff", 26, "center");
-  text(host ? L("Applies to all players.", "Gilt für alle Spieler.") : L("Only changeable by the host.", "Nur vom Host veränderbar."), DW / 2, 120, "#8290b0", 14, "center");
+  g.fillStyle = "#07090f"; g.fillRect(190, top, 580, hgt); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(190, top, 580, hgt);
+  text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, top + 14, "#50c8ff", 26, "center");
+  text(host ? L("Applies to all players.", "Gilt für alle Spieler.") : L("Only changeable by the host.", "Nur vom Host veränderbar."), DW / 2, top + 48, "#8290b0", 14, "center");
   const row = (y, label, val, col, key, notes) => {
     text(label, 230, y, "#e6e6f0", 18);
     if (host) zoneButton(530, y - 8, 210, 34, `[${key.toUpperCase()}] ${val}`, col, key, 16); else text(val, 635, y, col, 18, "center");
     notes.forEach((l, i) => text(l, DW / 2, y + 34 + i * 18, "#a0a0b4", 13, "center"));
   };
-  row(156, L("Allowed auto aim", "Erlaubtes Auto-Aim"), { full: "FULL", semi: L("SEMI ONLY", "NUR SEMI"), off: L("OFF", "AUS") }[lobbyAim], { full: "#50ff82", semi: "#ffd232", off: "#ff7050" }[lobbyAim], "a",
+  row(ys[0], L("Allowed auto aim", "Erlaubtes Auto-Aim"), { full: "FULL", semi: L("SEMI ONLY", "NUR SEMI"), off: L("OFF", "AUS") }[lobbyAim], { full: "#50ff82", semi: "#ffd232", off: "#ff7050" }[lobbyAim], "a",
     [L("Full: everyone gets the level chosen in their options.", "Full: jeder bekommt die Stufe aus seinen Optionen."),
      L("Semi only: full is reduced to semi. Off: auto aim is turned off.", "Nur Semi: Full wird zu Semi. Aus: Auto-Aim ausgeschaltet.")]);
-  row(250, "Friendly Fire", lobbyFF ? L("ON", "AN") : L("OFF", "AUS"), lobbyFF ? "#ff7050" : "#50ff82", "f",
+  row(ys[1], "Friendly Fire", lobbyFF ? L("ON", "AN") : L("OFF", "AUS"), lobbyFF ? "#ff7050" : "#50ff82", "f",
     [L("On: teammates (team/co-op) can be hit.", "An: Teamkollegen (Team/Koop) können getroffen werden.")]);
-  row(326, "NPCs", lobbyNPC ? L("ON", "AN") : L("OFF", "AUS"), lobbyNPC ? "#50ff82" : "#ff7050", "n",
-    [L("Market creatures in team and deathmatch. Always on in co-op.", "Börsen-Gegner in Team und Deathmatch. Im Koop immer an.")]);
-  zoneButton(380, 418, 200, 38, L(`[${bindText("menuBack")}] DONE`, `[${bindText("menuBack")}] FERTIG`), "#50c8ff", "Escape", 16);
+  row(ys[2], "NPCs", lobbyNPC ? L("ON", "AN") : L("OFF", "AUS"), lobbyNPC ? "#50ff82" : "#ff7050", "n",
+    [L("Market creatures in team, deathmatch and last man standing. Always on in co-op.", "Börsen-Gegner in Team, Deathmatch und Last Man Standing. Im Koop immer an.")]);
+  if (lms) {
+    row(ys[3], L("Lives per player", "Leben pro Spieler"), String(lobbyLives), "#ff6080", "l",
+      [L("Out of lives = out. In a duel the lives count per round.", "Keine Leben mehr = ausgeschieden. Im Duell gelten sie pro Runde.")]);
+    row(ys[4], L("Duel (2 players)", "Duell (2 Spieler)"), `BEST OF ${lobbyBestOf}`, "#ffd232", "r",
+      [L("Only with exactly two players.", "Nur bei genau zwei Spielern.")]);
+  }
+  zoneButton(380, lms ? 456 : 418, 200, 38, L(`[${bindText("menuBack")}] DONE`, `[${bindText("menuBack")}] FERTIG`), "#50c8ff", "Escape", 16);
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
@@ -3684,7 +3729,7 @@ function scoreboard(y0) {
     const y = y0 + i * 30;
     g.fillStyle = rgbCss(playerColor(p)); g.fillRect(70, y, 18, 18);
     text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}`, 98, y, mode === "team" ? rgbCss(playerColor(p)) : "#e6e6f0", 18);
-    text(mode === "dm" || mode === "team" ? `${p.score.toLocaleString(LOC())} P&L · ${p.frags || 0} FRAGS · ${p.deaths || 0} ${L("DEATHS", "TODE")} · ${p.kills} KILLS`
+    text(pvpMode() ? `${p.score.toLocaleString(LOC())} P&L · ${p.frags || 0} FRAGS · ${p.deaths || 0} ${L("DEATHS", "TODE")} · ${p.kills} KILLS`
       : `${p.score.toLocaleString(LOC())} P&L · ${p.kills} KILLS · ${p.deaths || 0} ${L("DEATHS", "TODE")}`, DW - 60, y, "#50ff82", 16, "right");
   });
 }
@@ -3718,15 +3763,24 @@ function renderEnd(title, sub, col, bull) {
   } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, islandDone ? L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#ffd232", "enter", 18);
   else if (state === ST.ROUNDEND) {   // Countdown bis zum naechsten Level
     const t = Math.max(0, Math.ceil(roundT));
-    text(`${L("NEXT LEVEL IN", "NÄCHSTES LEVEL IN")} ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
+    const nx = mode === "lms" ? (lmsOver ? L("LOBBY IN", "LOBBY IN") : L("NEXT ROUND IN", "NÄCHSTE RUNDE IN")) : L("NEXT LEVEL IN", "NÄCHSTES LEVEL IN");
+    text(`${nx} ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
     g.fillStyle = "#1e2846"; g.fillRect(330, 414, 300, 6);
-    g.fillStyle = "#ffd232"; g.fillRect(330, 414, 300 * Math.max(0, roundT) / ROUND_BREAK, 6);
+    g.fillStyle = "#ffd232"; g.fillRect(330, 414, 300 * Math.min(1, Math.max(0, roundT) / ROUND_BREAK), 6);
     if (isHost()) zoneButton(380, 422, 200, 24, L("[ENTER] CONTINUE NOW", "[ENTER] SOFORT WEITER"), "#8290b0", "enter", 13);
   }
   else if (Math.floor(gameTime * 2) % 2) text(isHost() ? L("[ENTER] CONTINUE", "[ENTER] WEITER") : L("WAITING FOR THE HOST …", "WARTE AUF DEN HOST …"), DW / 2, 390, "#ffffff", 22, "center");
   if (state !== ST.ROUNDEND) text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
 }
 function renderRoundEnd() {
+  if (mode === "lms") {
+    const w = players.find(p => p.id === lmsWinner), nm = w ? w.name.replace("TRADER ", "") : "", other = players.find(p => p.id !== lmsWinner);
+    const stand = lmsDuel && w && other ? `${lmsWins[w.id] || 0} : ${lmsWins[other.id] || 0}` : "";
+    if (!w) renderEnd(L("DRAW", "UNENTSCHIEDEN"), L("Nobody survived – the round is replayed", "Keiner hat überlebt – die Runde wird wiederholt"), "#dcdce6", false);
+    else if (lmsDuel && !lmsOver) renderEnd(L(`${nm} WINS ROUND ${lmsRound}`, `${nm} GEWINNT RUNDE ${lmsRound}`), L(`Score ${stand} · best of ${lobbyBestOf} · next round coming up`, `Stand ${stand} · Best of ${lobbyBestOf} · gleich geht's weiter`), rgbCss(playerColor(w)), true);
+    else renderEnd(lmsDuel ? L(`${nm} WINS THE DUEL!`, `${nm} GEWINNT DAS DUELL!`) : `${nm}: LAST MAN STANDING!`, lmsDuel ? L(`Final score ${stand} – back to the lobby`, `Endstand ${stand} – zurück in die Lobby`) : L("Back to the lobby", "Zurück in die Lobby"), rgbCss(playerColor(w)), true);
+    return;
+  }
   if (mode === "team") {
     const win = teamScore[0] === teamScore[1] ? -1 : teamScore[0] > teamScore[1] ? 0 : 1;
     renderEnd(win < 0 ? L("DRAW", "UNENTSCHIEDEN") : win === 0 ? L("TEAM BULL WINS!", "TEAM BULLE GEWINNT!") : L("TEAM BEAR WINS!", "TEAM BÄR GEWINNT!"),
@@ -4521,8 +4575,8 @@ function renderScoreOverlay() {
     });
     return;
   }
-  const pvp = mode === "dm" || mode === "team";
-  text(mode === "team" ? L(`TEAM BULL ${teamScore[0]}  :  ${teamScore[1]} TEAM BEAR`, `TEAM BULLE ${teamScore[0]}  :  ${teamScore[1]} TEAM BÄR`) : mode === "dm" ? "DEATHMATCH" : L("CO-OP", "KOOP"), DW / 2, y0 + 12, "#ffd232", 22, "center");
+  const pvp = pvpMode();
+  text(mode === "team" ? L(`TEAM BULL ${teamScore[0]}  :  ${teamScore[1]} TEAM BEAR`, `TEAM BULLE ${teamScore[0]}  :  ${teamScore[1]} TEAM BÄR`) : mode === "dm" ? "DEATHMATCH" : mode === "lms" ? "LAST MAN STANDING" : L("CO-OP", "KOOP"), DW / 2, y0 + 12, "#ffd232", 22, "center");
   const cols = pvp ? [["P&L", 560], ["FRAGS", 650], [L("DEATHS", "TODE"), 730], ["KILLS", 800]] : [["P&L", 600], ["KILLS", 700], [L("DEATHS", "TODE"), 790]];
   text(L("PLAYER", "SPIELER"), 180, y0 + 50, "#6b7896", 13);
   cols.forEach(([c, x]) => text(c, x, y0 + 50, "#6b7896", 13, "right"));
@@ -4725,7 +4779,7 @@ function frame(now) {
     case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", quickBonus ? L(`Bonus of +$${quickBonus.toLocaleString(LOC())} – safe cracked in ${quickSecs < 120 ? quickSecs + " seconds" : fmtTime(quickSecs) + " minutes"}`, `Bonus +$${quickBonus.toLocaleString(LOC())} – Tresor geknackt in ${quickSecs < 120 ? quickSecs + " Sekunden" : fmtTime(quickSecs) + " Minuten"}`) : L("Level cleared – the price is rising", "Level geschafft – der Kurs steigt"), "#50ff82", true); break;
     case ST.ROUNDEND:
       gameTime += dt;
-      if (isHost()) { roundT -= dt; if (roundT <= 0) { nextRound(); break; } }   // automatisch weiter nach der Pause
+      if (isHost()) { roundT -= dt; if (roundT <= 0) { if (mode === "lms" && lmsOver) backToLobby(); else { if (mode === "lms") lmsRound++; nextRound(); } break; } }   // automatisch weiter nach der Pause
       renderRoundEnd(); break;
     case ST.DEAD: gameTime += dt;
       if (HC()) renderEnd("GAME OVER", L("Day trader: You're broke – GAME OVER", "Day-Trader: Du bist pleite – GAME OVER"), "#ff3c3c", false);

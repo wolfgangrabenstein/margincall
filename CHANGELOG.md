@@ -2,6 +2,15 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.34.0 – Last man standing (22.10.2026)
+
+- **New multiplayer mode “Last man standing”:** Every player has only a few lives; whoever runs out is eliminated and watches. The last one left wins.
+  - **Lives:** 1 to 5 in the match settings (default 1).
+  - **Duel:** With exactly two players it is automatically played over several rounds – best of 3, 5, 7 or 9 (adjustable). The round score is shown in the status line. When a third player joins the lobby, it turns back into a free-for-all.
+  - **No joining a running match:** Anyone trying to join a match in progress gets a message and is turned away.
+  - After the match everyone returns to the lobby.
+- **README:** online hosting with one button, event log (L) and back key added.
+
 ## Version 3.33.2 – The oil slick jumps with purpose (22.10.2026)
 
 - **Oil slick:** It crawls normally and only jumps when it matters.

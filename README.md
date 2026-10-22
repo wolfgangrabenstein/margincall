@@ -14,14 +14,14 @@ No installation needed: **[play MARGIN CALL in the browser](https://wolfgangrabe
 
 ## Downloads
 
-Current version **3.33.2** – click a file and the download starts right away:
+Current version **3.34.0** – click a file and the download starts right away:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.33.2-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.33.2-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
-| [**MarginCall-3.33.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.33.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
+| [**MarginCall-3.34.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.34.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
+| [**MarginCall-3.34.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.34.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
 Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md)
 
@@ -69,6 +69,8 @@ MARGIN CALL runs as a small standalone app on Windows, macOS and Linux (Tauri), 
 | Choose character (multiplayer) | C in the lobby |
 | Highscores | H on the title screen |
 | Chat (multiplayer) | T |
+| Event log | L (in game) |
+| Back in menus | B or Esc |
 | Show stats | Tab (hold) |
 
 All keys can be remapped in the options menu. On the Cardputer: E/S move, A/D turn, W/R strafe.
@@ -76,8 +78,8 @@ All keys can be remapped in the options menu. On the Cardputer: E/S move, A/D tu
 ## Online multiplayer (2–4 players over the internet)
 
 1. Choose **[N] Multiplayer → [O] Online play** (in the browser version: **[N] Multiplayer**) and agree to the privacy notice once.
-2. **Public game:** press **[H]**. Your game shows up in the list of open games for everyone with the same game version.
-3. **Private game:** press **[P]** and share the five-character code shown in the top right corner of the lobby with your friends.
+2. **Host a game:** press **[H]**. In the lobby, **[V]** switches whether your game is **public** in the list of open games (for everyone with the same game version) or **private**.
+3. **Private game:** share the five-character code shown in the top right corner of the lobby with your friends.
 4. **Join:** pick a game from the list or type the code and press **Enter**.
 
 Online play is free and runs through a small game server on Cloudflare. The free daily quota is shared by all players worldwide; if it is used up, online play pauses until 00:00 UTC (LAN keeps working).
@@ -87,7 +89,7 @@ Online play is free and runs through a small game server on Cloudflare. The free
 1. One player chooses **[N] Multiplayer → [H] Host game**. The lobby shows the address, e.g. `192.168.1.20:8080`.
 2. The others choose **[N] Multiplayer → [J] Join game** and click the game in the list. If it is not found (some routers block discovery), they enter the address from the host's lobby or open it in a browser.
 3. Players mark themselves **ready** with **E** (or a click). In the lobby you can chat with **T** and change your nickname with **K**; the host renames the game with **G**.
-4. The host picks the mode (co-op, Team Bull vs. Team Bear, or deathmatch) and starts once everyone is ready.
+4. The host picks the mode (co-op, Team Bull vs. Team Bear, deathmatch or last man standing) and starts once everyone is ready. In last man standing everyone has 1–5 lives and the last one left wins; with two players it becomes a best-of duel.
 
 ## Project structure
 

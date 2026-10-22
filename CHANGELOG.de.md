@@ -2,6 +2,15 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.34.0 – Last Man Standing (22.10.2026)
+
+- **Neuer Multiplayer-Modus „Last Man Standing“:** Jeder Spieler hat nur wenige Leben; wer keine mehr hat, scheidet aus und schaut zu. Wer als Letzter übrig bleibt, gewinnt.
+  - **Leben:** in den Match-Einstellungen von 1 bis 5 wählbar (Standard 1).
+  - **Duell:** Mit genau zwei Spielern wird automatisch über mehrere Runden gespielt – Best of 3, 5, 7 oder 9 (einstellbar). Der Rundenstand steht in der Statuszeile. Kommt ein dritter Spieler in die Lobby, wird daraus wieder ein Jeder gegen jeden.
+  - **Kein Einstieg in laufende Partien:** Wer einer laufenden Partie beitreten will, bekommt eine Meldung und wird abgewiesen.
+  - Nach der Partie geht es zurück in die Lobby.
+- **README:** Online-Hosten mit einem Knopf, Ereignisverlauf (L) und Zurück-Taste ergänzt.
+
 ## Version 3.33.2 – Der Ölschlick springt gezielt (22.10.2026)
 
 - **Ölschlick:** Er kriecht normal und springt nur noch, wenn es zählt.

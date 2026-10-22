@@ -14,14 +14,14 @@ Ganz ohne Installation: **[MARGIN CALL im Browser spielen](https://wolfgangraben
 
 ## Downloads
 
-Aktuelle Version **3.33.2** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.34.0** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.33.2-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.33.2-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.33.2-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.33.2-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.33.2/MarginCall-3.33.2-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.34.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.34.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.34.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.34.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.34.0/MarginCall-3.34.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 
@@ -67,6 +67,8 @@ Made by Wolfgang Rabenstein · Open Source unter der [MIT-Lizenz](LICENSE) · [C
 | Spielfigur wählen (Multiplayer) | C in der Lobby |
 | Highscores | H im Titelbild |
 | Chat (Multiplayer) | T |
+| Ereignisverlauf | L (im Spiel) |
+| Zurück in Menüs | B oder Esc |
 | Statistik einblenden | Tab (gedrückt halten) |
 
 Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiterhin: E/S laufen, A/D drehen, W/R seitwärts.
@@ -74,8 +76,8 @@ Alle Tasten lassen sich im Optionsmenü umbelegen. Auf dem Cardputer gilt weiter
 ## Online-Multiplayer (2–4 Spieler übers Internet)
 
 1. Wähle **[N] Multiplayer → [O] Online spielen** (in der Browser-Version: **[N] Multiplayer**) und stimme einmal dem Datenschutzhinweis zu.
-2. **Öffentliches Spiel:** Drücke **[H]**. Dein Spiel erscheint in der Liste offener Spiele für alle mit derselben Spielversion.
-3. **Privates Spiel:** Drücke **[P]** und gib den fünfstelligen Code, der oben rechts in der Lobby steht, an deine Freunde weiter.
+2. **Spiel hosten:** Drücke **[H]**. In der Lobby stellst du mit **[V]** ein, ob dein Spiel **öffentlich** in der Liste offener Spiele steht (für alle mit derselben Spielversion) oder **privat** ist.
+3. **Privates Spiel:** Gib den fünfstelligen Code, der oben rechts in der Lobby steht, an deine Freunde weiter.
 4. **Beitreten:** Wähle ein Spiel aus der Liste oder tippe den Code ein und drücke **Enter**.
 
 Online-Spielen ist kostenlos und läuft über einen kleinen Spiel-Server bei Cloudflare. Das kostenlose Tageskontingent teilen sich alle Spieler weltweit; ist es aufgebraucht, pausiert Online-Spielen bis 00:00 UTC (das eigene Netzwerk funktioniert weiter).
@@ -85,7 +87,7 @@ Online-Spielen ist kostenlos und läuft über einen kleinen Spiel-Server bei Clo
 1. Ein Spieler wählt **[N] Multiplayer → [H] Spiel hosten**. Die Lobby zeigt die Adresse, z. B. `192.168.1.20:8080`.
 2. Die anderen wählen **[N] Multiplayer → [J] Spiel beitreten** und klicken das Spiel in der Liste an. Wird es nicht gefunden (manche Router blockieren das), geben sie die Adresse aus der Lobby des Hosts ein oder öffnen sie im Browser.
 3. Mitspieler melden sich mit **E** (oder Klick) **bereit**. In der Lobby kann man mit **T** chatten, mit **K** den eigenen Nickname ändern; der Host ändert mit **G** den Spielnamen.
-4. Der Host wählt den Modus (Koop, Team Bulle vs. Team Bär oder Deathmatch) und startet, sobald alle bereit sind.
+4. Der Host wählt den Modus (Koop, Team Bulle vs. Team Bär, Deathmatch oder Last Man Standing) und startet, sobald alle bereit sind. Bei Last Man Standing hat jeder 1–5 Leben, und wer als Letzter übrig bleibt, gewinnt; zu zweit wird ein Best-of-Duell gespielt.
 
 ## Projektaufbau
 
