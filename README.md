@@ -14,14 +14,14 @@ No installation needed: **[play MARGIN CALL in the browser](https://wolfgangrabe
 
 ## Downloads
 
-Current version **3.31.3** – click a file and the download starts right away:
+Current version **3.31.4** – click a file and the download starts right away:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.31.3-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.3/MarginCall-3.31.3-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.31.3-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.3/MarginCall-3.31.3-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
-| [**MarginCall-3.31.3-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.3/MarginCall-3.31.3-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.31.3-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.3/MarginCall-3.31.3-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
+| [**MarginCall-3.31.4-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.4/MarginCall-3.31.4-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.31.4-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.4/MarginCall-3.31.4-macOS.dmg) | macOS 10.15 or newer (Intel and Apple Silicon) |
+| [**MarginCall-3.31.4-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.4/MarginCall-3.31.4-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.31.4-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.31.4/MarginCall-3.31.4-Cardputer.bin) | M5Stack Cardputer ADV, via M5Launcher from the SD card |
 
 Newer version out? Always current: [latest release](https://github.com/wolfgangrabenstein/margincall/releases/latest) · older: [all releases](https://github.com/wolfgangrabenstein/margincall/releases) · changes: [CHANGELOG](CHANGELOG.md)
 

@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.31.3";
+const APP_VERSION = "3.31.4";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1143,7 +1143,7 @@ function stampedeHerd() {
   }
   for (let g = 0; g < 2; g++) {
     const c = near.length ? near.splice(rnd() % near.length, 1)[0] : findHiddenCell(5); if (!c) continue;
-    for (let j = 0; j < 2 && n < (EZ() ? 3 : 4); j++) { const e = spawnEnemy(E.BULL, c[0] + (j ? .3 : -.3), c[1]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; }   // stuermt mit erhoehtem Tempo los
+    for (let j = 0; j < 3 && n < herdSize(); j++) { const e = spawnEnemy(E.BULL, c[0] + [-.3, .3, 0][j], c[1] + [0, 0, .3][j]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; }   // stuermt mit erhoehtem Tempo los
   }
   if (!n) return;
   if (mode === "team") alive.forEach(p => sayTo(p, L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2)); else sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2);
@@ -1162,7 +1162,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
   }
   if (!best) return false;
   const sx = cx + best.dx * best.n + .5, sy = cy + best.dy * best.n + .5;
-  for (let k = 0; k < (EZ() ? 3 : 4); k++) {   // Kleinanleger: 3 Bullen
+  for (let k = 0; k < herdSize(); k++) {
     const e = spawnEnemy(E.BULL, sx - best.dx * k * .7 + best.dy * (k % 2 ? .2 : -.2), sy - best.dy * k * .7 + best.dx * (k % 2 ? .2 : -.2));   // gestaffelt, damit man alle vier sieht
     if (e.gone) continue;
     Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7, stampede: true });
@@ -1174,7 +1174,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
 // Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede), Baeren zaehlen als Short-Gewinn doppelt
 function bearTrap() {
   sfxAll("ROAR");
-  for (let k = 0; k < (EZ() ? 2 : 3); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an (Kleinanleger: 2 Baeren)
+  for (let k = 0; k < packSize(); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
     const c = findHiddenCell(5); if (!c) continue;
     const e = spawnEnemy(E.BEAR, c[0], c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; e.pack = true; }
   }
@@ -1529,6 +1529,10 @@ function meleeHit(e, dmgP, dmgE, why) {
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
 let attackers = null;   // Kleinanleger: Gegner, die gerade angreifen duerfen
+// Rudel der Baerenfalle und Herde des Bullruns wachsen alle zwei Level um eins, Kleinanleger je einer weniger;
+// Kleinanleger: gleichzeitige Angreifer Level 1: 3, Level 2–3: 4, Level 4–5: 5
+const packSize = () => (EZ() ? 2 : 3) + Math.floor(level / 2), herdSize = () => (EZ() ? 3 : 4) + Math.floor(level / 2);
+const attackSlots = () => 3 + Math.floor((level + 1) / 2);
 // Kleinanleger: wer gerade keinen Angriffsplatz hat, haelt Abstand und kreist, statt anzugreifen
 function holdBack(e, t, d, nx, ny, dt) {
   e.chargeT = 0;
@@ -2581,10 +2585,10 @@ function updateGame(dt) {
   }
   updatePhase(dt); updateNav(dt); levelTime += dt;
   attackers = null;
-  if (EZ()) {   // Kleinanleger: hoechstens 3 Gegner greifen gleichzeitig an, die naechsten zuerst
+  if (EZ()) {   // Kleinanleger: nur wenige Gegner greifen gleichzeitig an (je nach Level), die naechsten zuerst
     const dist = e => Math.min(1e9, ...players.filter(p => !p.dead).map(p => (p.x - e.x) ** 2 + (p.y - e.y) ** 2));
     attackers = new Set(enemies.filter(e => e.alive && !e.gone && e.awake && e.pir === undefined && !TYPES[e.type].boss && (!(e.f === F.BULL || e.f === F.BEAR) || (e.target && e.target.isPlayer)))
-      .sort((a, b) => dist(a) - dist(b)).slice(0, 3));
+      .sort((a, b) => dist(a) - dist(b)).slice(0, attackSlots()));
   }
   bullsAlive = bearsAlive = 0;
   for (const e of enemies) {

@@ -2,6 +2,15 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.31.4 – Packs, herds and attackers grow with the level (22.10.2026)
+
+- **Bear trap and bull run:** The pack and the herd grow by one animal every two levels.
+  - Speculator and day trader: 3–5 bears and 4–6 bulls.
+  - Small investor: one fewer each, so 2–4 bears and 3–5 bulls.
+- **Small investor:** The number of simultaneous attackers rises with the level: 3 in level 1, 4 in levels 2–3, 5 in levels 4–5. The easiest level stays challenging later on but remains clearly easier than speculator (about a third of the damage in testing).
+
+Applies to PC, browser and Cardputer.
+
 ## Version 3.31.3 – Calmer small investor, no firing while turning on phones (22.10.2026)
 
 - **Phone: turning never fires.**

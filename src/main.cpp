@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.31.3"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.31.4"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1169,6 +1169,11 @@ static void killEnemy(Enemy& e, bool byPlayer) {
 }
 
 // ---- Marktphasen
+// Rudel der Baerenfalle und Herde des Bullruns wachsen alle zwei Level um eins, Kleinanleger je einer weniger;
+// Kleinanleger: gleichzeitige Angreifer Level 1: 3, Level 2–3: 4, Level 4–5: 5
+static int packSize() { return (easy ? 2 : 3) + level / 2; }
+static int herdSize() { return (easy ? 3 : 4) + level / 2; }
+static int attackSlots() { return 3 + (level + 1) / 2; }
 // kein langer gerader Gang in der Naehe: die Herde kommt aus zwei Verstecken und jagt den Spieler
 static void stampedeHerd() {
   int n = 0;
@@ -1179,7 +1184,7 @@ static void stampedeHerd() {
       if (v >= 5 && v <= 12 && !lineOfSight(cx + 0.5f, cy + 0.5f, px, py) && rnd() % ++cnt == 0) { x = cx + 0.5f; y = cy + 0.5f; }
     }
     if (!cnt && !findHiddenCell(x, y, 5)) continue;
-    for (int j = 0; j < 2 && n < (easy ? 3 : 4); j++) { int i = spawnEnemy(E_BULL, x + (j ? 0.3f : -0.3f), y); if (i < 0) continue; Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.stampede = true; e.chargeCd = 1 + g + j * 0.5f; e.rushT = 6; n++; }   // stuermt mit erhoehtem Tempo los
+    for (int j = 0; j < 3 && n < herdSize(); j++) { static const float OX[3] = {-0.3f, 0.3f, 0}, OY[3] = {0, 0, 0.3f}; int i = spawnEnemy(E_BULL, x + OX[j], y + OY[j]); if (i < 0) continue; Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.stampede = true; e.chargeCd = 1 + g + j * 0.5f; e.rushT = 6; n++; }   // stuermt mit erhoehtem Tempo los
   }
   if (n) { say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL); }
 }
@@ -1195,7 +1200,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
   }
   if (!best) return false;
   float sx = cx + bdx * best + 0.5f, sy = cy + bdy * best + 0.5f;
-  for (int k = 0; k < (easy ? 3 : 4); k++) {   // Kleinanleger: 3 Bullen
+  for (int k = 0; k < herdSize(); k++) {
     int i = spawnEnemy(E_BULL, sx - bdx * k * 0.7f + bdy * (k % 2 ? 0.2f : -0.2f), sy - bdy * k * 0.7f + bdx * (k % 2 ? 0.2f : -0.2f));   // gestaffelt, damit man alle vier sieht
     if (i < 0) continue;
     Enemy& e = enemies[i]; e.awake = true; e.target = -1; e.chargeT = 4 + k * 0.15f; e.chargeCd = 6; e.mdx = -bdx; e.mdy = -bdy; e.attackAnim = 0.7f; e.stampede = true;
@@ -1205,7 +1210,7 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
 }
 static void bearTrap() {   // Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede)
   sfxPlay(SFX_ID_ROAR);
-  for (int k = 0; k < (easy ? 2 : 3); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an (Kleinanleger: 2 Baeren)
+  for (int k = 0; k < packSize(); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
     float x, y; if (!findHiddenCell(x, y, 5)) continue;
     int i = spawnEnemy(E_BEAR, x, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; enemies[i].pack = true; }
   }
@@ -2328,16 +2333,16 @@ static void updateGame(float dt) {
 
   updatePhase(dt); updateNav(dt); levelTime += dt;
   // Gegner
-  if (easy) {   // Kleinanleger: hoechstens 3 Gegner greifen gleichzeitig an, die naechsten zuerst
-    int best[3] = {-1, -1, -1}; float bd[3] = {1e9f, 1e9f, 1e9f};
+  if (easy) {   // Kleinanleger: nur wenige Gegner greifen gleichzeitig an (je nach Level), die naechsten zuerst
+    const int slots = attackSlots(); int best[6] = {-1, -1, -1, -1, -1, -1}; float bd[6] = {1e9f, 1e9f, 1e9f, 1e9f, 1e9f, 1e9f};
     for (int i = 0; i < nEnemies; i++) {
       Enemy& e = enemies[i]; e.atk = false;
       if (e.gone || !e.alive || !e.awake || e.pir >= 0 || TYPES[e.type].boss) continue;
       if ((e.faction == F_BULL || e.faction == F_BEAR) && e.target != -1) continue;
       float q = dist2Player(e.x, e.y);
-      for (int k = 0; k < 3; k++) if (q < bd[k]) { for (int m = 2; m > k; m--) { bd[m] = bd[m - 1]; best[m] = best[m - 1]; } bd[k] = q; best[k] = i; break; }
+      for (int k = 0; k < slots; k++) if (q < bd[k]) { for (int m = slots - 1; m > k; m--) { bd[m] = bd[m - 1]; best[m] = best[m - 1]; } bd[k] = q; best[k] = i; break; }
     }
-    for (int k = 0; k < 3; k++) if (best[k] >= 0) enemies[best[k]].atk = true;
+    for (int k = 0; k < slots; k++) if (best[k] >= 0) enemies[best[k]].atk = true;
   }
   bullsAlive = bearsAlive = 0;
   for (int i = 0; i < nEnemies; i++) {
