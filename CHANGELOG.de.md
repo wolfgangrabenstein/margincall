@@ -2,6 +2,15 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.30.1 – Refinanzierungspaket, eigene Sounds, leisere Musik (22.10.2026)
+
+- **Refinanzierungspaket:** Ein ganz seltener Drop, höchstens einer pro Level (1 % der eigenen Abschüsse, im Hardcore-Modus 0,5 %, im leichten Modus 1,5 %; nicht von Bossen, gerufenen Bots oder in der Steueroase). Es füllt das Depot auf 100 % und gibt +20 Cash (Hardcore +15) und 100 $. Bei vollem Depot bleibt es für später liegen.
+- **Eigene Sounds:** Der Börsencrash startet mit einer Alarmsirene, der Bullrun mit einer Fanfare, die Bärenfalle mit einem zuschnappenden Eisen und einem absteigenden Moll-Motiv. Das Refinanzierungspaket hat einen eigenen Sound (Stempel und Glockenspiel).
+- **Leisere Musik:** Die Musik ist etwa ein Drittel leiser und bleibt im Hintergrund.
+- **Bulle:** Der grüne Pfeil liegt jetzt hinter dem Kopf auf dem Körper. Der Nasenring ist ein goldener Bogen unter dem Maul statt eines gefüllten Kreises.
+
+Gilt für PC, Browser und Cardputer.
+
 ## Version 3.30.0 – Der echte Börsencrash (22.10.2026)
 
 - **Börsencrash:** Ein seltenes, eigenständiges Ereignis, höchstens einmal pro Spiel, nicht in Level 1 und nicht im leichten Modus. Mehrspieler nur im Koop.

@@ -20,6 +20,10 @@ enum SfxId {
   SFX_ID_LASER,     // Trading-Bot-Laser
   SFX_ID_DODGE,     // Ausweichen (Whoosh)
   SFX_ID_KEYCARD,   // Keycard aufgehoben (Zugang gewaehrt)
+  SFX_ID_ALARM,     // Boersencrash: Sirene
+  SFX_ID_REFI,      // Refinanzierungspaket
+  SFX_ID_BULLRUN,   // Bullrun beginnt (Fanfare)
+  SFX_ID_BEARTRAP,  // Baerenfalle beginnt
   SFX_COUNT
 };
 

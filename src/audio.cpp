@@ -11,7 +11,7 @@ struct SfxDef { const int8_t* data; size_t len; uint8_t ch; };
 static const SfxDef SFX_TABLE[SFX_COUNT] = {
   SFX(KACHING, 3), SFX(COINS, 3), SFX(SHOT, 1), SFX(HIT, 2), SFX(STAMP, 2), SFX(PHONE, 5),
   SFX(ZAP, 4), SFX(BELL, 6), SFX(CRASH, 6), SFX(DECLINED, 7), SFX(POP, 2),
-  SFX(BULL, 7), SFX(ROAR, 7), SFX(GLITCH, 6), SFX(OIL, 4), SFX(LASER, 4), SFX(DODGE, 3), SFX(KEYCARD, 3),
+  SFX(BULL, 7), SFX(ROAR, 7), SFX(GLITCH, 6), SFX(OIL, 4), SFX(LASER, 4), SFX(DODGE, 3), SFX(KEYCARD, 3), SFX(ALARM, 6), SFX(REFI, 3), SFX(BULLRUN, 6), SFX(BEARTRAP, 6),
 };
 
 void sfxPlay(SfxId id) {
@@ -220,7 +220,7 @@ void audioInit() {
   for (int n = 0; n < 128; n++) noteInc[n] = (uint32_t)(440.0 * pow(2.0, (n - 69) / 12.0) * 4294967296.0 / MUSIC_RATE);
   memset(echoLine, 1, sizeof(echoLine));
   M5Cardputer.Speaker.setVolume(150);
-  M5Cardputer.Speaker.setChannelVolume(CH_MUSIC, 56);   // Musik 30 % des frueheren Pegels
+  M5Cardputer.Speaker.setChannelVolume(CH_MUSIC, 36);   // Musik leise im Hintergrund (rund 20 % des urspruenglichen Pegels)
 }
 
 void musicStart(int songIdx) {

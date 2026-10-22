@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.30.0";
+const APP_VERSION = "3.30.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -210,7 +210,7 @@ function storeWall(idx) {
 const S = {}; ["BEAR0","BEAR1","SELL0","SELL1","BUB0","BUB1","SHARK0","SHARK1","BULL0","BULL1","BARON0","BARON1",
   "SLICK0","SLICK1","BOT0","BOT1","ALGO0","ALGO1","DEAD","PROJ","PROJ_OIL","LASER","CASH","DIV",
   "AVM0","AVM1","AVM2","AVM3","AVMBULL","AVMBEAR","AVF0","AVF1","AVF2","AVF3","AVFBULL","AVFBEAR",
-  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5","NOTE","KEY"].forEach((n, i) => S[n] = i);
+  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5","NOTE","KEY","REFI"].forEach((n, i) => S[n] = i);
 const sprTex = [];
 function storeSprite(idx) { sprTex[idx] = tmp.slice(); }
 // Keycard des Levels: jede Tresortuer braucht ihre eigene Farbe
@@ -375,13 +375,14 @@ function genSprites() {
     const hide = RGB(55, 38, 26), dark = RGB(30, 20, 14), gold = RGB(245, 200, 60), hy = f ? 3 : 0;
     tellipse(16, 21, 12, 8, hide);
     trect(6, 26, 4, 6, dark); trect(12, 27, 3, 5, dark); trect(18, 27, 3, 5, dark); trect(23, 26, 4, 6, dark);
+    trect(15, 21, 3, 5, RGB(30, 210, 70)); ttri(12, 21, 21, 21, 16.5, 16.5, RGB(30, 210, 70));   // Aufwaerts-Pfeil auf dem Koerper, der Kopf liegt davor
     ttri(10, 8 + hy, 2, 1 + hy, 7, 11 + hy, gold); ttri(22, 8 + hy, 30, 1 + hy, 25, 11 + hy, gold);
     tcirc(16, 10 + hy, 6.5, hide); tellipse(16, 15 + hy, 4.5, 3, RGB(190, 130, 110));
     tpx(14, 15 + hy, RGB(0, 0, 0)); tpx(18, 15 + hy, RGB(0, 0, 0));
-    tcirc(16, 18 + hy, 1.8, gold); tcirc(16, 18 + hy, .9, RGB(190, 130, 110));
+    for (const [x, y] of [[14, 17], [18, 17], [14, 18], [18, 18], [15, 19], [16, 19], [17, 19]]) tpx(x, y + hy, gold);   // Nasenring: goldener Bogen unter dem Maul, oben steckt er in der Nase
+    tpx(15, 19 + hy, RGB(170, 120, 20)); tpx(17, 19 + hy, RGB(170, 120, 20)); tpx(14, 17 + hy, RGB(255, 240, 170));   // Schatten und Glanzpunkt
     trect(12, 8 + hy, 2, 2, RGB(255, 255, 255)); trect(19, 8 + hy, 2, 2, RGB(255, 255, 255));
     tpx(13, 9 + hy, RGB(200, 0, 0)); tpx(19, 9 + hy, RGB(200, 0, 0));
-    trect(15, 21, 3, 5, RGB(30, 210, 70)); ttri(12, 21, 21, 21, 16.5, 16.5, RGB(30, 210, 70));
     if (f) { tcirc(9, 17 + hy, 2, RGB(230, 230, 230)); tcirc(23, 17 + hy, 2, RGB(230, 230, 230)); tcirc(6, 18 + hy, 1.5, RGB(200, 200, 200)); }
     storeSprite(S.BULL0 + f);
   }
@@ -480,6 +481,12 @@ function genSprites() {
   ttri(5, 14, 27, 14, 16, 2, RGB(10, 80, 30)); trect(11, 13, 10, 9, RGB(10, 80, 30));
   ttri(8, 13, 24, 13, 16, 4.5, RGB(60, 230, 90)); trect(13, 12, 6, 9, RGB(60, 230, 90)); trect(14, 8, 2, 11, RGB(190, 255, 200));
   storeSprite(S.DIV);
+  tclear(N);   // Refinanzierungspaket: Paket mit gruenem Band und goldenem Siegel mit Plus
+  trect(6, 13, 20, 16, RGB(120, 80, 35)); trect(7, 14, 18, 14, RGB(205, 150, 75));
+  trect(14, 13, 4, 16, RGB(30, 170, 70)); trect(6, 19, 20, 4, RGB(30, 170, 70));
+  tellipse(12, 11, 4, 2.5, RGB(30, 170, 70)); tellipse(20, 11, 4, 2.5, RGB(30, 170, 70)); tcirc(16, 12, 1.5, RGB(20, 120, 50));
+  tcirc(16, 21, 3.5, RGB(250, 205, 50)); trect(15, 19, 2, 4, RGB(255, 255, 255)); trect(14, 20, 4, 2, RGB(255, 255, 255));
+  storeSprite(S.REFI);
   tclear(N);   // fliegender Geldschein (Projektil der Waffe)
   trect(5, 11, 22, 11, RGB(25, 95, 40)); trect(6, 12, 20, 9, RGB(120, 205, 120)); tcirc(16, 16.5, 3, RGB(25, 95, 40)); tcirc(16, 16.5, 1.6, RGB(170, 235, 170));
   trect(7, 13, 3, 2, RGB(25, 95, 40)); trect(22, 18, 3, 2, RGB(25, 95, 40));
@@ -878,6 +885,7 @@ function buildWorld(lv) {
   startDir = dirs[best];
 }
 // Keycard: Bosse lassen sie fallen; in Leveln ohne Boss faellt sie nach 8-16 erledigten Gegnern (jedes Mal zufaellig, ohne Hinweis)
+let refiDropped = false;   // Refinanzierungspaket: hoechstens eines pro Level
 let vaultPos = [0, 0], hasKey = false, keyDropped = false, keyKills = 0, keyNeed = 12, levelHasBoss = false;
 function reachableCells() {   // alle Felder, die man vom Start aus zu Fuss erreicht
   const R = Array.from({ length: MAP }, () => new Array(MAP).fill(false)), q = [[Math.floor(startCell[0]), Math.floor(startCell[1])]];
@@ -929,7 +937,7 @@ function loadLevel(lv) {
   const reach = reachableCells();
   placeVault(reach);
   for (const t of spawns) { const c = randomEnemyCell(reach, TYPES[t].boss ? 9 : 5); if (c) spawnEnemy(t, c[0], c[1]); }
-  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
+  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   if (mode === "dm" || mode === "team") {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
@@ -1091,7 +1099,7 @@ function spawnProj(x, y, ang, spd, dmg, f, spr) {
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
-const itemSpr = t => t === 3 ? S.KEY : t ? S.DIV : S.CASH;
+const itemSpr = t => t === 4 ? S.REFI : t === 3 ? S.KEY : t ? S.DIV : S.CASH;
 
 // Stimmung nach einem Abschuss: erlegter Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Baerenfalle.
 // Level 1 hat wenige Gegner, daher dort groessere Schritte (netto 3 statt 5 Abschuesse)
@@ -1105,7 +1113,7 @@ const liveCrash = () => levelMarket().live && realChg <= -3;   // echter Markt b
 const heatHint = () => canCrash() && overheated() && !crashStage ? L("  ·  🔥 OVERHEATED", "  ·  🔥 ÜBERHITZT") : "";
 function startPhase(dir, noCrash = false) {
   if (!noCrash && canCrash() && (liveCrash() || (dir < 0 && overheated()))) { startCrash(); return; }
-  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL"); trapSnapped = false;
+  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll(dir > 0 ? "BULLRUN" : "BEARTRAP"); trapSnapped = false;
   if (dir > 0) { levelBullruns++; runBullruns++; }
   if (mode === "team") sayAll(dir > 0 ? L("TEAM BULL +35 % DAMAGE · FAST RESPAWN", "TEAM BULLE +35 % SCHADEN · SCHNELLER RESPAWN") : L("TEAM BEAR +35 % DAMAGE · FAST RESPAWN", "TEAM BÄR +35 % SCHADEN · SCHNELLER RESPAWN"), 3.5);
   if (dir > 0) {
@@ -1156,7 +1164,7 @@ const teamCash = () => players.reduce((a, p) => a + p.score, 0);
 function startCrash() {
   crashDone = true; crashStage = 1; crashStT = 3; rallySaid = false;
   phase = 0; phaseT = 0; stampedeAt = 0; bearHintAt = 0;
-  sfxAll("CRASH"); sfxAll("GLITCH");
+  sfxAll("ALARM");
   sayAll(L("⚠ TRADING HALT – STOCK MARKET CRASH!", "⚠ HANDELSSTOPP – BÖRSENCRASH!"), 3);
   for (const e of enemies) { e.lurkT = 0; e.lurking = false; e.coverT = 0; e.chargeT = 0; }
 }
@@ -1272,6 +1280,7 @@ function killEnemy(e, byPlayer) {
   const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : e.summoned ? .25 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .75 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
+  if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (HC() ? .005 : EZ() ? .015 : .01)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -2466,6 +2475,12 @@ function updateGame(dt) {
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
       if (it.type === 3) { it.active = false; hasKey = true; sayAll(L(`${keyColName()} KEYCARD! THE VAULT IS OPEN`, `${keyColName()} KEYCARD! DER TRESOR IST OFFEN`), 2.5); sfxAll("KEYCARD"); break; }
       if (it.crash) { it.active = false; addScore(pl, 150); pl.ammo = Math.min(99, pl.ammo + 5); sayTo(pl, L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "KACHING"); break; }
+      if (it.type === 4) {   // Refinanzierungspaket: Depot voll, dazu Cash
+        if (pl.hp >= 100) continue;
+        it.active = false; pl.hp = 100; const n = HC() ? 15 : 20; pl.ammo = Math.min(99, pl.ammo + n); addScore(pl, 100);
+        sayTo(pl, L(`REFINANCING PACKAGE! PORTFOLIO 100 % · CASH +${n}`, `REFINANZIERUNGSPAKET! DEPOT 100 % · CASH +${n}`), 2.5);
+        if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "REFI"); break;
+      }
       if (it.type === 0) { if (pl.ammo >= 99) continue; const n = HC() ? 7 : 10; pl.ammo = Math.min(99, pl.ammo + n); sayTo(pl, `CASHFLOW +${n}`, 1.2); }
       else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `${L("DIVIDEND PAID", "DIVIDENDE AUSGESCHÜTTET")} +${n} %`, 1.2); }
       it.active = false; addScore(pl, 25);
@@ -3611,7 +3626,7 @@ function audioUnlock() {
   if (actx) { if (actx.state === "suspended" && !serverGone && !document.hidden) actx.resume(); return; }
   actx = new (window.AudioContext || window.webkitAudioContext)();
   sfxGain = actx.createGain(); sfxGain.gain.value = .75; sfxGain.connect(actx.destination);
-  musicGain = actx.createGain(); musicGain.gain.value = .4; musicGain.connect(actx.destination);
+  musicGain = actx.createGain(); musicGain.gain.value = .26; musicGain.connect(actx.destination);
   genSfx(); applyVolumes();
   if (musicRunning) musicSchedule();
 }
@@ -3752,6 +3767,31 @@ function genSfx() {
       addBell(o, .2, 2093, [[1, 1, 7], [2.01, .4, 10], [3, .2, 14]], .5, .4);
       lowpass(o, .5); fadeOut(o, .05); return o;
     },
+    ALARM() {   // Boersencrash: zweimal aufheulende Sirene, dann hektische Wechseltoene ueber einer tiefen Glocke
+      const o = buf(1.9);
+      for (let k = 0; k < 2; k++) { addSweep(o, k * .5, .45, 420, 1150, .4, 0, "saw", .7); addSweep(o, k * .5, .45, 425, 1160, .25, 0, "sq", .7); }
+      for (let k = 0; k < 6; k++) addSweep(o, 1 + k * .13, .11, k % 2 ? 740 : 988, k % 2 ? 740 : 988, .4, 4, "sq");
+      addBell(o, 1, 196, [[1, 1, 2], [2.4, .5, 3], [3.9, .3, 5]], .6, .9);
+      lowpass(o, .45); fadeOut(o, .15); return o;
+    },
+    REFI() {   // Refinanzierungspaket: Stempel der Kreditzusage, dann aufsteigendes Glockenspiel
+      const o = buf(1.1);
+      addSweep(o, 0, .08, 160, 60, .7, 20, "sin"); addNoise(o, 0, .05, .4, 0, .4, .2);
+      [1047, 1319, 1568, 2093].forEach((f, k) => addBell(o, .12 + k * .1, f, [[1, 1, 6], [2.01, .4, 9], [3, .2, 13]], .45, .6));
+      lowpass(o, .6); fadeOut(o, .1); return o;
+    },
+    BULLRUN() {   // Bullrun: aufsteigende Fanfare
+      const o = buf(1.3);
+      [[0, 392, .14], [.12, 523, .14], [.24, 659, .14], [.36, 784, .8]].forEach(([t, f, l]) => { addSweep(o, t, l, f, f, .35, 2, "saw"); addSweep(o, t, l, f * 1.003, f * 1.003, .2, 2, "sq"); });
+      lowpass(o, .4); fadeOut(o, .2); return o;
+    },
+    BEARTRAP() {   // Baerenfalle: metallisches Zuschnappen, absteigendes Moll-Motiv, tiefer Schlag
+      const o = buf(1.4);
+      addNoise(o, 0, .03, .5, 0, 1, .7); addBell(o, 0, 1800, [[1, 1, 30], [2.7, .5, 40]], .5, .1);
+      [[.05, 659, .15], [.21, 523, .15], [.37, 440, .15], [.53, 349, .8]].forEach(([t, f, l]) => addSweep(o, t, l, f, f, .35, 2.5, "saw"));
+      addSweep(o, .53, .35, 110, 45, .8, 6, "sin");
+      lowpass(o, .4); fadeOut(o, .2); return o;
+    },
     LASER() { const o = buf(.14); addSweep(o, 0, .14, 2600, 700, .5, 10, "sq", .5); addSweep(o, 0, .14, 2650, 720, .3, 10, "sq", .5); lowpass(o, .5); return o; },
   };
   for (const [name, fn] of Object.entries(make)) {
@@ -3870,7 +3910,8 @@ function musicStart(song = 0) { musicKill(); musicReset(song); musicPanic = fals
 function musicStop() { musicRunning = false; musicKill(); }
 function applyVolumes() {
   musicOn = settings.musicVol > 0;
-  if (actx) { musicGain.gain.value = .4 * settings.musicVol / 7; sfxGain.gain.value = .75 * settings.sfxVol / 7; }
+  if (actx) { musicGain.gain.value = .26 * settings.musicVol / 7;   // Musik bewusst leise im Hintergrund
+    sfxGain.gain.value = .75 * settings.sfxVol / 7; }
   musicSchedule();
 }
 function setVolume(kind, v) {

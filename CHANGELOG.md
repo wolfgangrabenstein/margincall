@@ -2,6 +2,15 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.30.1 – Refinancing package, own sounds, quieter music (22.10.2026)
+
+- **Refinancing package:** A very rare drop, at most one per level (1 % of your kills, 0.5 % in hardcore, 1.5 % in easy mode; never from bosses, summoned bots or on the tax haven island). It refills your portfolio to 100 % and gives +20 cash (hardcore +15) and $100. With a full portfolio it stays on the floor for later.
+- **Own sounds:** The stock market crash starts with an alarm siren, the bull run with a fanfare, the bear trap with a snapping trap and a falling minor motif. The refinancing package has its own sound (stamp and chimes).
+- **Quieter music:** The music is about a third quieter and stays in the background.
+- **Bull:** The green arrow now sits on the body behind the head. The nose ring is a golden arc below the muzzle instead of a filled circle.
+
+Applies to PC, browser and Cardputer.
+
 ## Version 3.30.0 – The real stock market crash (22.10.2026)
 
 - **Stock market crash:** A rare, distinct event, at most once per game, not in level 1 and not in easy mode. In multiplayer only in co-op.

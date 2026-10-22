@@ -333,12 +333,64 @@ def snd_keycard():
     return o
 
 
+def snd_alarm():
+    """Boersencrash: zweimal aufheulende Sirene, dann hektische Wechseltoene ueber einer tiefen Glocke."""
+    o = buf(1.9)
+    for k in range(2):
+        add_sweep(o, k * 0.5, 0.45, 420, 1150, 0.4, wave="saw", curve=0.7)
+        add_sweep(o, k * 0.5, 0.45, 425, 1160, 0.25, wave="sq", curve=0.7)
+    for k in range(6):
+        f = 740 if k % 2 else 988
+        add_sweep(o, 1 + k * 0.13, 0.11, f, f, 0.4, decay=4, wave="sq")
+    add_bell(o, 1.0, 196, [(1, 1, 2), (2.4, 0.5, 3), (3.9, 0.3, 5)], 0.6, 0.9)
+    lowpass(o, 0.45)
+    fade_out(o, 0.15)
+    return o
+
+
+def snd_refi():
+    """Refinanzierungspaket: Stempel der Kreditzusage, dann aufsteigendes Glockenspiel."""
+    o = buf(1.1)
+    add_sweep(o, 0, 0.08, 160, 60, 0.7, decay=20)
+    add_noise(o, 0, 0.05, 0.4, lp=0.4, hp=0.2)
+    for k, f in enumerate([1047, 1319, 1568, 2093]):
+        add_bell(o, 0.12 + k * 0.1, f, [(1, 1, 6), (2.01, 0.4, 9), (3, 0.2, 13)], 0.45, 0.6)
+    lowpass(o, 0.6)
+    fade_out(o, 0.1)
+    return o
+
+
+def snd_bullrun():
+    """Bullrun: aufsteigende Fanfare."""
+    o = buf(1.3)
+    for t, f, ln in [(0, 392, 0.14), (0.12, 523, 0.14), (0.24, 659, 0.14), (0.36, 784, 0.8)]:
+        add_sweep(o, t, ln, f, f, 0.35, decay=2, wave="saw")
+        add_sweep(o, t, ln, f * 1.003, f * 1.003, 0.2, decay=2, wave="sq")
+    lowpass(o, 0.4)
+    fade_out(o, 0.2)
+    return o
+
+
+def snd_beartrap():
+    """Baerenfalle: metallisches Zuschnappen, absteigendes Moll-Motiv, tiefer Schlag."""
+    o = buf(1.4)
+    add_noise(o, 0, 0.03, 0.5, lp=1.0, hp=0.7)
+    add_bell(o, 0, 1800, [(1, 1, 30), (2.7, 0.5, 40)], 0.5, 0.1)
+    for t, f, ln in [(0.05, 659, 0.15), (0.21, 523, 0.15), (0.37, 440, 0.15), (0.53, 349, 0.8)]:
+        add_sweep(o, t, ln, f, f, 0.35, decay=2.5, wave="saw")
+    add_sweep(o, 0.53, 0.35, 110, 45, 0.8, decay=6)
+    lowpass(o, 0.4)
+    fade_out(o, 0.2)
+    return o
+
+
 SOUNDS = [
     ("KACHING", snd_kaching), ("COINS", snd_coins), ("SHOT", snd_shot), ("HIT", snd_hit),
     ("STAMP", snd_stamp), ("PHONE", snd_phone), ("ZAP", snd_zap), ("BELL", snd_bell),
     ("CRASH", snd_crash), ("DECLINED", snd_declined), ("POP", snd_pop),
     ("BULL", snd_bull), ("ROAR", snd_roar), ("GLITCH", snd_glitch), ("OIL", snd_oil), ("LASER", snd_laser),
-    ("DODGE", snd_dodge), ("KEYCARD", snd_keycard),
+    ("DODGE", snd_dodge), ("KEYCARD", snd_keycard), ("ALARM", snd_alarm),
+    ("REFI", snd_refi), ("BULLRUN", snd_bullrun), ("BEARTRAP", snd_beartrap),
 ]
 
 
