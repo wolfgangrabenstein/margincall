@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.28.1"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.28.2"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -665,6 +665,7 @@ struct Enemy {
   int16_t target;   // -1 = Spieler, -2 = keins, sonst Index
   uint8_t role; bool alert; float gx, gy, delay, alertT;   // Piraten: 0 Jaeger, 2 Waechter (bewacht den Schatz bei gx/gy)
   bool stampede, summoned; int8_t orb;   // Stampede-Bulle, vom Boss gerufener Bot, Kreisrichtung des Hais in Phase 2
+  float aggroT, coverT, coverCd, covX, covY;   // beschossen: verfolgt den Spieler; Deckung bei covX/covY
 };
 struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; };   // slide > 0: schlittert gerade (Boersencrash)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
@@ -1200,9 +1201,27 @@ static void updatePhase(float dt) {
   else if (phaseCd < -45) startPhase(sentiment + base > 0 || (sentiment + base == 0 && levelChg >= 0) ? 1 : -1);
 }
 
+// naechstes freies Feld (hoechstens 3 Felder weg), von dem aus der Spieler nicht zu sehen ist
+static bool findCover(const Enemy& e, float& ox, float& oy) {
+  int ex = (int)e.x, ey = (int)e.y; float bd = 1e9f; bool found = false;
+  for (int y = ey - 3; y <= ey + 3; y++) for (int x = ex - 3; x <= ex + 3; x++) {
+    if (solidCell(x, y)) continue;
+    float cx = x + 0.5f, cy = y + 0.5f, d = sqrtf((cx - e.x) * (cx - e.x) + (cy - e.y) * (cy - e.y));
+    if (d < bd && !lineOfSight(cx, cy, px, py) && clearPath(e.x, e.y, cx, cy, 0.25f)) { bd = d; ox = cx; oy = cy; found = true; }
+  }
+  return found;
+}
+// beschossen: den Spieler eine Weile verfolgen, aus der Ferne getroffen manchmal erst kurz in Deckung gehen
+static void provoke(Enemy& e) {
+  e.aggroT = 20; e.think = 0;
+  if (e.coverCd > 0 || e.stampede || dist2Player(e.x, e.y) < 36 || frand() < 0.5f) return;
+  e.coverCd = 6;
+  if (findCover(e, e.covX, e.covY)) e.coverT = 1.2f + frand() * 0.8f;
+}
 static void hurtEnemy(Enemy& t, int dmg, bool byPlayer) {
   if (!t.alive) return;
   t.hp -= dmg; t.hurt = 0.15f; t.awake = true;
+  if (byPlayer && t.hp > 0 && (t.faction == F_BULL || t.faction == F_BEAR) && t.pir < 0) provoke(t);
   if (t.hp <= 0) killEnemy(t, byPlayer);
   else if (byPlayer) sfxPlay(SFX_ID_HIT);
 }
@@ -1245,7 +1264,7 @@ static void tryMove(float mx, float my) {
     }
     else {
       state = level >= NUM_LEVELS - 1 ? ST_WIN : ST_LEVELDONE; pnl += hardcore ? (500 + hp * 5) * 3 / 2 : 500 + hp * 5;
-      { int quick = max(0, 2000 - 5 * (int)levelTime); if (quick) { pnl += hardcore ? quick * 3 / 2 : quick; char qb[48]; snprintf(qb, sizeof(qb), L("QUICK TRADE BONUS +$%d", "SCHNELLHANDEL +$%d"), quick); say(qb, 3.0f); } }
+      { int quick = max(0, 2000 - 5 * (int)levelTime); if (quick) { pnl += hardcore ? quick * 3 / 2 : quick; char qb[48]; snprintf(qb, sizeof(qb), L("BONUS +$%d", "BONUS +$%d"), quick); say(qb, 3.0f); } }
       if (state == ST_WIN) {   // Bullenmarkt-Bonus: 10.000 + 25 % des P&L + 5.000 ohne Tod, Hardcore x1,5
         winBonus = 10000 + pnl / 4 + (deaths ? 0 : 5000);
         if (hardcore) winBonus = winBonus * 3 / 2;
@@ -1283,6 +1302,7 @@ static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teils
 // ---------------------------------------------------------------- Gegner-KI
 static void chooseTarget(Enemy& e, int self) {
   if ((bullRun() && e.type == E_BULL) || (bearMkt() && e.type == E_BEAR)) { e.target = -1; e.awake = true; return; }   // Marktphase: jagt den Spieler, egal wo
+  if (e.aggroT > 0) { e.target = -1; return; }   // wer schiesst, wird verfolgt – auch aus der Ferne
   float best = 1e9f; int bt = -2;
   float dp = sqrtf(dist2Player(e.x, e.y));
   if (dp < 11 && lineOfSight(e.x, e.y, px, py)) { best = dp; bt = -1; }
@@ -1309,7 +1329,7 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
   const float bearRage = bearMkt() && e.faction == F_BEAR ? 1.3f : 1.0f;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;   // Gesamttakt hoechstens x2
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt;   // Gesamttakt hoechstens x2
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
   const float spdMul = min(1.6f, (crashT > 0 ? 1.4f : 1.0f) * bearRage);
@@ -1406,6 +1426,11 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
     if (!moveEntity(e.x, e.y, e.mdx * 0.6f * dt, e.mdy * 0.6f * dt, 0.25f) || frand() < dt * 0.3f) {
       float a = frand() * 6.283f; e.mdx = cosf(a); e.mdy = sinf(a);
     }
+    return;
+  }
+  if (e.coverT > 0) {   // kurz in Deckung, dann Angriff
+    float cx = e.covX - e.x, cy = e.covY - e.y;
+    if (cx * cx + cy * cy > 0.01f) chase(e.x, e.y, e.covX, e.covY, false, 2.0f * spdMul, dt);
     return;
   }
   const char* hitMsg = e.faction == F_BULL ? L("BULL RUSH! PRICE JUMP", "BULLE RAMMT DICH! KURSSPRUNG") : e.pir >= 0 ? L("CUTLASS SLASH!", "SAEBELHIEB!") : L("BEAR CLAW! PRICE DROP", "BAERENTATZE! KURSVERLUST");

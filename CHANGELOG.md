@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.28.2 – Enemies react to long-range fire (22.10.2026)
+
+- **Long-range fire:** Bulls and bears hit from far away now remember the shooter for 20 seconds and hunt them down using pathfinding instead of forgetting them at once.
+- **Cover:** Enemies hit from more than 6 tiles away take cover behind a nearby wall half of the time, then charge.
+- **Texts:** The level-end screen now shows "Bonus of +$1,700 – safe cracked in 60 seconds"; on the Cardputer the message is simply "BONUS +$1700".
+
 ## Version 3.28.1 – Enemies attack again, quick trade bonus (22.10.2026)
 
 - **Major bug fix:** Since 3.27.0 bulls and bears no longer attacked because their think and attack timers stopped (PC, browser and Cardputer).

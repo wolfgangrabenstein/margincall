@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.28.1";
+const APP_VERSION = "3.28.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -781,7 +781,7 @@ function spawnEnemy(type, x, y) {
   const a = frand() * 6.283;
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
-    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
+    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
   return e;
 }
 // Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
@@ -1186,7 +1186,26 @@ function killEnemy(e, byPlayer) {
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
   t.hp -= dmg; t.hurt = .15; t.awake = true;
+  if (byPlayer && t.hp > 0 && (t.f === F.BULL || t.f === F.BEAR) && t.pir === undefined) provoke(t, byPlayer);
   if (t.hp <= 0) killEnemy(t, byPlayer); else if (byPlayer) sfxTo(byPlayer, "HIT");
+}
+
+// beschossen: den Schuetzen eine Weile verfolgen, aus der Ferne getroffen manchmal erst kurz in Deckung gehen
+function provoke(e, pl) {
+  e.aggro = pl; e.aggroT = 20; e.think = 0;
+  if (e.coverCd > 0 || e.stampede || Math.hypot(pl.x - e.x, pl.y - e.y) < 6 || frand() < .5) return;
+  e.coverCd = 6;
+  const c = findCover(e, pl); if (c) { e.covX = c[0]; e.covY = c[1]; e.coverT = 1.2 + frand() * .8; }
+}
+// naechstes freies Feld (hoechstens 3 Felder weg), von dem aus der Schuetze nicht zu sehen ist
+function findCover(e, pl) {
+  const ex = Math.floor(e.x), ey = Math.floor(e.y); let best = null, bd = 1e9;
+  for (let y = ey - 3; y <= ey + 3; y++) for (let x = ex - 3; x <= ex + 3; x++) {
+    if (solidCell(x, y)) continue;
+    const cx = x + .5, cy = y + .5, d = Math.hypot(cx - e.x, cy - e.y);
+    if (d < bd && !lineOfSight(cx, cy, pl.x, pl.y) && clearPath(e.x, e.y, cx, cy, .25)) { bd = d; best = [cx, cy]; }
+  }
+  return best;
 }
 
 function aiEvent(forced = -1) {
@@ -1327,6 +1346,7 @@ function chooseTarget(e) {
   if ((bullRun() && e.type === E.BULL) || (bearMkt() && e.type === E.BEAR)) {   // Marktphase: jagt den naechsten Spieler, egal wo
     const p = nearestPlayer(e, 99, false); if (p) { e.target = p; e.awake = true; return; }
   }
+  if (e.aggroT > 0 && e.aggro && !e.aggro.dead) { e.target = e.aggro; return; }   // wer schiesst, wird verfolgt – auch aus der Ferne
   let bt = null, best = 1e9;
   const pl = nearestPlayer(e, 11, true);
   if (pl) { bt = pl; best = Math.hypot(pl.x - e.x, pl.y - e.y); }
@@ -1346,7 +1366,7 @@ function meleeHit(e, dmgP, dmgE, why) {
 }
 function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt;   // Gesamttakt hoechstens x2
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt;   // Gesamttakt hoechstens x2
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
   unstick(e, e.type === E.SHARK ? .35 : .25);
   const spd = Math.min(1.6, (crashT > 0 ? 1.4 : 1) * bearRage), animal = e.f === F.BULL || e.f === F.BEAR;
@@ -1358,6 +1378,7 @@ function updateEnemy(e, dt) {
     if (animal && !moveEntity(e, e.mdx * .6 * dt, e.mdy * .6 * dt, .25) || frand() < dt * .3) { const a = frand() * 6.283; e.mdx = Math.cos(a); e.mdy = Math.sin(a); }
     return;
   }
+  if (animal && e.coverT > 0) { if (Math.hypot(e.covX - e.x, e.covY - e.y) > .1) chase(e, { x: e.covX, y: e.covY }, 2 * spd, dt); return; }   // kurz in Deckung, dann Angriff
   const tx = t.x, ty = t.y, dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, nx = dx / d, ny = dy / d, ang = Math.atan2(dy, dx);
 
   if (!animal) {
@@ -4307,7 +4328,7 @@ function frame(now) {
       zoneButton(566, 228, 145, 40, L("[Q] MAIN MENU", "[Q] HAUPTMENÜ"), "#ff7050", "q", 16);
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
-    case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", quickBonus ? L(`Level cleared in ${fmtTime(quickSecs)} – quick trade bonus +$${quickBonus.toLocaleString(LOC())}`, `Level geschafft in ${fmtTime(quickSecs)} – Schnellhandel-Bonus +$${quickBonus.toLocaleString(LOC())}`) : L("Level cleared – the price is rising", "Level geschafft – der Kurs steigt"), "#50ff82", true); break;
+    case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", quickBonus ? L(`Bonus of +$${quickBonus.toLocaleString(LOC())} – safe cracked in ${quickSecs < 120 ? quickSecs + " seconds" : fmtTime(quickSecs) + " minutes"}`, `Bonus +$${quickBonus.toLocaleString(LOC())} – Tresor geknackt in ${quickSecs < 120 ? quickSecs + " Sekunden" : fmtTime(quickSecs) + " Minuten"}`) : L("Level cleared – the price is rising", "Level geschafft – der Kurs steigt"), "#50ff82", true); break;
     case ST.ROUNDEND:
       gameTime += dt;
       if (isHost()) { roundT -= dt; if (roundT <= 0) { nextRound(); break; } }   // automatisch weiter nach der Pause

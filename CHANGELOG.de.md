@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.28.2 – Gegner reagieren auf Beschuss aus der Ferne (22.10.2026)
+
+- **Beschuss aus der Ferne:** Bullen und Bären, die von weit weg getroffen werden, merken sich den Schützen 20 Sekunden lang und jagen ihn über die Wegsuche, statt ihn sofort zu vergessen.
+- **Deckung:** Wer aus mehr als 6 Feldern Entfernung getroffen wird, sucht in der Hälfte der Fälle kurz Deckung hinter einer Wand in der Nähe und stürmt danach los.
+- **Texte:** Levelende zeigt jetzt „Bonus +$1.700 – Tresor geknackt in 60 Sekunden“; auf dem Cardputer heißt die Meldung kurz „BONUS +$1700“.
+
 ## Version 3.28.1 – Gegner greifen wieder an, Schnellhandel-Bonus (22.10.2026)
 
 - **Wichtiger Fehler behoben:** Seit 3.27.0 griffen Bullen und Bären im Spiel nicht mehr an, weil ihre Denk- und Angriffstimer stehen blieben (PC, Browser und Cardputer).
