@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.34.2";
+const APP_VERSION = "3.35.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -674,9 +674,10 @@ function nextRound() { loadLevel((level + 1) % NUM_LEVELS); state = ST.PLAY; fir
 // Last Man Standing: Runde vorbei (w = letzter Ueberlebender oder null bei gleichzeitigem Ausscheiden)
 function lmsEnd(w) {
   lmsWinner = w ? w.id : 0;
+  players.forEach(p => { const t = p.tot || [0, 0, 0, 0]; p.tot = [t[0] + p.score, t[1] + (p.frags || 0), t[2] + (p.deaths || 0), t[3] + p.kills]; });   // Summen ueber alle Runden
   if (lmsDuel && w) lmsWins[w.id] = (lmsWins[w.id] || 0) + 1;
   lmsOver = !lmsDuel || (!!w && lmsWins[w.id] >= Math.ceil(lobbyBestOf / 2)) || players.length < 2;
-  state = ST.ROUNDEND; roundT = ROUND_BREAK + (lmsOver ? 2 : 0); musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
+  state = ST.ROUNDEND; roundT = ROUND_BREAK; musicStop(); emit(["music", 0]); sfxAll("BELL"); document.exitPointerLock?.();
 }
 function backToLobby() { mode = "solo"; state = ST.LOBBY; players.forEach(p => p.ready = false); hostSendLobby(); musicStart(); }
 let mode = "solo";
@@ -688,6 +689,8 @@ let players = [], me = null;
 let lobbyFF = false;     // Match-Einstellung des Hosts: Friendly Fire (Teamkollegen in Team und Koop treffbar)
 let lobbyNPC = true;     // Match-Einstellung des Hosts: Boersen-Gegner (NPCs) in Team und Deathmatch; im Koop immer an
 const noNPC = () => !lobbyNPC && pvpMode();
+let lobbyDiff = 1;       // Match-Einstellung des Hosts: Staerke der NPCs (0 Kleinanleger, 1 Spekulant, 2 Day-Trader)
+const DIFF_NAMES = [["SMALL INVESTOR", "KLEINANLEGER"], ["SPECULATOR", "SPEKULANT"], ["DAY TRADER", "DAY-TRADER"]];
 let lobbyAim = "semi";   // Match-Einstellung des Hosts: erlaubtes Auto-Aim im Multiplayer ("full", "semi" = nur Semi, "off")
 let matchSetOpen = false;    // Fenster "Match-Einstellungen" in der Lobby
 let levelSeq = 0, roundT = 0, teamScore = [0, 0], lobbyMode = 0, lobbyInfo = [], netMsg = "", netMsgT = 0;
@@ -817,7 +820,7 @@ function spawnEnemy(type, x, y) {
   const str = type === E.BULL ? animalStrength(true) : type === E.BEAR ? animalStrength(false) : 1;
   const coop = mode === "coop" ? 1 + (ti.boss ? .8 : .6) * (players.length - 1) : 1;   // Bosse wachsen staerker mit   // Koop: +60 % Energie pro Mitspieler
   const a = frand() * 6.283;
-  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
+  Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (nHC() ? 1.4 : nEZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (nHC() ? 1.4 : nEZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
     mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0,
     trapT: 0, hunter: false, guardX: undefined, alertT: 0, sideT: 0, sideCd: 0, pack: false, hopT: 0, hopV: 0, hopCd: 1 + frand() * 1.5 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
@@ -864,7 +867,7 @@ function findHiddenCell(minDist) {
   return null;
 }
 // Trading-Bots mit Obergrenze (lebende Bots); vom Boss gerufene erscheinen in seiner Naehe und zaehlen halb
-function botCap() { return (EZ() ? 4 : 6) + (mode === "coop" ? 2 * (players.length - 1) : 0); }
+function botCap() { return (nEZ() ? 4 : 6) + (mode === "coop" ? 2 * (players.length - 1) : 0); }
 function spawnBots(count, boss = null) {
   const alive = enemies.filter(e => e.alive && e.type === E.BOT).length, n = Math.min(count, botCap() - alive);
   for (let k = 0; k < n; k++) {
@@ -957,7 +960,7 @@ function loadLevel(lv) {
   const reach = reachableCells();
   placeVault(reach);
   for (const t of spawns) { const c = randomEnemyCell(reach, TYPES[t].boss ? 9 : 5); if (c) spawnEnemy(t, c[0], c[1]); }
-  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
+  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (nEZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (nEZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   if (pvpMode()) {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
@@ -984,9 +987,13 @@ function loadLevel(lv) {
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
   phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navDist = null; levelTime = 0;
   crashStage = 0; crashChg = 0; levelBullruns = 0; coolKills = 0;
-  sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
-  sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
+  sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3.5);
+  readyT = READY_TIME; readyMusic = 1 + level;   // erst der Countdown, dann Glocke und Musik
 }
+// Countdown vor jedem Levelstart: Karte, Gegner und Spieler stehen still, danach laeutet die Boersenglocke
+const READY_TIME = 3;
+let readyT = 0, readyMusic = 0;
+function levelGo() { readyT = 0; sfxAll("BELL"); musicStart(readyMusic); emit(["music", readyMusic]); }
 function newGame() {
   marketsSimulate(true);   // ohne Live-Kurse: pro Lauf ein neuer simulierter Markttag
   rngState = (Math.random() * 4294967295 >>> 0) || 1;   // jedes Spiel anders verteilt
@@ -1078,7 +1085,7 @@ function killLine(a, b) {
 }
 function damagePlayer(pl, d, why, attacker = null) {
   if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
-  if (HC()) d *= 1.65; else if (EZ()) d *= .7;
+  if (!attacker?.isPlayer) { if (nHC()) d *= 1.65; else if (nEZ()) d *= .7; }   // Schwierigkeit wirkt nur auf Treffer der NPCs
   pl.hp -= Math.round(d);
   const src = hitSrc || attacker || curEnemy; hitSrc = null;   // woher der Treffer kam (fuer die Trefferrichtung)
   if (pl.local) hurtFeedback(d, src?.x, src?.y); else emit(src ? ["hurt", pl.id, Math.round(d), r2(src.x), r2(src.y)] : ["hurt", pl.id, Math.round(d)]);
@@ -1117,7 +1124,7 @@ function respawnPlayer(pl) {
 }
 function spawnProj(x, y, ang, spd, dmg, f, spr) {
   if (projs.filter(p => !p.owner).length > 60) return;   // Deckel nur fuer Gegnerschuesse
-  if (HC()) spd *= 1.3; else if (EZ()) spd *= .85;
+  if (nHC()) spd *= 1.3; else if (nEZ()) spd *= .85;
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
@@ -1129,7 +1136,7 @@ function moveSentiment(e, k) {
   const st = (level === 0 ? .34 : .2) * k;
   if (e.f === F.BEAR) sentiment = Math.min(1.2, sentiment + st); else if (e.f === F.BULL) sentiment = Math.max(-1.2, sentiment - st);
 }
-const canCrash = () => !crashDone && !island && !EZ() && level >= 1 && (mode === "solo" || mode === "coop");
+const canCrash = () => !crashDone && !island && !nEZ() && level >= 1 && (mode === "solo" || mode === "coop");
 const overheated = () => levelBullruns >= 2 || runBullruns >= 3;
 const liveCrash = () => levelMarket().live && realChg <= -3;   // echter Markt bricht ein: Crash garantiert
 const heatHint = () => canCrash() && overheated() && !crashStage ? L("  ·  🔥 OVERHEATED", "  ·  🔥 ÜBERHITZT") : "";
@@ -1211,13 +1218,13 @@ function startCrash() {
 }
 function beginCrash() {   // nach dem Handelsstopp: Margin Call, Notverkaeufe mit Waechtern, Jagdrudel
   crashStage = 2; crashStT = 20; sfxAll("ROAR");
-  marginDue = Math.round((500 + 250 * level) * (HC() ? 1.5 : 1) * (1 + .5 * (players.length - 1)) / 50) * 50;
+  marginDue = Math.round((500 + 250 * level) * (nHC() ? 1.5 : 1) * (1 + .5 * (players.length - 1)) / 50) * 50;
   marginBase = teamCash(); marginPaid = 0;
   sayAll(L(`MARGIN CALL! RAISE $${marginDue.toLocaleString(LOC())} IN 20 S`, `MARGIN CALL! BRING $${marginDue.toLocaleString(LOC())} IN 20 S AUF`), 3.5);
   for (let k = 0; k < 3; k++) {   // Bargeld-Haufen, jeweils von Baeren bewacht
     const c = findHiddenCell(4); if (!c) continue;
     for (let j = 0; j < 4; j++) items.push({ x: c[0] + (j % 2 - .5) * .5, y: c[1] + ((j >> 1) - .5) * .5, type: 0, active: true, crash: true });
-    for (let j = 0; j < (HC() ? 2 : 1); j++) { const e = spawnEnemy(E.BEAR, c[0] + (j ? .6 : -.6), c[1]); if (!e.gone) Object.assign(e, { guardX: c[0], guardY: c[1], awake: true }); }
+    for (let j = 0; j < (nHC() ? 2 : 1); j++) { const e = spawnEnemy(E.BEAR, c[0] + (j ? .6 : -.6), c[1]); if (!e.gone) Object.assign(e, { guardX: c[0], guardY: c[1], awake: true }); }
   }
   const h = findHiddenCell(5);
   if (h) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, h[0] + (k - 1) * .35, h[1]); if (!e.gone) Object.assign(e, { awake: true, cd: .5 + k * .45, hunter: true }); }
@@ -1257,7 +1264,7 @@ function guardAI(e, dt, spd) {
   const dg = Math.hypot(pl.x - e.guardX, pl.y - e.guardY), d = Math.hypot(pl.x - e.x, pl.y - e.y);
   e.alertT -= dt;
   if (e.hurt > 0 || (dg < 4 && lineOfSight(e.x, e.y, pl.x, pl.y))) e.alertT = 4;
-  if (e.alertT > 0 && dg < (HC() ? 7 : 6)) {
+  if (e.alertT > 0 && dg < (nHC() ? 7 : 6)) {
     e.target = pl;
     if (d > .75) chase(e, pl, 1.6 * spd, dt);
     else if (e.cd <= 0) { e.cd = 1; e.attackAnim = .3; meleeHit(e, 12, 2, L("BEAR CLAW! PRICE DROP", "BÄRENTATZE! KURSVERLUST")); }
@@ -1320,9 +1327,9 @@ function killEnemy(e, byPlayer) {
   }
   const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : e.summoned ? .25 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
-  else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .75 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
-  if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (HC() ? .005 : EZ() ? .015 : .01)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
-  if (!ti.boss && byPlayer && !e.summoned && !island && !liqDropped && frand() < (HC() ? .005 : EZ() ? .015 : .01)) { liqDropped = true; dropItem(e.x, e.y, 5); }   // genauso selten
+  else if (frand() < chance * (nHC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .75 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
+  if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (nHC() ? .005 : nEZ() ? .015 : .01)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
+  if (!ti.boss && byPlayer && !e.summoned && !island && !liqDropped && frand() < (nHC() ? .005 : nEZ() ? .015 : .01)) { liqDropped = true; dropItem(e.x, e.y, 5); }   // genauso selten
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -1334,7 +1341,7 @@ function hurtEnemy(t, dmg, byPlayer) {
 // beschossen: den Schuetzen eine Weile verfolgen, aus der Ferne getroffen manchmal erst kurz in Deckung gehen
 // Hardcore: Schuetzen halten vor, zielen also dorthin, wo der Spieler gleich sein wird
 function leadAng(fo, t, spd) {
-  if (!HC() || !t || !t.isPlayer) return fo[2];
+  if (!nHC() || !t || !t.isPlayer) return fo[2];
   const k = Math.hypot(t.x - fo[0], t.y - fo[1]) / (spd * 1.3) * .8;
   return Math.atan2(t.y + (t.vy || 0) * k - fo[1], t.x + (t.vx || 0) * k - fo[0]);
 }
@@ -1347,8 +1354,8 @@ function dodgeAim(e, t, d, dt) {
   const sd = frand() < .5 ? 1 : -1; e.sdx = -t.dirY * sd; e.sdy = t.dirX * sd; e.sideT = .3; return true;
 }
 function provoke(e, pl) {
-  e.aggro = pl; e.aggroT = EZ() ? 8 : 20; e.think = 0;
-  if (HC()) for (const o of enemies)   // Hardcore: Rudel-Alarm, Artgenossen in der Naehe verfolgen den Schuetzen mit
+  e.aggro = pl; e.aggroT = nEZ() ? 8 : 20; e.think = 0;
+  if (nHC()) for (const o of enemies)   // Hardcore: Rudel-Alarm, Artgenossen in der Naehe verfolgen den Schuetzen mit
     if (o !== e && o.alive && o.f === e.f && o.pir === undefined && !(o.aggroT > 0) && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < 36) { o.aggro = pl; o.aggroT = 10; o.think = 0; o.awake = true; }
   if (e.coverCd > 0 || e.stampede || Math.hypot(pl.x - e.x, pl.y - e.y) < 6 || frand() < .5) return;
   e.coverCd = 6;
@@ -1366,9 +1373,9 @@ function findCover(e, pl) {
 }
 // Schuetzen: in Deckung nachladen, zum Schiessen kurz herauslehnen (nicht im leichten Modus)
 function shooterCover(e, t, los, d, sp, dt) {
-  if (EZ()) return false;
+  if (nEZ()) return false;
   if (e.coverT <= 0 && e.coverCd <= 0 && e.cd > .8 && los && d < 12) {
-    e.coverCd = HC() ? 1.2 : 2;
+    e.coverCd = nHC() ? 1.2 : 2;
     const c = findCover(e, t); if (c) { e.covX = c[0]; e.covY = c[1]; e.coverT = Math.min(2.5, e.cd - .3); if (t.isPlayer) { e.aggro = t; e.aggroT = Math.max(e.aggroT, 6); } }   // hinter der Deckung den Spieler nicht vergessen
   }
   if (e.coverT <= 0) return false;
@@ -1377,12 +1384,12 @@ function shooterCover(e, t, los, d, sp, dt) {
 }
 // Bullen und Baeren: vom Spieler gesehen und noch nicht nah -> hinter einer Ecke lauern, bis er nah ist oder wegschaut
 function ambush(e, t, d, sp, dt) {
-  if (EZ() || !t.isPlayer || e.stampede || (bullRun() && e.type === E.BULL) || (bearMkt() && e.type === E.BEAR)) { e.lurkT = 0; return false; }
+  if (nEZ() || !t.isPlayer || e.stampede || (bullRun() && e.type === E.BULL) || (bearMkt() && e.type === E.BEAR)) { e.lurkT = 0; return false; }
   const seen = lineOfSight(e.x, e.y, t.x, t.y), watched = seen && ((e.x - t.x) * t.dirX + (e.y - t.y) * t.dirY) / d > .7;
   if (e.lurkT > 0 && (d < 3 || (seen && !watched))) e.lurkT = 0;   // Spieler nah oder schaut weg: zuschlagen
   if (e.lurkT > 0) { if (Math.hypot(e.covX - e.x, e.covY - e.y) > .1) chase(e, { x: e.covX, y: e.covY }, sp, dt); return true; }
   if (e.lurking) { e.lurking = false; e.rushT = 2.5; e.lurkCd = 8; return false; }   // aus dem Versteck hervorbrechen
-  if (e.lurkCd > 0 || d < 4 || d > (HC() ? 12 : 10) || !watched) return false;
+  if (e.lurkCd > 0 || d < 4 || d > (nHC() ? 12 : 10) || !watched) return false;
   e.lurkCd = 3; const c = findCover(e, t); if (!c) return false;
   e.covX = c[0]; e.covY = c[1]; e.lurkT = 4 + frand() * 2; e.lurking = true; e.aggro = t; e.aggroT = Math.max(e.aggroT, 9); return true;
 }
@@ -1414,7 +1421,7 @@ function checkExit() {
   const pl = players.find(p => !p.dead && touchesVault(p));
   if (!pl) return;
   if (!hasKey) { if (msgT <= 0) { sayTo(pl, L(`VAULT LOCKED – YOU NEED THE ${keyColName()} KEYCARD`, `TRESOR VERSCHLOSSEN – DU BRAUCHST DIE ${keyColName()} KEYCARD`), 1.5); sfxTo(pl, "DECLINED"); } return; }
-  state = level >= NUM_LEVELS - 1 ? ST.WIN : ST.LEVELDONE;
+  state = level >= NUM_LEVELS - 1 ? ST.WIN : ST.LEVELDONE; roundT = ROUND_BREAK;   // Multiplayer: Wartezeit vor dem Weiter
   players.forEach(p => addScore(p, 500 + p.hp * 5));
   quickSecs = Math.floor(levelTime); quickBonus = Math.max(0, 2000 - 5 * quickSecs);   // wer zuegig handelt, kassiert extra
   if (quickBonus) { players.forEach(p => addScore(p, quickBonus)); sayAll(L(`QUICK TRADE BONUS +$${quickBonus.toLocaleString(LOC())}`, `SCHNELLHANDEL-BONUS +$${quickBonus.toLocaleString(LOC())}`), 3); }
@@ -1548,7 +1555,7 @@ let attackers = null;   // Kleinanleger: Gegner, die gerade angreifen duerfen
 // Groesse von Baerenrudel und Bullen-Herde je Level (Index 0–4) und Schwierigkeitsgrad
 // Kleinanleger: gleichzeitige Angreifer Level 1: 3, Level 2–3: 4, Level 4–5: 5
 const PACK = { easy: [2, 2, 3, 3, 3], normal: [2, 3, 3, 3, 4], hard: [3, 3, 4, 4, 5] }, HERD = { easy: [3, 3, 4, 4, 4], normal: [3, 4, 4, 4, 5], hard: [4, 4, 5, 5, 6] };
-const diffKey = () => EZ() ? "easy" : HC() ? "hard" : "normal";
+const diffKey = () => nEZ() ? "easy" : nHC() ? "hard" : "normal";
 const packSize = () => PACK[diffKey()][Math.min(4, level)], herdSize = () => HERD[diffKey()][Math.min(4, level)];
 const attackSlots = () => 3 + Math.floor((level + 1) / 2);
 // Kleinanleger: wer gerade keinen Angriffsplatz hat, haelt Abstand und kreist, statt anzugreifen
@@ -1562,7 +1569,7 @@ const HOP_T = .55;   // Sprungdauer des Oelschlicks
 const hopZ = e => e.hopT > 0 ? Math.sin(Math.PI * (1 - e.hopT / HOP_T)) * .42 : 0;   // Sprunghoehe (Anteil der Wandhoehe)
 function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt; e.trapT -= dt;   // Gesamttakt hoechstens x2
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (nHC() ? 1.45 : nEZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt; e.trapT -= dt;   // Gesamttakt hoechstens x2
   if (crashStage === 1) return;   // Handelsstopp: alles erstarrt
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
   unstick(e, e.type === E.SHARK ? .35 : .25);
@@ -1591,7 +1598,7 @@ function updateEnemy(e, dt) {
   }
   if (animal && e.coverT > 0) { if (Math.hypot(e.covX - e.x, e.covY - e.y) > .1) chase(e, { x: e.covX, y: e.covY }, 2 * spd, dt); return; }   // kurz in Deckung, dann Angriff
   const tx = t.x, ty = t.y, dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, nx = dx / d, ny = dy / d, ang = Math.atan2(dy, dx);
-  if (HC() && e.awake && t.isPlayer && !TYPES[e.type].boss && e.type !== E.BUBBLE && !(e.chargeT > 0) && dodgeAim(e, t, d, dt)) return;
+  if (nHC() && e.awake && t.isPlayer && !TYPES[e.type].boss && e.type !== E.BUBBLE && !(e.chargeT > 0) && dodgeAim(e, t, d, dt)) return;
   if (attackers && e.awake && t.isPlayer && !TYPES[e.type].boss && !attackers.has(e)) { holdBack(e, t, d, nx, ny, dt); return; }   // wartet auf einen freien Angriffsplatz
 
   if (!animal) {
@@ -1601,7 +1608,7 @@ function updateEnemy(e, dt) {
       case E.SHARK: {
         if (!e.halfDone && e.hp < e.maxhp / 2) { e.halfDone = true; e.orb = 1; sayAll("MARGIN CALL!", 2); sfxAll("ROAR"); }   // Phase 2
         if (e.halfDone && los && d < 7 && d > 1.5) {   // Phase 2: umkreist den Spieler auf 3–5 Feldern
-          const want = d < 3 ? -1 : d > 5 ? 1 : 0, sp = (EZ() ? 1.4 : 1.8) * dt;
+          const want = d < 3 ? -1 : d > 5 ? 1 : 0, sp = (nEZ() ? 1.4 : 1.8) * dt;
           if (!moveEntity(e, (nx * want - ny * .8 * e.orb) * sp, (ny * want + nx * .8 * e.orb) * sp, .35)) e.orb = -e.orb;
         } else if (d > 3 || !los || d < 1.5) chase(e, t, 1.4, dt, .35);   // aus der Naehe ran zum Biss
         if (d < .9 && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1; damagePlayer(t, 20, L("HOSTILE TAKEOVER!", "FEINDLICHE ÜBERNAHME!")); }
@@ -1625,14 +1632,14 @@ function updateEnemy(e, dt) {
           return;
         }
         if (e.hopCd <= 0 && d > 1.2 && d < 3.1 && los) {   // Angriffssprung: aus Sprungweite auf den Spieler
-          e.hopCd = (EZ() ? 2.4 : HC() ? 1.1 : 1.6) + frand() * 1.2; e.hopT = HOP_T; e.hopV = Math.min(4.5 * spd, (d - .6) / HOP_T);
+          e.hopCd = (nEZ() ? 2.4 : nHC() ? 1.1 : 1.6) + frand() * 1.2; e.hopT = HOP_T; e.hopV = Math.min(4.5 * spd, (d - .6) / HOP_T);
           const sw = (frand() - .5) * .3; e.mdx = nx * Math.cos(sw) - ny * Math.sin(sw); e.mdy = ny * Math.cos(sw) + nx * Math.sin(sw); return;
         }
         // Ausweichsprung wie bei den anderen Gegnern je Schwierigkeitsgrad: Kleinanleger nie, Spekulant nur wenn getroffen (50 %),
         // Day-Trader auch wenn du auf ihn zielst (60 %); nicht ganz aus der Naehe
-        if (!EZ() && e.hopCd <= 0 && t.isPlayer && d > 1.2 && d < 9 && los && (e.hurt > 0 || (HC() && ((e.x - t.x) * t.dirX + (e.y - t.y) * t.dirY) / d > .985))) {
-          e.hopCd = HC() ? 1.8 + frand() * 1.2 : 3 + frand();
-          if (frand() < (HC() ? .6 : .5)) { e.hopT = HOP_T; e.hopV = 3.2 * spd; const sd = frand() < .5 ? 1 : -1; e.mdx = -ny * sd; e.mdy = nx * sd; return; }
+        if (!nEZ() && e.hopCd <= 0 && t.isPlayer && d > 1.2 && d < 9 && los && (e.hurt > 0 || (nHC() && ((e.x - t.x) * t.dirX + (e.y - t.y) * t.dirY) / d > .985))) {
+          e.hopCd = nHC() ? 1.8 + frand() * 1.2 : 3 + frand();
+          if (frand() < (nHC() ? .6 : .5)) { e.hopT = HOP_T; e.hopV = 3.2 * spd; const sd = frand() < .5 ? 1 : -1; e.mdx = -ny * sd; e.mdy = nx * sd; return; }
         }
         if (d > .7) chase(e, t, .9 * spd, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
@@ -1665,7 +1672,7 @@ function updateEnemy(e, dt) {
       e.roarCd -= dt;
       if (t.isPlayer && e.roarCd <= 0 && d < 8) { e.roarCd = 5 + frand() * 4; sfxNear("ROAR", e.x, e.y, 9); }   // Gebruell auf der Jagd
       if (ambush(e, t, d, 1.5 * spd, dt)) break;
-      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; chase(e, t, 1.5 * spd * ps * (e.rushT > 0 ? (HC() ? 1.9 : 1.7) : 1), dt); }
+      if (d > .75) { const ps = e.pir !== undefined ? 1.15 : 1; chase(e, t, 1.5 * spd * ps * (e.rushT > 0 ? (nHC() ? 1.9 : 1.7) : 1), dt); }
       else if (e.cd <= 0) {
         e.cd = 1; e.attackAnim = .3;
         if (t.isPlayer && e.roarCd < 3) { e.roarCd = 3; sfxNear("ROAR", e.x, e.y, 9); }
@@ -1682,7 +1689,7 @@ function updateEnemy(e, dt) {
         }
       } else if (d > .75) {
         if (ambush(e, t, d, 1.3 * spd, dt)) break;
-        chase(e, t, 1.3 * spd * (e.rushT > 0 ? (HC() ? 1.9 : 1.7) : 1), dt);
+        chase(e, t, 1.3 * spd * (e.rushT > 0 ? (nHC() ? 1.9 : 1.7) : 1), dt);
         if (e.chargeCd <= 0 && d > 1.5 && d < 6 && lineOfSight(e.x, e.y, tx, ty)) {
           e.chargeT = .7; e.chargeCd = 3.5 + frand() * 2; e.mdx = nx; e.mdy = ny; e.attackAnim = .7; sfxNear("BULL", e.x, e.y, 8);
         }
@@ -1730,7 +1737,8 @@ function netConnect(url) {   // ohne url: LAN ueber den eigenen Server; mit url:
 function netDisconnect() { if (net.ws) { const ws = net.ws; net.ws = null; ws.close(); } net.connected = false; }
 function leaveMP() {
   matchSetOpen = false;
-  lobbyNPC = true; lobbyFF = false; lobbyAim = "semi";   // naechste Lobby startet mit den Standard-Match-Einstellungen
+  lobbyNPC = true; lobbyFF = false; lobbyAim = "semi"; lobbyDiff = 1; lobbyLives = 1; lobbyBestOf = 3; lobbyMode = 0;   // naechste Lobby startet mit den Standard-Match-Einstellungen
+  chatLog = []; lobbyChat = []; chatHist = [];   // ... und ohne den alten Chat
   if (IN_APP && !isLocalOrigin()) { goHome(); return; }
   netDisconnect(); mpMenu = false;
   mode = "solo"; players = [me = makePlayer(0, true)];
@@ -1789,26 +1797,26 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub; lobbyLives = m.lives || 1; lobbyBestOf = m.bo || 3;
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub; lobbyLives = m.lives || 1; lobbyBestOf = m.bo || 3; lobbyDiff = [0, 1, 2].includes(m.diff) ? m.diff : 1;
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF, npc: lobbyNPC, pub: net.online ? net.pub : undefined, lives: lobbyLives, bo: lobbyBestOf });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF, npc: lobbyNPC, pub: net.online ? net.pub : undefined, lives: lobbyLives, bo: lobbyBestOf, diff: lobbyDiff });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
   if (mode === "lms") { lmsDuel = players.length === 2; lmsRound = 1; lmsWins = {}; lmsWinner = 0; lmsOver = false; }
-  players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.dead = false; });
+  players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.frags = 0; p.deaths = 0; p.dead = false; p.tot = null; });
   newGame(); state = ST.PLAY; fireCd = .4; sfxAll("KACHING"); lockMouse();
 }
 const r2 = v => Math.round(v * 100) / 100;
 function hostSendSnapshot() {
   const snap = {
-    t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
+    t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), rd: readyT > 0 ? r2(readyT) : undefined, ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT), crashStage, r2(crashStT), marginDue, marginPaid, r2(crashChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0, mode === "lms" && state !== ST.PLAY ? p.tot : undefined]),
     lms: mode === "lms" ? [lmsRound, lobbyBestOf, lmsDuel ? 1 : 0, Object.entries(lmsWins), lmsWinner, lmsOver ? 1 : 0] : undefined,
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1835,15 +1843,15 @@ function clientSnapshot(m) {
   if (m.vx && !island && (m.vx[0] !== vaultPos[0] || m.vx[1] !== vaultPos[1] || world[m.vx[1]][m.vx[0]] !== "X")) setVault(m.vx[0], m.vx[1]);
   hasKey = !!m.k;
   if (state === ST.OPTIONS) optReturn = m.st; else state = m.st;
-  roundT = m.rt; teamScore = m.ts; [bullsAlive, bearsAlive] = m.ba; marketKills = m.mk;
+  roundT = m.rt; readyT = m.rd || 0; teamScore = m.ts; [bullsAlive, bearsAlive] = m.ba; marketKills = m.mk;
   [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0, cheatChg = 0, phase = 0, phaseT = 0, sentiment = 0, quakeT = 0, crashStage = 0, crashStT = 0, marginDue = 0, marginPaid = 0, crashChg = 0] = m.fx;
   marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
   if (m.lms) { [lmsRound, lobbyBestOf] = m.lms; lmsDuel = !!m.lms[2]; lmsWins = Object.fromEntries(m.lms[3]); lmsWinner = m.lms[4]; lmsOver = !!m.lms[5]; }
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out, tot] of m.pl) {
     const p = players.find(q => q.id === id);
-    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off", lives: lives || 0, out: !!out });
+    Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off", lives: lives || 0, out: !!out, tot: tot || null });
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -1918,6 +1926,9 @@ function quitGame() {
 let hardcore = false, easy = false;   // Solo-Modus: Einfach (unbegrenzt Leben), Normal (5 Leben), Hardcore (1 Leben)
 const HC = () => hardcore && !isMP();
 const EZ = () => easy && !isMP();
+// Staerke der NPCs: solo die gewaehlte Schwierigkeit, im Multiplayer die Match-Einstellung des Hosts
+const nHC = () => isMP() ? lobbyDiff === 2 : hardcore;
+const nEZ = () => isMP() ? lobbyDiff === 0 : easy;
 const SOLO_LIVES = 5;
 const livesLeft = () => Math.max(0, SOLO_LIVES - ((me && me.deaths) || 0));
 const outOfLives = () => !isMP() && !HC() && !EZ() && livesLeft() <= 0;
@@ -2194,7 +2205,7 @@ addEventListener("keydown", e => {
   const k = keyName(e);
   // "/" und "'" oeffnen in Firefox/Opera die Schnellsuche (und beenden das Vollbild): abfangen, im Chat werden sie trotzdem getippt
   if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Backspace", "F4", "PageUp", "PageDown", "/", "'"].includes(k)) e.preventDefault();
-  if (!e.repeat) onKeyPress(k);
+  if (!e.repeat || chatTyping) onKeyPress(k);   // gehaltene Taste wiederholt sich nur beim Chat-Tippen
   if (!chatTyping) keys.add(k);
 });
 addEventListener("keyup", e => keys.delete(keyName(e)));
@@ -2411,6 +2422,7 @@ function onKeyPress(k) {
         if (k === "a" && isHost() && net.connected) { lobbyAim = { full: "semi", semi: "off", off: "full" }[lobbyAim]; sfx("HIT"); hostSendLobby(); }
         else if (k === "f" && isHost() && net.connected) { lobbyFF = !lobbyFF; sfx("HIT"); hostSendLobby(); }
         else if (k === "n" && isHost() && net.connected) { lobbyNPC = !lobbyNPC; sfx("HIT"); hostSendLobby(); }
+        else if (k === "d" && isHost() && net.connected) { lobbyDiff = (lobbyDiff + 1) % 3; sfx("HIT"); hostSendLobby(); }
         else if (k === "l" && isHost() && net.connected && lobbyMode === 3) { lobbyLives = lobbyLives % 5 + 1; sfx("HIT"); hostSendLobby(); }
         else if (k === "r" && isHost() && net.connected && lobbyMode === 3) { lobbyBestOf = lobbyBestOf >= 9 ? 3 : lobbyBestOf + 2; sfx("HIT"); hostSendLobby(); }
         else if (k === "Escape" || k === "enter" || k === "s") { matchSetOpen = false; sfx("HIT"); }
@@ -2435,7 +2447,7 @@ function onKeyPress(k) {
       }
       if (isHost() && net.connected) {
         if (k === "ArrowLeft" || k === "ArrowRight") { lobbyMode = (lobbyMode + (k === "ArrowLeft" ? MODES.length - 1 : 1)) % MODES.length; sfx("HIT"); hostSendLobby(); }
-        if (k === "enter") { if (allReady()) hostStartGame(); else { lobbyNote = L("NOT ALL PLAYERS ARE READY YET", "EINIGE MITSPIELER NOCH NICHT BEREIT"); lobbyNoteT = 2.5; sfx("DECLINED"); } }
+        if (k === "e") { if (allReady()) hostStartGame(); else { lobbyNote = L("NOT ALL PLAYERS ARE READY YET", "EINIGE MITSPIELER NOCH NICHT BEREIT"); lobbyNoteT = 2.5; sfx("DECLINED"); } }
       }
       break;
     case ST.PLAY:
@@ -2463,13 +2475,14 @@ function onKeyPress(k) {
       else if (isBound("pause", k) || k === "enter" || k === "Escape") { if (k !== "Escape" || pauseAge() > .4) { state = ST.PLAY; lockMouse(); } }
       break;
     case ST.LEVELDONE:
-      if (k === "enter" && isHost()) {
+      if (k === "enter" && isHost() && !(isMP() && roundT > 0)) {
         loadLevel(level + 1);
         players.forEach(p => { if (HC()) p.hp = Math.max(p.hp, 35); else { p.ammo = Math.max(p.ammo, 20); p.hp = Math.max(p.hp, 40); } });   // geschafftes Level lohnt sich
         state = ST.PLAY; fireCd = .4; lockMouse();
       }
       break;
     case ST.ROUNDEND:
+      if (roundT > 0) break;   // erst die Statistik ansehen
       if (k === "enter" && isHost()) { if (mode === "lms" && lmsOver) backToLobby(); else { if (mode === "lms") lmsRound++; nextRound(); lockMouse(); } }
       if (k === "Escape") leaveMP();
       break;
@@ -2485,6 +2498,7 @@ function onKeyPress(k) {
       if (k === "enter" || k === "Escape" || k === " ") state = ST.WIN;
       break;
     case ST.WIN:
+      if (isMP() && roundT > 0) break;
       if (k === "enter" && isHost()) {
         if (isMP()) backToLobby();
         else if (islandDone) finishRun(true); else startCredits();
@@ -2515,6 +2529,11 @@ function dodgeTap(k) {
 }
 
 function updateGame(dt) {
+  if (readyT > 0) {   // Countdown: alles eingefroren
+    readyT -= dt; mouseTurn = 0;
+    if (readyT <= 0) { if (isClient()) readyT = 0; else levelGo(); }
+    else { if (isMP() && !isClient() && performance.now() - lastSent > (net.online ? 100 : 50)) { lastSent = performance.now(); hostSendSnapshot(); } return; }
+  }
   gameTime += dt; musicPanic = !me.dead && me.hp < 30;
   for (const p of hurtPops) p.t += dt;
   hurtPops = hurtPops.filter(p => p.t < 1.1);
@@ -2634,7 +2653,7 @@ function updateGame(dt) {
   }
   updatePhase(dt); updateNav(dt); levelTime += dt;
   attackers = null;
-  if (EZ()) {   // Kleinanleger: nur wenige Gegner greifen gleichzeitig an (je nach Level), die naechsten zuerst
+  if (nEZ()) {   // Kleinanleger: nur wenige Gegner greifen gleichzeitig an (je nach Level), die naechsten zuerst
     const dist = e => Math.min(1e9, ...players.filter(p => !p.dead).map(p => (p.x - e.x) ** 2 + (p.y - e.y) ** 2));
     attackers = new Set(enemies.filter(e => e.alive && !e.gone && e.awake && e.pir === undefined && !TYPES[e.type].boss && (!(e.f === F.BULL || e.f === F.BEAR) || (e.target && e.target.isPlayer)))
       .sort((a, b) => dist(a) - dist(b)).slice(0, attackSlots()));
@@ -2670,7 +2689,7 @@ function updateGame(dt) {
   aiT -= dt;
   if (aiT <= 0) {
     if (crashT > 0) aiT = crashT + 1;   // waehrend eines Flash Crash kein weiteres Ereignis
-    else { aiT = (level === NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (HC() ? .7 : 1); aiEvent(); }
+    else { aiT = (level === NUM_LEVELS - 1 ? 22 + frand() * 12 : 40 + frand() * 30) * (nHC() ? .7 : 1); aiEvent(); }
   }
 
   for (const p of projs) {
@@ -2993,8 +3012,8 @@ function startIsland() {
   isleCoinsPlaced = 0;
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); isleCoinsPlaced++; }
   for (let k = 0; k < (HC() ? 2 : 3); k++) { const c = isleFreeCell(4, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 0, active: true }); }   // vereinzelt Munition
-  for (let k = 0; k < (HC() ? 10 : 8); k++) { const c = isleFreeCell(6); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
-  state = ST.PLAY; fireCd = .4; musicStart(6); lockMouse();
+  for (let k = 0; k < (nHC() ? 10 : 8); k++) { const c = isleFreeCell(6); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])).awake = true; }
+  state = ST.PLAY; fireCd = .4; readyT = READY_TIME; readyMusic = 6; lockMouse();
   say(L(`TAX HAVEN! ${ISLE_TIME} SECONDS – GRAB THE GOLD`, `STEUEROASE! ${ISLE_TIME} SEKUNDEN – SAMMLE DAS GOLD`), 3);
 }
 // Piraten: 60 % mehr Energie, etwas schneller als der Spieler. Rollen: Waechter lauern an einem Muenzhaufen und
@@ -3019,7 +3038,7 @@ function pirateAI(e, dt) {
     const ex = tx - e.x, ey = ty - e.y, l = Math.hypot(ex, ey) + 1e-4, mx = ex / l * v * dt, my = ey / l * v * dt;
     if (!moveEntity(e, mx, my, .25)) moveEntity(e, -my, mx, .25);
   };
-  const v = (HC() ? 3.2 : 3.0) * (crashT > 0 ? 1.2 : 1);   // Spieler laeuft 2,8
+  const v = (nHC() ? 3.2 : 3.0) * (crashT > 0 ? 1.2 : 1);   // Spieler laeuft 2,8
   if (e.role === "guard") {
     if (!items.some(i => i.active && i.type === 2 && Math.abs(i.x - e.gx) < .3 && Math.abs(i.y - e.gy) < .3)) {   // Schatz weg: naechsten bewachen
       let best = null, bd = 1e9;
@@ -3033,7 +3052,7 @@ function pirateAI(e, dt) {
     if (!e.alert && d < 3.8 && lineOfSight(e.x, e.y, pl.x, pl.y)) { e.alert = true; e.alertT = 6; e.attackAnim = .5; sfxNear("ROAR", e.x, e.y, 8); }
     if (!e.alert) { go(e.gx + Math.cos(e.anim * .8) * .7, e.gy + Math.sin(e.anim * .8) * .7, .8); return; }   // bewacht den Schatz
     e.alertT -= dt;
-    if (Math.hypot(pl.x - e.gx, pl.y - e.gy) > (HC() ? 7 : 6)) {   // nicht weglocken lassen: im Zickzack zurueck zum Schatz
+    if (Math.hypot(pl.x - e.gx, pl.y - e.gy) > (nHC() ? 7 : 6)) {   // nicht weglocken lassen: im Zickzack zurueck zum Schatz
       const hx = e.gx - e.x, hy = e.gy - e.y, hl = Math.hypot(hx, hy) + 1e-4, side = Math.sin(e.anim * 4) * .9;
       if (hl > 1.2) go(e.gx - hy / hl * side, e.gy + hx / hl * side, v * .9);
       else go(e.gx + Math.cos(e.anim * 3) * 1.1, e.gy + Math.sin(e.anim * 3) * 1.1, v * .6);   // am Schatz unruhig hin und her
@@ -3042,7 +3061,7 @@ function pirateAI(e, dt) {
     }
   }
   if (d > .75) go(pl.x, pl.y, v);
-  else if (e.cd <= 0 && Math.abs(gameTime - pirHitAt) > (HC() ? .35 : .5) && !segBlocked(e.x, e.y, pl.x, pl.y)) { pirHitAt = gameTime; e.cd = 1.2; e.attackAnim = .3; damagePlayer(pl, Math.floor(11 * e.str), L("CUTLASS SLASH!", "SÄBELHIEB!")); }
+  else if (e.cd <= 0 && Math.abs(gameTime - pirHitAt) > (nHC() ? .35 : .5) && !segBlocked(e.x, e.y, pl.x, pl.y)) { pirHitAt = gameTime; e.cd = 1.2; e.attackAnim = .3; damagePlayer(pl, Math.floor(11 * e.str), L("CUTLASS SLASH!", "SÄBELHIEB!")); }
 }
 function updateIsland(dt) {
   isleT -= dt;
@@ -3055,8 +3074,8 @@ function updateIsland(dt) {
   }
   isleSpawnT -= dt;
   if (isleSpawnT <= 0) {   // Steuerfahnder-Baeren rücken nach
-    isleSpawnT = HC() ? 4.5 : 6;
-    if (bearsAlive < (HC() ? 14 : 12)) { const c = isleFreeCell(8); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])); }
+    isleSpawnT = nHC() ? 4.5 : 6;
+    if (bearsAlive < (nHC() ? 14 : 12)) { const c = isleFreeCell(8); if (c) makePirate(spawnEnemy(E.BEAR, c[0], c[1])); }
   }
   for (const p of projs) if (p.active && p.owner) stepShot(p, dt);
   projs = projs.filter(p => p.active);
@@ -3078,7 +3097,7 @@ function endIsland(msg, all) {
   if (all) players.forEach(p => addScore(p, ISLE_ALL_BONUS));
   island = false; islandDone = true; isleAll = all; isleResult = msg;
   musicStop(); sfx(all ? "KACHING" : "BELL"); document.exitPointerLock?.();
-  if (isMP()) state = ST.WIN; else startOutro();
+  if (isMP()) { state = ST.WIN; roundT = ROUND_BREAK; } else startOutro();
 }
 
 // ---- Low-Poly-Renderer
@@ -3671,10 +3690,10 @@ function renderLobby() {
   g.drawImage(spriteCanvas(mySpr), 790, 205, 96, 96);
   text(L("YOUR CHARACTER", "DEINE FIGUR"), 838, 186, "#6b7896", 13, "center");
   text(avatarName(me.avatar), 838, 306, "#ffd232", 15, "center");
-  if (hovered(780, 180, 116, 170)) { g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(780, 180, 116, 170); }
-  zone(780, 180, 116, 170, "c");
-  zoneButton(784, 318, 108, 26, L("[C] CHANGE", "[C] WECHSELN"), "#50c8ff", "c", 13);
-  zoneButton(784, 350, 108, 26, "[K] NICKNAME", "#ffd232", "k", 13);
+  if (hovered(780, 180, 116, 180)) { g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(780, 180, 116, 180); }
+  zone(780, 180, 116, 180, "c");
+  zoneButton(784, 328, 108, 26, L("[C] CHANGE", "[C] WECHSELN"), "#50c8ff", "c", 13);
+  zoneButton(784, 362, 108, 26, "[K] NICKNAME", "#ffd232", "k", 13);
   // ---- Knoepfe unten
   if (isTeam) {
     zoneButton(250, 400, 220, 34, L("[1] TEAM BULL", "[1] TEAM BULLE"), me.team === 0 ? "#50ff82" : "#2a7a46", "1", 16);
@@ -3682,7 +3701,7 @@ function renderLobby() {
   }
   if (host) {
     const ready = allReady();
-    zoneButton(150, 442, 210, 36, ready ? L("▶ START GAME", "▶ SPIEL STARTEN") : L("WAITING FOR READY …", "WARTE AUF BEREIT …"), ready ? "#ffffff" : "#6b7896", "enter", 15);
+    zoneButton(150, 442, 210, 36, ready ? L("▶ [E] START GAME", "▶ [E] SPIEL STARTEN") : L("WAITING FOR READY …", "WARTE AUF BEREIT …"), ready ? "#ffffff" : "#6b7896", "e", 15);
   } else {
     const r = me.ready;
     zoneButton(150, 442, 210, 36, r ? L("✔ READY ([E] UNDO)", "✔ BEREIT ([E] ZURÜCK)") : L("[E] READY", "[E] BEREIT"), r ? "#50ff82" : "#ffd232", "e", 15);
@@ -3698,7 +3717,7 @@ function renderLobby() {
 }
 function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Knoepfe sind anklickbar
   clickZones = [];
-  const lms = lobbyMode === 3, top = lms ? 20 : 72, hgt = lms ? 500 : 400, ys = lms ? [100, 190, 255, 320, 385] : [156, 250, 326];
+  const lms = lobbyMode === 3, top = lms ? 6 : 40, hgt = lms ? 528 : 440, ys = lms ? [92, 172, 234, 296, 358, 420] : [118, 203, 268, 333];
   g.fillStyle = "rgba(0,0,0,.7)"; g.fillRect(0, 0, DW, DH);
   g.fillStyle = "#07090f"; g.fillRect(190, top, 580, hgt); g.strokeStyle = "#50c8ff"; g.lineWidth = 2; g.strokeRect(190, top, 580, hgt);
   text(L("⚙ MATCH SETTINGS", "⚙ MATCH-EINSTELLUNGEN"), DW / 2, top + 14, "#50c8ff", 26, "center");
@@ -3715,13 +3734,27 @@ function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Kno
     [L("On: teammates (team/co-op) can be hit.", "An: Teamkollegen (Team/Koop) können getroffen werden.")]);
   row(ys[2], "NPCs", lobbyNPC ? L("ON", "AN") : L("OFF", "AUS"), lobbyNPC ? "#50ff82" : "#ff7050", "n",
     [L("Market creatures in team, deathmatch and last man standing. Always on in co-op.", "Börsen-Gegner in Team, Deathmatch und Last Man Standing. Im Koop immer an.")]);
+  row(ys[3], L("NPC strength", "NPC-Stärke"), L(...DIFF_NAMES[lobbyDiff]), ["#50ff82", "#ffd232", "#ff7050"][lobbyDiff], "d",
+    [L("Health, damage, speed and tactics of the NPCs.", "Lebenspunkte, Schaden, Tempo und Taktik der NPCs.")]);
   if (lms) {
-    row(ys[3], L("Lives per player", "Leben pro Spieler"), String(lobbyLives), "#ff6080", "l",
+    row(ys[4], L("Lives per player", "Leben pro Spieler"), String(lobbyLives), "#ff6080", "l",
       [L("Out of lives = out. In a duel the lives count per round.", "Keine Leben mehr = ausgeschieden. Im Duell gelten sie pro Runde.")]);
-    row(ys[4], L("Duel (2 players)", "Duell (2 Spieler)"), `BEST OF ${lobbyBestOf}`, "#ffd232", "r",
+    row(ys[5], L("Duel (2 players)", "Duell (2 Spieler)"), `BEST OF ${lobbyBestOf}`, "#ffd232", "r",
       [L("Only with exactly two players.", "Nur bei genau zwei Spielern.")]);
   }
-  zoneButton(380, lms ? 456 : 418, 200, 38, L(`[${bindText("menuBack")}] DONE`, `[${bindText("menuBack")}] FERTIG`), "#50c8ff", "Escape", 16);
+  zoneButton(380, lms ? 486 : 432, 200, 38, L(`[${bindText("menuBack")}] DONE`, `[${bindText("menuBack")}] FERTIG`), "#50c8ff", "Escape", 16);
+}
+function lmsTable(y0) {
+  const tot = p => p.tot || [p.score, p.frags || 0, p.deaths || 0, p.kills];
+  const cols = [...(lmsDuel ? [[L("ROUNDS", "RUNDEN"), 560]] : []), ["P&L", 660], ["FRAGS", 740], [L("DEATHS", "TODE"), 820], ["KILLS", 900]];
+  text(L("PLAYER", "SPIELER"), 98, y0, "#6b7896", 13); cols.forEach(([c, x]) => text(c, x, y0, "#6b7896", 13, "right"));
+  const rank = [...players].sort((a, b) => (b.id === lmsWinner) - (a.id === lmsWinner) || (lmsWins[b.id] || 0) - (lmsWins[a.id] || 0) || tot(b)[0] - tot(a)[0]);
+  rank.forEach((p, i) => {
+    const y = y0 + 22 + i * 30, v = tot(p);
+    g.fillStyle = rgbCss(playerColor(p)); g.fillRect(70, y, 18, 18);
+    text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}`, 98, y, "#e6e6f0", 18);
+    [...(lmsDuel ? [lmsWins[p.id] || 0] : []), v[0].toLocaleString(LOC()), v[1], v[2], v[3]].forEach((val, j) => text(String(val), cols[j][1], y, cols[j][0] === "P&L" ? "#50ff82" : "#e6e6f0", 16, "right"));
+  });
 }
 function scoreboard(y0) {
   const rank = [...players].sort((a, b) => b.score - a.score);
@@ -3749,7 +3782,7 @@ function renderEnd(title, sub, col, bull) {
   g.fillStyle = "rgba(0,0,0,.85)"; g.fillRect(0, 70, DW, 380);
   text(title, DW / 2, 86, col, 56, "center");
   text(sub, DW / 2, 160, "#dcdce6", 20, "center");
-  if (isMP()) { scoreboard(205); text(`${L("Market cleanup", "Marktbereinigung")}: ${marketKills}`, DW / 2, 340, "#c8c8d2", 16, "center"); }
+  if (isMP()) { if (mode === "lms" && lmsOver && state === ST.ROUNDEND) lmsTable(198); else scoreboard(205); text(`${L("Market cleanup", "Marktbereinigung")}: ${marketKills}`, DW / 2, 340, "#c8c8d2", 16, "center"); }
   else {
     text(`P&L: +$${me.score.toLocaleString(LOC())}`, DW / 2, 210, "#50ff82", 24, "center");
     text(L(`Liquidated by you: ${me.kills}   ·   Deaths: ${me.deaths}   ·   Market cleanup: ${marketKills}`, `Von dir liquidiert: ${me.kills}   ·   Tode: ${me.deaths}   ·   Marktbereinigung: ${marketKills}`), DW / 2, 255, "#c8c8d2", 18, "center");
@@ -3761,16 +3794,18 @@ function renderEnd(title, sub, col, bull) {
       zoneButton(490, 378, 290, 40, L("[H] GIVE UP & HIGHSCORE", "[H] AUFGEBEN & HIGHSCORE"), "#ffd232", "h", 16);
     }
   } else if (!isMP() && state === ST.WIN) zoneButton(320, 378, 320, 40, islandDone ? L("[ENTER] ENTER HIGHSCORE", "[ENTER] HIGHSCORE EINTRAGEN") : L("[ENTER] CONTINUE", "[ENTER] WEITER"), "#ffd232", "enter", 18);
-  else if (state === ST.ROUNDEND) {   // Countdown bis zum naechsten Level
-    const t = Math.max(0, Math.ceil(roundT));
-    const nx = mode === "lms" ? (lmsOver ? L("LOBBY IN", "LOBBY IN") : L("NEXT ROUND IN", "NÄCHSTE RUNDE IN")) : L("NEXT LEVEL IN", "NÄCHSTES LEVEL IN");
-    text(`${nx} ${t} s`, DW / 2, 382, "#ffd232", 26, "center");
-    g.fillStyle = "#1e2846"; g.fillRect(330, 414, 300, 6);
-    g.fillStyle = "#ffd232"; g.fillRect(330, 414, 300 * Math.min(1, Math.max(0, roundT) / ROUND_BREAK), 6);
-    if (isHost()) zoneButton(380, 422, 200, 24, L("[ENTER] CONTINUE NOW", "[ENTER] SOFORT WEITER"), "#8290b0", "enter", 13);
+  else if (isMP() && (state === ST.ROUNDEND || state === ST.LEVELDONE || state === ST.WIN)) {   // erst die Statistik, dann weiter
+    if (roundT > 0) {
+      text(L(`RESULTS · CONTINUE IN ${Math.ceil(roundT)} s`, `ERGEBNIS · WEITER IN ${Math.ceil(roundT)} s`), DW / 2, 378, "#ffd232", 24, "center");
+      g.fillStyle = "#1e2846"; g.fillRect(330, 412, 300, 6);
+      g.fillStyle = "#ffd232"; g.fillRect(330, 412, 300 * Math.min(1, roundT / ROUND_BREAK), 6);
+    } else if (isHost()) {
+      const toLobby = state === ST.WIN || (mode === "lms" && lmsOver);
+      zoneButton(310, 376, 340, 40, toLobby ? L("[ENTER] BACK TO THE LOBBY", "[ENTER] ZURÜCK IN DIE LOBBY") : mode === "lms" ? L("[ENTER] NEXT ROUND", "[ENTER] NÄCHSTE RUNDE") : L("[ENTER] NEXT LEVEL", "[ENTER] NÄCHSTES LEVEL"), "#ffd232", "enter", 18);
+    } else if (Math.floor(gameTime * 2) % 2) text(L("WAITING FOR THE HOST …", "WARTE AUF DEN HOST …"), DW / 2, 386, "#ffffff", 22, "center");
   }
   else if (Math.floor(gameTime * 2) % 2) text(isHost() ? L("[ENTER] CONTINUE", "[ENTER] WEITER") : L("WAITING FOR THE HOST …", "WARTE AUF DEN HOST …"), DW / 2, 390, "#ffffff", 22, "center");
-  if (state !== ST.ROUNDEND) text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
+  if (!isMP()) text(CREDITS, DW / 2, 426, "#6b7896", 14, "center");
 }
 function renderRoundEnd() {
   if (mode === "lms") {
@@ -4656,6 +4691,15 @@ function renderSounds(dt) {
   }
   fxEnd();
 }
+function renderReady() {
+  if (readyT <= 0) return;
+  const n = Math.ceil(readyT), f = n - readyT, size = Math.round(190 - 60 * f);   // jede Zahl schrumpft etwas und blendet aus
+  g.globalAlpha = Math.min(1, (1 - f) * 2.5);
+  g.lineJoin = "round"; g.font = FONT(size); g.textAlign = "center"; g.textBaseline = "middle";
+  g.lineWidth = 12; g.strokeStyle = "#000"; g.strokeText(String(n), DW / 2, HUD_Y / 2);
+  g.fillStyle = n === 1 ? "#50ff82" : n === 2 ? "#ffd232" : "#ff7050"; g.fillText(String(n), DW / 2, HUD_Y / 2);
+  g.globalAlpha = 1;
+}
 function renderPlay(dt) {
   if (island) renderIsland(); else { marketVisuals(); renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
   renderPsy();
@@ -4687,7 +4731,7 @@ function renderPlay(dt) {
     const a = .35 + .25 * Math.sin(gameTime * 6);
     g.strokeStyle = phase > 0 ? `rgba(80,255,130,${a})` : `rgba(255,60,60,${a})`; g.lineWidth = 14; g.strokeRect(7, 7, DW - 14, HUD_Y - 14);
   }
-  renderHitDirs(dt); renderSounds(dt);
+  renderHitDirs(dt); renderSounds(dt); renderReady();
   renderHUD();
   if (down("scores") && !chatTyping) renderScoreOverlay();
 }
@@ -4776,10 +4820,10 @@ function frame(now) {
       zoneButton(566, 228, 145, 40, L("[Q] MAIN MENU", "[Q] HAUPTMENÜ"), "#ff7050", "q", 16);
       break;
     case ST.OPTIONS: optMsgT -= dt; renderOptions(); if (isClient() && optReturn === ST.PLAY) updateGame(0); break;
-    case ST.LEVELDONE: gameTime += dt; renderEnd("CLOSING BELL!", quickBonus ? L(`Bonus of +$${quickBonus.toLocaleString(LOC())} – safe cracked in ${quickSecs < 120 ? quickSecs + " seconds" : fmtTime(quickSecs) + " minutes"}`, `Bonus +$${quickBonus.toLocaleString(LOC())} – Tresor geknackt in ${quickSecs < 120 ? quickSecs + " Sekunden" : fmtTime(quickSecs) + " Minuten"}`) : L("Level cleared – the price is rising", "Level geschafft – der Kurs steigt"), "#50ff82", true); break;
+    case ST.LEVELDONE: gameTime += dt; if (isMP() && isHost()) roundT = Math.max(0, roundT - dt); renderEnd("CLOSING BELL!", quickBonus ? L(`Bonus of +$${quickBonus.toLocaleString(LOC())} – safe cracked in ${quickSecs < 120 ? quickSecs + " seconds" : fmtTime(quickSecs) + " minutes"}`, `Bonus +$${quickBonus.toLocaleString(LOC())} – Tresor geknackt in ${quickSecs < 120 ? quickSecs + " Sekunden" : fmtTime(quickSecs) + " Minuten"}`) : L("Level cleared – the price is rising", "Level geschafft – der Kurs steigt"), "#50ff82", true); break;
     case ST.ROUNDEND:
       gameTime += dt;
-      if (isHost()) { roundT -= dt; if (roundT <= 0) { if (mode === "lms" && lmsOver) backToLobby(); else { if (mode === "lms") lmsRound++; nextRound(); } break; } }   // automatisch weiter nach der Pause
+      if (isHost()) roundT = Math.max(0, roundT - dt);   // danach geht es mit Enter weiter
       renderRoundEnd(); break;
     case ST.DEAD: gameTime += dt;
       if (HC()) renderEnd("GAME OVER", L("Day trader: You're broke – GAME OVER", "Day-Trader: Du bist pleite – GAME OVER"), "#ff3c3c", false);
@@ -4788,7 +4832,7 @@ function frame(now) {
       break;
     case ST.CREDITS: gameTime += dt; creditsT += dt; renderCredits(); if (creditsT > CREDITS_LEN) creditsDone(); break;
     case ST.OUTRO: gameTime += dt; outroT += dt; renderOutro(dt); if (outroT > OUTRO_LEN) state = ST.WIN; break;
-    case ST.WIN: gameTime += dt;
+    case ST.WIN: gameTime += dt; if (isMP() && isHost()) roundT = Math.max(0, roundT - dt);
       if (islandDone) { renderEnd(L("TAX HAVEN", "STEUEROASE"), `${isleResult}  ·  Gold ${isleCoins}/${isleCoinsPlaced}${isleAll ? ` · Bonus +$${ISLE_ALL_BONUS.toLocaleString(LOC())}` : ""}`, "#ffd232", true); break; }
       renderEnd(L("BULL MARKET!", "BULLENMARKT!"), me.winBonus ? L(`ALGO-9000 defeated – bull market bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " incl. clean sheet"}`, `ALGO-9000 besiegt – Bullenmarkt-Bonus +$${me.winBonus.toLocaleString(LOC())}${me.deaths ? "" : " inkl. weißer Weste"}`) : L("ALGO-9000 defeated – the market is free", "ALGO-9000 besiegt – der Markt ist frei"), "#ffd232", true);
       break;

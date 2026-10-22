@@ -2,6 +2,16 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.35.0 – Countdown, NPC strength and results break (22.10.2026)
+
+- **Countdown before every level:** Before each map a big number in the middle counts down from 3. Until then everything is frozen: map, enemies and players. Only then does the opening bell ring and the level begin. This also applies to the tax haven.
+- **Multiplayer – results first, then continue:** “Continue now” is gone. After every round, every level and at the end of a match the screen shows all players’ statistics for 5 seconds. Only then can the game continue: the host presses Enter, everyone else sees “Waiting for the host …”. Leaving is also only possible once the time is up. At the end of Last Man Standing a table shows all values across all rounds: rounds won, P&L, frags, deaths and kills.
+- **Multiplayer – NPC strength:** In the match settings [D] picks the NPCs’ strength: Small Investor, Speculator (default) or Day Trader. It sets the NPCs’ health, damage, speed, tactics and group size. Hits between players are not affected.
+- **Multiplayer – fresh lobby:** Leaving the lobby and hosting again starts with an empty chat and the default match settings. Nickname, character and public/private stay saved. Returning to the lobby from a game keeps everything.
+- **Lobby:** The host now starts the game with [E] instead of Enter.
+- **Lobby:** The “Change” and “Nickname” buttons sit a little lower so that “male/female” stays readable.
+- **Chat:** A held key repeats while typing in the lobby and in-game chat.
+
 ## Version 3.34.2 – Match settings without overlap (22.10.2026)
 
 - **Lobby:** While the “Match settings” window is open, the lobby’s hint line is hidden. Previously it ran across the window.

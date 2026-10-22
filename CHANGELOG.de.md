@@ -2,6 +2,16 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.35.0 – Countdown, NPC-Stärke und Ergebnis-Pause (22.10.2026)
+
+- **Countdown vor jedem Level:** Vor jeder Karte zählt eine große Zahl in der Mitte von 3 herunter. So lange steht alles still: Karte, Gegner und Spieler. Erst danach läutet die Börsenglocke und das Level beginnt. Das gilt auch für die Steueroase.
+- **Multiplayer – erst das Ergebnis, dann weiter:** „Sofort weiter“ gibt es nicht mehr. Nach jeder Runde, jedem Level und am Ende einer Partie zeigt der Bildschirm 5 Sekunden lang die Statistik aller Spieler. Erst danach geht es weiter: der Host drückt Enter, die anderen sehen „Warte auf den Host …“. Verlassen geht ebenfalls erst nach Ablauf der Zeit. Am Ende von Last Man Standing stehen alle Werte über alle Runden in einer Tabelle: Runden-Siege, P&L, Frags, Tode und Kills.
+- **Multiplayer – NPC-Stärke:** In den Match-Einstellungen lässt sich mit [D] die Stärke der NPCs wählen: Kleinanleger, Spekulant (Standard) oder Day-Trader. Sie bestimmt Lebenspunkte, Schaden, Tempo, Taktik und Gruppengröße der NPCs. Treffer zwischen Spielern bleiben davon unberührt.
+- **Multiplayer – frische Lobby:** Wer die Lobby verlässt und danach neu hostet, startet mit leerem Chat und den Standard-Match-Einstellungen. Nickname, Figur und öffentlich/privat bleiben gespeichert. Wer aus einem Spiel in die Lobby zurückkehrt, behält alles.
+- **Lobby:** Der Host startet das Spiel jetzt mit [E] statt mit Enter.
+- **Lobby:** Die Knöpfe „Wechseln“ und „Nickname“ sitzen etwas tiefer, damit „männlich/weiblich“ gut lesbar bleibt.
+- **Chat:** Eine gedrückt gehaltene Taste wiederholt sich beim Tippen im Lobby- und im Spiel-Chat.
+
 ## Version 3.34.2 – Match-Einstellungen ohne Überlagerung (22.10.2026)
 
 - **Lobby:** Solange das Fenster „Match-Einstellungen“ offen ist, wird die Hinweiszeile der Lobby ausgeblendet. Bisher lag sie quer über dem Fenster.
