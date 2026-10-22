@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.31.1 – Öffentlich oder privat in der Lobby (22.10.2026)
+
+- **Online spielen:** Statt zwei Knöpfen für öffentliches und privates Spiel gibt es nur noch „SPIEL HOSTEN“. Ob das Spiel öffentlich in der Liste steht oder nur per Code erreichbar ist, stellt der Host in der Lobby mit [V] um – jederzeit, auch wenn schon Mitspieler da sind. Die zuletzt gewählte Einstellung wird gemerkt.
+
 ## Version 3.31.0 – Kleinanleger, Spekulant, Day-Trader und der Liquiditätsschub (22.10.2026)
 
 - **Neue Namen für die Schwierigkeitsgrade:** Kleinanleger (bisher Einfach), Spekulant (bisher Normal) und Day-Trader (bisher Hardcore). Regeln und Bestenlisten bleiben gleich, die bisherigen Einträge bleiben erhalten.

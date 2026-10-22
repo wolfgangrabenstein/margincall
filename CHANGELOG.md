@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.31.1 – Public or private in the lobby (22.10.2026)
+
+- **Online play:** Instead of two buttons for public and private games there is just “HOST GAME”. Whether the game is listed publicly or only reachable by code is switched by the host in the lobby with [V] – at any time, even with players already in. The last choice is remembered.
+
 ## Version 3.31.0 – Small investor, speculator, day trader and the liquidity boost (22.10.2026)
 
 - **New names for the difficulty levels:** Small investor (formerly easy), speculator (formerly normal) and day trader (formerly hardcore). Rules and leaderboards stay the same, existing entries are kept.

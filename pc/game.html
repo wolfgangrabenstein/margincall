@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.31.0";
+const APP_VERSION = "3.31.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1735,13 +1735,13 @@ function netReceive(m) {
   }
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false;
+    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub;
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }
 function hostSendLobby() {
-  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF, npc: lobbyNPC });
+  netSend({ t: "lobby", to: "all", mode: lobbyMode, players: lobbyPlayers(), chat: chatLog.slice(-12), game: myGameName(), aim: lobbyAim, ff: lobbyFF, npc: lobbyNPC, pub: net.online ? net.pub : undefined });
 }
 function hostStartGame() {
   mode = MODES[lobbyMode][0];
@@ -2346,6 +2346,7 @@ function onKeyPress(k) {
         break;
       }
       if (k === "s" && net.connected) { matchSetOpen = true; sfx("HIT"); break; }
+      if (k === "v" && isHost() && net.online && net.connected) { net.pub = !net.pub; settings.onlinePub = net.pub; saveSettings(); sfx("HIT"); hostSendLobby(); break; }   // oeffentlich <-> privat
       if (k === "Escape") { leaveMP(); break; }
       if (k === "o") { openOptions(); break; }
       if (isBound("chat", k) || k === "t") { chatTyping = true; chatText = ""; break; }
@@ -3517,7 +3518,9 @@ function renderLobby() {
     text(L("GAME CODE", "SPIEL-CODE"), bx + bw / 2, by + 6, "#ffd232", 12, "center");
     text(net.code.split("").join(" "), bx + bw / 2, by + 24, "#ffffff", 34, "center");
     zoneButton(bx, by + bh + 6, bw, 24, L("[Y] COPY CODE", "[Y] CODE KOPIEREN"), "#ffd232", "y", 13);
-    text(net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE", "ONLINE · PRIVAT"), bx + bw / 2, by + bh + 36, net.pub ? "#50c8ff" : "#c890ff", 12, "center");
+    const vis = net.pub ? L("ONLINE · PUBLIC", "ONLINE · ÖFFENTLICH") : L("ONLINE · PRIVATE", "ONLINE · PRIVAT");
+    if (isHost()) zoneButton(bx, by + bh + 34, bw, 24, `[V] ${vis}`, net.pub ? "#50c8ff" : "#c890ff", "v", 13);   // Sichtbarkeit jederzeit umschaltbar
+    else text(vis, bx + bw / 2, by + bh + 36, net.pub ? "#50c8ff" : "#c890ff", 12, "center");
   }
   if (!net.connected) { text(L("CONNECTING TO GAME SERVER …", "VERBINDUNG ZUM SPIELSERVER HERSTELLEN …"), DW / 2, 220, "#dcdce6", 22, "center"); zoneButton(370, 452, 220, 36, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16); return; }
   const host = isHost();
@@ -4287,8 +4290,7 @@ function onlineKey(k) {
   if (k === "ArrowUp") { onlineSel = Math.max(0, onlineSel - 1); return; }
   if (k === "ArrowDown") { onlineSel = Math.min(Math.max(0, Math.min(6, onlineRooms.length) - 1), onlineSel + 1); return; }
   if (k === "enter") { if (onlineRooms[onlineSel]) joinOnline(onlineRooms[onlineSel].code); return; }
-  if (k === "h") hostOnline(true);
-  else if (k === "p") hostOnline(false);
+  if (k === "h") hostOnline(settings.onlinePub !== false);   // zuletzt gewaehlte Sichtbarkeit, sonst oeffentlich
   else if (k === "j") { codeAsk = true; codeText = ""; }
   else if (k === "k") editNick();
 }
@@ -4315,10 +4317,10 @@ function renderOnline() {
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(120, 30, DW - 240, 480);
   text(L("ONLINE PLAY", "ONLINE SPIELEN"), DW / 2, 42, "#ffd232", 36, "center");
   zoneButton(300, 88, 360, 30, myNick() + "   ✎ [K]", "#ffd232", "k", 17);
-  zoneButton(150, 128, 320, 40, L("[H] HOST PUBLIC GAME", "[H] ÖFFENTLICHES SPIEL"), "#50c8ff", "h", 18);
-  zoneButton(490, 128, 320, 40, L("[P] HOST PRIVATE GAME", "[P] PRIVATES SPIEL"), "#c890ff", "p", 18);
-  zoneButton(300, 178, 360, 40, L("[J] JOIN PRIVATE GAME", "[J] PRIVATEM SPIEL BEITRETEN"), "#ff90d0", "j", 18);
-  text(L("Private games don't appear in the list – they are joined with their code.", "Private Spiele stehen nicht in der Liste – man tritt ihnen mit ihrem Code bei."), DW / 2, 226, "#8290b0", 13, "center");
+  zoneButton(150, 128, 320, 40, L("[H] HOST GAME", "[H] SPIEL HOSTEN"), "#50c8ff", "h", 18);
+  zoneButton(490, 128, 320, 40, L("[J] JOIN PRIVATE GAME", "[J] PRIVATEM SPIEL BEITRETEN"), "#ff90d0", "j", 18);
+  text(L("Public or private: as host you switch it in the lobby with [V].", "Öffentlich oder privat: Als Host stellst du das in der Lobby mit [V] um."), DW / 2, 186, "#8290b0", 13, "center");
+  text(L("Private games don't appear in the list – they are joined with their code.", "Private Spiele stehen nicht in der Liste – man tritt ihnen mit ihrem Code bei."), DW / 2, 206, "#8290b0", 13, "center");
   text(L("OPEN GAMES", "OFFENE SPIELE"), 150, 252, "#6b7896", 13);
   if (!onlineRooms.length) {
     const dots = ".".repeat(1 + Math.floor(gameTime * 2) % 3);

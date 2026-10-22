@@ -9,7 +9,7 @@
 // keine IP-Adressen. Der Tag richtet sich nach der Zeitzone Europe/Vienna.
 //
 //   GET  /rooms?v=<Version>        oeffentliche Online-Spiele in der Lobby (gleiche Spielversion)
-//   GET  /room/new?pub=1&v=…       (WebSocket) neues Online-Spiel hosten, oeffentlich (pub=1) oder privat
+//   GET  /room/new?pub=1&v=…       (WebSocket) neues Online-Spiel hosten, oeffentlich (pub=1) oder privat; der Host kann das in der Lobby umschalten
 //   GET  /room/<CODE>?v=…          (WebSocket) Online-Spiel beitreten
 //   GET  /market                   Live-Kurse fuer die Browser-Version (Yahoo Finance, 2 Minuten zwischengespeichert)
 

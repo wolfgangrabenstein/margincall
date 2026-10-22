@@ -104,6 +104,13 @@ export class Room extends DurableObject {
 
   // Lobby-Nachricht des Hosts: Name, Modus und Spielerzahl fuer die oeffentliche Raumliste
   async lobbyMeta(m) {
+    if (typeof m.pub === "boolean") {   // Host schaltet in der Lobby zwischen oeffentlich und privat um
+      const info = await this.ctx.storage.get("info");
+      if (info && info.open && info.pub !== m.pub) {
+        info.pub = m.pub; await this.ctx.storage.put("info", info);
+        await this.env.DB.prepare("UPDATE rooms SET pub = ?2 WHERE code = ?1").bind(info.code, m.pub ? 1 : 0).run();
+      }
+    }
     const players = Array.isArray(m.players) ? m.players : [];
     const hostRow = players.find(p => Array.isArray(p) && p[0] === this.hostId()) || players[0] || [];
     const meta = { name: clean(m.game, 24), host: clean(hostRow[1], 15), mode: Number.isInteger(m.mode) ? m.mode : 0, players: Math.min(MAX_PLAYERS, players.length || 1) };
