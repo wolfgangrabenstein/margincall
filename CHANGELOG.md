@@ -11,7 +11,7 @@
   - **Margin call:** A margin call ($750 in level 2 up to $1,500 in level 5, more in hardcore and co-op) has to be met within 20 seconds. Met: crisis profit. Missed: **you lose a life**.
   - **Recovery rally (12 s):** 1.25× points for kills.
 - **Bear trap as the counterpart to the bull run:** Cash no longer slides away and there is no extra scarcity any more (drops only slightly reduced). New: in the last 4 seconds **the trap snaps shut**. All bears are stunned for 3 seconds and give 1.5× points. The status line now calls the phase "bear trap".
-- **Cardputer:** The stock market crash and the bear trap are there too, with a red frame instead of emergency lighting.
+- **Cardputer:** The stock market crash and the bear trap are there too.
 - **Crash clearly visible:** During the crash the whole screen flashes red in addition to the border, while staying transparent enough to keep playing (PC and Cardputer).
 - **Chat history (T):** The last 6 messages are shown below the chat box.
 - **Event log (L):** Shows the last 10 messages with timestamps; press L again or wait 10 seconds to close it. The key can be rebound in the options (PC and browser).

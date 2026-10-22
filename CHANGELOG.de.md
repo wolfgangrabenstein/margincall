@@ -11,7 +11,7 @@
   - **Margin Call:** Eine Nachschussforderung (750 $ in Level 2 bis 1.500 $ in Level 5, im Hardcore-Modus und im Koop mehr) muss in 20 Sekunden erfüllt sein. Geschafft: Krisengewinn. Verfehlt: **ein Leben weg**.
   - **Erholungsrallye (12 s):** 1,25-fache Punkte für Abschüsse.
 - **Bärenfalle als Gegenstück zum Bullrun:** Das Bargeld rutscht nicht mehr weg, und es gibt keine verschärfte Knappheit mehr (Drops nur noch leicht reduziert). Neu: In den letzten 4 Sekunden **schnappt die Falle zu**. Alle Bären sind 3 Sekunden benommen und bringen 1,5-fache Punkte. In der Statuszeile heißt die Phase jetzt „Bärenfalle“.
-- **Cardputer:** Börsencrash und Bärenfalle gibt es auch dort, mit rotem Rahmen statt Notbeleuchtung.
+- **Cardputer:** Börsencrash und Bärenfalle gibt es auch dort.
 - **Crash gut sichtbar:** Während des Crashs blinkt zusätzlich zum Rand der ganze Bildschirm rot, bleibt aber durchsichtig genug zum Weiterspielen (PC und Cardputer).
 - **Chatverlauf (T):** Unter dem Chatfenster stehen die letzten 6 Nachrichten.
 - **Ereignisverlauf (L):** Zeigt die letzten 10 Meldungen mit Zeitangabe; erneut L oder nach 10 Sekunden schließt ihn. Die Taste ist in den Optionen belegbar (PC und Browser).
