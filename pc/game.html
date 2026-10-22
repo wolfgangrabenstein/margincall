@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.35.1";
+const APP_VERSION = "3.35.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -648,6 +648,7 @@ let spawnT = 0, cashT = 0, aiT = 0, aiFaceT = 0, fakeT = 0, crashT = 0, glitchT 
 // Marktphasen: phase 1 = Bullrun, -1 = Baerenmarkt (je PHASE_LEN s). sentiment (-1..1) steigt mit erlegten Baeren und faellt mit
 // erlegten Bullen; der echte Kurs gibt die Grundstimmung. Bei +-1 (oder spaetestens nach einer Weile) kippt der Markt.
 let levelTime = 0, quickBonus = 0, quickSecs = 0;   // Zeit im Level und Schnellhandel-Bonus am Tresor (2000 - 5 je Sekunde)
+let freeT = 8;   // ohne NPCs: Zeit bis zum naechsten Cash/Depot
 let phase = 0, phaseT = 0, phaseCd = 25, sentiment = 0, quakeT = 0, stampedeAt = 0, bearHintAt = 0, trapSnapped = false;
 // Boersencrash (hoechstens einmal pro Lauf, nur Solo/Koop): crashStage 1 Handelsstopp, 2 Crash mit Margin Call, 3 Erholungsrallye.
 // Ausloeser: ueberhitzter Markt (2 Bullruns im Level oder 3 im Lauf) beim naechsten Abschwung, oder echter Kurs mit Live-Daten <= -3 %
@@ -1151,7 +1152,7 @@ function startPhase(dir, noCrash = false) {
     stampedeAt = 4;
   } else {
     sayAll(L("🐻 BEAR TRAP!", "🐻 BÄRENFALLE!"), 3);
-    bearTrap(); bearHintAt = 3.5;
+    if (!noNPC()) { bearTrap(); bearHintAt = 3.5; }   // ohne NPCs (Team): nur der Rueckenwind
   }
 }
 // Bullen-Stampede: eine Herde stuermt durch einen langen Gang auf einen Spieler zu
@@ -1283,18 +1284,19 @@ function updatePhase(dt) {
   if (crashStage) { updateCrash(dt); return; }
   if (phaseT > 0) {
     phaseT -= dt;
-    if (phase < 0 && !trapSnapped && phaseT <= 4) snapTrap();
+    if (phase < 0 && !trapSnapped && phaseT <= 4 && !noNPC()) snapTrap();
     if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede()) { stampedeHerd(); }   // kein langer Gang frei: Ersatz-Herde aus Verstecken
     if (phaseT <= 0) { phase = 0; phaseCd = 35; sayAll(canCrash() && overheated() ? L("MARKET OVERHEATED! KILLING BULLS COOLS IT DOWN", "MARKT ÜBERHITZT! BULLEN ERLEGEN KÜHLT IHN AB") : L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), canCrash() && overheated() ? 3 : 1.8); }
     return;
   }
   const base = clamp(levelChg * .08, -.2, .2);   // echter Kurs als Grundstimmung
   sentiment += (base - sentiment) * dt * .01;
-  if (noNPC()) return;   // ohne NPCs keine Bullruns und Baerenfallen
+  if (noNPC() && mode !== "team") return;   // ohne NPCs keine Bullruns und Baerenfallen (Team: nur als Rueckenwind, s. u.)
   if ((phaseCd -= dt) > 0) return;
   if (Math.abs(sentiment) >= .97) startPhase(sentiment > 0 ? 1 : -1);
   else if (phaseCd < -45) {
-    startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);
+    if (noNPC()) { if (teamScore[0] !== teamScore[1]) startPhase(teamScore[0] < teamScore[1] ? 1 : -1); }   // ohne NPCs: Rueckenwind fuers zurueckliegende Team
+    else startPhase(sentiment + base > 0 || (sentiment + base === 0 && levelChg >= 0) ? 1 : -1);
   }   // spaetestens nach rund einer Minute
 }
 function killEnemy(e, byPlayer) {
@@ -1717,6 +1719,9 @@ function updateEnemy(e, dt) {
 }
 
 // ---------------------------------------------------------------- Netzwerk
+// Ping: Laufzeit Mitspieler -> Host -> Mitspieler in Millisekunden
+let pingT = 0, myPing = 0;
+const pingCol = ms => ms < 80 ? "#50ff82" : ms < 150 ? "#ffd232" : "#ff7050";
 function netSend(obj) { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(obj)); }
 function netNotice(text) { netMsg = text; netMsgT = 4; }
 function netConnect(url) {   // ohne url: LAN ueber den eigenen Server; mit url: Online-Raum
@@ -1788,6 +1793,7 @@ function netReceive(m) {
       case "nick": { const n = cleanName(m.name, 15); if (n) { pl.name = n; hostSendLobby(); } break; }
       case "aim": pl.aim = ["off", "semi", "full"].includes(m.m) ? m.m : "off"; if (state === ST.LOBBY) hostSendLobby(); break;
       case "ready": if (state === ST.LOBBY) { pl.ready = !!m.ready; hostSendLobby(); } break;
+      case "ping": pl.ping = Math.max(0, Math.min(9999, m.rtt | 0)); netSend({ t: "pong", to: pl.id, ts: m.ts }); break;
       case "chat":
         if (state === ST.PLAY && mode === "coop" && String(m.text).startsWith("/")) cx(pl, m.text);
         else if (state === ST.LOBBY || state === ST.PLAY) addChat(pl.id, pl.name, m.text);
@@ -1796,6 +1802,7 @@ function netReceive(m) {
     return;
   }
   // Mitspieler: Lobby und Spielzustand vom Host
+  if (m.t === "pong") { if (typeof m.ts === "number") { myPing = Math.round(performance.now() - m.ts); if (me) me.ping = myPing; } return; }
   if (m.t === "lobby") {
     lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub; lobbyLives = m.lives || 1; lobbyBestOf = m.bo || 3; lobbyDiff = [0, 1, 2].includes(m.diff) ? m.diff : 1;
     const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
@@ -1816,7 +1823,7 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), rd: readyT > 0 ? r2(readyT) : undefined, ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT), crashStage, r2(crashStT), marginDue, marginPaid, r2(crashChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0, mode === "lms" && state !== ST.PLAY ? p.tot : undefined]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0, mode === "lms" && state !== ST.PLAY ? p.tot : undefined, p.ping || 0]),
     lms: mode === "lms" ? [lmsRound, lobbyBestOf, lmsDuel ? 1 : 0, Object.entries(lmsWins), lmsWinner, lmsOver ? 1 : 0] : undefined,
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1849,9 +1856,10 @@ function clientSnapshot(m) {
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
   if (m.lms) { [lmsRound, lobbyBestOf] = m.lms; lmsDuel = !!m.lms[2]; lmsWins = Object.fromEntries(m.lms[3]); lmsWinner = m.lms[4]; lmsOver = !!m.lms[5]; }
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out, tot] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out, tot, ping] of m.pl) {
     const p = players.find(q => q.id === id);
     Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off", lives: lives || 0, out: !!out, tot: tot || null });
+    if (!p.local) p.ping = ping || 0;
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -2684,6 +2692,13 @@ function updateGame(dt) {
     if (items.filter(i => i.active && i.stray).length < 2) {
       const c = findHiddenCell(6);
       if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true });
+    }
+  }
+  if (noNPC() && (freeT -= dt) <= 0) {
+    freeT = 8 + frand() * 6;
+    if (items.filter(i => i.active && i.free).length < 2 + players.length) {
+      const c = findHiddenCell(4), hurt = players.some(p => !p.dead && p.hp < 50);
+      if (c) items.push({ x: c[0], y: c[1], type: frand() < (hurt ? .6 : .45) ? 1 : 0, active: true, free: true });
     }
   }
   aiT -= dt;
@@ -4612,7 +4627,7 @@ function renderScoreOverlay() {
   }
   const pvp = pvpMode();
   text(mode === "team" ? L(`TEAM BULL ${teamScore[0]}  :  ${teamScore[1]} TEAM BEAR`, `TEAM BULLE ${teamScore[0]}  :  ${teamScore[1]} TEAM BÄR`) : mode === "dm" ? "DEATHMATCH" : mode === "lms" ? "LAST MAN STANDING" : L("CO-OP", "KOOP"), DW / 2, y0 + 12, "#ffd232", 22, "center");
-  const cols = pvp ? [["P&L", 560], ["FRAGS", 650], [L("DEATHS", "TODE"), 730], ["KILLS", 800]] : [["P&L", 600], ["KILLS", 700], [L("DEATHS", "TODE"), 790]];
+  const cols = pvp ? [["P&L", 520], ["FRAGS", 590], [L("DEATHS", "TODE"), 655], ["KILLS", 720], ["PING", 800]] : [["P&L", 560], ["KILLS", 640], [L("DEATHS", "TODE"), 715], ["PING", 800]];
   text(L("PLAYER", "SPIELER"), 180, y0 + 50, "#6b7896", 13);
   cols.forEach(([c, x]) => text(c, x, y0 + 50, "#6b7896", 13, "right"));
   rows.forEach((p, i) => {
@@ -4622,6 +4637,8 @@ function renderScoreOverlay() {
     text(`${i + 1}. ${nameOf(p)}${p.local ? L(" (YOU)", " (DU)") : ""}${p.dead ? " ☠" : ""}  ${aimTag(p.local ? myMpAim() : p.aim)}`, 206, y, "#e6e6f0", 17);
     const vals = pvp ? [`+$${p.score}`, p.frags || 0, p.deaths || 0, p.kills] : [`+$${p.score}`, p.kills, p.deaths || 0];
     vals.forEach((v, j) => text(String(v), cols[j][1], y, j === 0 ? "#50ff82" : "#e6e6f0", 17, "right"));
+    const host = p.id === net.hostId, ms = p.local ? myPing : p.ping;
+    text(host ? "HOST" : ms ? `${ms} ms` : "–", cols[cols.length - 1][1], y, host ? "#8290b0" : ms ? pingCol(ms) : "#6b7896", 15, "right");
   });
 }
 
@@ -4766,6 +4783,7 @@ function frame(now) {
     if (state === ST.LOBBY && (lobbyT -= dt) <= 0) { lobbyT = net.online ? 1 : .3; hostSendLobby(); }
   }
   lobbyNoteT -= dt;
+  if (isClient() && (pingT -= dt) <= 0) { pingT = 2; netSend({ t: "ping", ts: performance.now(), rtt: myPing }); }
   // Spiel im LAN ankuendigen, solange der Host in der Lobby ist (nur in der App bzw. am eigenen Server)
   const shouldAdvertise = isLocalOrigin() && net.connected && !net.online && isHost() && state === ST.LOBBY;
   if (state === ST.ONLINE && (roomsT -= dt) <= 0) {   // oeffentliche Online-Spiele abfragen

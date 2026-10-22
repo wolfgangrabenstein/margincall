@@ -2,6 +2,12 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.35.2 – Ping in der Statistik, Nachschub ohne NPCs (22.10.2026)
+
+- **Multiplayer – Ping:** Die Statistik (Tab) zeigt für jeden Spieler den Ping in Millisekunden: grün unter 80 ms, gelb unter 150 ms, darüber rot. Beim Host steht „HOST“.
+- **Multiplayer ohne NPCs:** Weil es keine Beute gibt, tauchen alle 8–14 Sekunden Cash und Depot an zufälligen Stellen abseits der Spieler auf, höchstens 2 plus Spielerzahl gleichzeitig. Ist jemand angeschlagen, kommt öfter Depot.
+- **Team-Modus ohne NPCs:** Das zurückliegende Team bekommt weiterhin per Bullrun bzw. Bärenfalle Rückenwind (+35 % Schaden, schnellerer Respawn), jetzt ohne Bärengebrüll und ohne Hinweise auf Bären, die es nicht gibt. Deathmatch und Last Man Standing bleiben ohne NPCs frei von solchen Phasen.
+
 ## Version 3.35.1 – Ohne NPCs keine Gegner-Ereignisse (22.10.2026)
 
 - **Multiplayer:** Sind die NPCs in den Match-Einstellungen ausgeschaltet, gibt es keine Bullruns, Bärenfallen und Börsencrashs mehr. ALGO-9000 löst dann nur noch Ereignisse ohne Gegner aus: Flash Crash und Systemmanipulation.

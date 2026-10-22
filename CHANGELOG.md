@@ -2,6 +2,12 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.35.2 – Ping in the statistics, supplies without NPCs (22.10.2026)
+
+- **Multiplayer – ping:** The statistics (Tab) show every player’s ping in milliseconds: green below 80 ms, yellow below 150 ms, red above. The host shows “HOST”.
+- **Multiplayer without NPCs:** Since there is no loot, cash and depot appear every 8–14 seconds at random spots away from the players, at most 2 plus the number of players at once. If someone is hurt, depot comes more often.
+- **Team mode without NPCs:** The trailing team still gets a tailwind via bull run or bear trap (+35 % damage, faster respawn), now without bear roars and without hints about bears that don’t exist. Deathmatch and Last Man Standing stay free of such phases without NPCs.
+
 ## Version 3.35.1 – No enemy events without NPCs (22.10.2026)
 
 - **Multiplayer:** With NPCs switched off in the match settings there are no more bull runs, bear traps or stock market crashes. ALGO-9000 then only triggers events without enemies: flash crash and system manipulation.
