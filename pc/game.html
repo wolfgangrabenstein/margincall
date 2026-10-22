@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.30.5";
+const APP_VERSION = "3.31.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -210,7 +210,7 @@ function storeWall(idx) {
 const S = {}; ["BEAR0","BEAR1","SELL0","SELL1","BUB0","BUB1","SHARK0","SHARK1","BULL0","BULL1","BARON0","BARON1",
   "SLICK0","SLICK1","BOT0","BOT1","ALGO0","ALGO1","DEAD","PROJ","PROJ_OIL","LASER","CASH","DIV",
   "AVM0","AVM1","AVM2","AVM3","AVMBULL","AVMBEAR","AVF0","AVF1","AVF2","AVF3","AVFBULL","AVFBEAR",
-  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5","NOTE","KEY","REFI"].forEach((n, i) => S[n] = i);
+  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5","NOTE","KEY","REFI","LIQ"].forEach((n, i) => S[n] = i);
 const sprTex = [];
 function storeSprite(idx) { sprTex[idx] = tmp.slice(); }
 // Keycard des Levels: jede Tresortuer braucht ihre eigene Farbe
@@ -487,6 +487,13 @@ function genSprites() {
   tellipse(12, 11, 4, 2.5, RGB(30, 170, 70)); tellipse(20, 11, 4, 2.5, RGB(30, 170, 70)); tcirc(16, 12, 1.5, RGB(20, 120, 50));
   tcirc(16, 21, 3.5, RGB(250, 205, 50)); trect(15, 19, 2, 4, RGB(255, 255, 255)); trect(14, 20, 4, 2, RGB(255, 255, 255));
   storeSprite(S.REFI);
+  tclear(N);   // Liquiditaetsschub: schwarzer Aktenkoffer, aus dem Geldscheine quellen
+  { const C = RGB(45, 45, 58), CL = RGB(100, 100, 120), GOLD = RGB(250, 205, 50), GOLDD = RGB(170, 120, 20), BILL = RGB(120, 205, 120), BILLD = RGB(25, 95, 40), BAND = RGB(250, 210, 60);
+  trect(12, 7, 8, 2, CL); trect(12, 7, 1, 4, CL); trect(19, 7, 1, 4, CL);   // Griff
+  for (const [bx, by, bw] of [[6, 10, 9], [15, 9, 10], [10, 11, 11]]) { trect(bx, by, bw, 3, BILLD); trect(bx, by, bw - 1, 2, BILL); trect(bx + Math.floor(bw / 2) - 1, by, 2, 3, BAND); }   // Geldscheine quellen heraus
+  trect(3, 13, 26, 15, C); trect(3, 13, 26, 1, CL); trect(3, 13, 1, 15, CL); trect(3, 19, 26, 1, CL);
+  trect(8, 18, 3, 3, GOLD); trect(21, 18, 3, 3, GOLD); tpx(9, 19, GOLDD); tpx(22, 19, GOLDD); }
+  storeSprite(S.LIQ);
   tclear(N);   // fliegender Geldschein (Projektil der Waffe)
   trect(5, 11, 22, 11, RGB(25, 95, 40)); trect(6, 12, 20, 9, RGB(120, 205, 120)); tcirc(16, 16.5, 3, RGB(25, 95, 40)); tcirc(16, 16.5, 1.6, RGB(170, 235, 170));
   trect(7, 13, 3, 2, RGB(25, 95, 40)); trect(22, 18, 3, 2, RGB(25, 95, 40));
@@ -885,7 +892,7 @@ function buildWorld(lv) {
   startDir = dirs[best];
 }
 // Keycard: Bosse lassen sie fallen; in Leveln ohne Boss faellt sie nach 8-16 erledigten Gegnern (jedes Mal zufaellig, ohne Hinweis)
-let refiDropped = false;   // Refinanzierungspaket: hoechstens eines pro Level
+let refiDropped = false, liqDropped = false;   // Refinanzierungspaket und Liquiditaetsschub: hoechstens je einer pro Level
 let vaultPos = [0, 0], hasKey = false, keyDropped = false, keyKills = 0, keyNeed = 12, levelHasBoss = false;
 function reachableCells() {   // alle Felder, die man vom Start aus zu Fuss erreicht
   const R = Array.from({ length: MAP }, () => new Array(MAP).fill(false)), q = [[Math.floor(startCell[0]), Math.floor(startCell[1])]];
@@ -937,7 +944,7 @@ function loadLevel(lv) {
   const reach = reachableCells();
   placeVault(reach);
   for (const t of spawns) { const c = randomEnemyCell(reach, TYPES[t].boss ? 9 : 5); if (c) spawnEnemy(t, c[0], c[1]); }
-  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
+  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (EZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (EZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   if (mode === "dm" || mode === "team") {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
@@ -1099,7 +1106,7 @@ function spawnProj(x, y, ang, spd, dmg, f, spr) {
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
-const itemSpr = t => t === 4 ? S.REFI : t === 3 ? S.KEY : t ? S.DIV : S.CASH;
+const itemSpr = t => t === 5 ? S.LIQ : t === 4 ? S.REFI : t === 3 ? S.KEY : t ? S.DIV : S.CASH;
 
 // Stimmung nach einem Abschuss: erlegter Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Baerenfalle.
 // Level 1 hat wenige Gegner, daher dort groessere Schritte (netto 3 statt 5 Abschuesse)
@@ -1299,6 +1306,7 @@ function killEnemy(e, byPlayer) {
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .75 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
   if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (HC() ? .005 : EZ() ? .015 : .01)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
+  if (!ti.boss && byPlayer && !e.summoned && !island && !liqDropped && frand() < (HC() ? .005 : EZ() ? .015 : .01)) { liqDropped = true; dropItem(e.x, e.y, 5); }   // genauso selten
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -2522,6 +2530,12 @@ function updateGame(dt) {
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
       if (it.type === 3) { it.active = false; hasKey = true; sayAll(L(`${keyColName()} KEYCARD! THE VAULT IS OPEN`, `${keyColName()} KEYCARD! DER TRESOR IST OFFEN`), 2.5); sfxAll("KEYCARD"); break; }
       if (it.crash) { it.active = false; addScore(pl, 150); pl.ammo = Math.min(99, pl.ammo + 5); sayTo(pl, L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "KACHING"); break; }
+      if (it.type === 5) {   // Liquiditaetsschub: viel Cash, etwas Depot
+        if (pl.ammo >= 99) continue;
+        it.active = false; const n = HC() ? 45 : 60, h = HC() ? 5 : 10; pl.ammo = Math.min(99, pl.ammo + n); pl.hp = Math.min(100, pl.hp + h); addScore(pl, 100);
+        sayTo(pl, L(`LIQUIDITY BOOST! CASH +${n} · PORTFOLIO +${h} %`, `LIQUIDITÄTSSCHUB! CASH +${n} · DEPOT +${h} %`), 2.5);
+        if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "LIQ"); break;
+      }
       if (it.type === 4) {   // Refinanzierungspaket: Depot voll, dazu Cash
         if (pl.hp >= 100) continue;
         it.active = false; pl.hp = 100; const n = HC() ? 15 : 20; pl.ammo = Math.min(99, pl.ammo + n); addScore(pl, 100);
@@ -3352,7 +3366,7 @@ function renderHUD() {
     g.fillStyle = "#3a3010"; g.fillRect(bx, HUD_Y + 36, bw, 14);
     g.fillStyle = "#ffc828"; g.fillRect(bx, HUD_Y + 36, bw * isleCoins / isleCoinsPlaced, 14);
     text(`GOLD ${isleCoins}/${isleCoinsPlaced}`, bx + 4, HUD_Y + 37, "#1a1404", 12); text(`${L("PIRATES", "PIRATEN")} ${bearsAlive}`, bx + bw - 4, HUD_Y + 37, "#ff7050", 12, "right");
-    text(`☀ ${L("TAX HAVEN", "STEUEROASE")}  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ${L("ALL COINS", "ALLE MÜNZEN")} = +$${ISLE_ALL_BONUS.toLocaleString(LOC())}${HC() ? "  ·  ☠ HARDCORE" : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
+    text(`☀ ${L("TAX HAVEN", "STEUEROASE")}  ·  ⏱ ${fmtTime(Math.ceil(isleT))}  ·  ${L("ALL COINS", "ALLE MÜNZEN")} = +$${ISLE_ALL_BONUS.toLocaleString(LOC())}${HC() ? L("  ·  ☠ DAY TRADER", "  ·  ☠ DAY-TRADER") : ""}`, 560, HUD_Y + 60, isleT < 15 ? "#ff5050" : "#ffd232", 14);
   } else {
     const bx = 560, bw = 380, tot = bullsAlive + bearsAlive, gw2 = tot ? bw * bullsAlive / tot : bw / 2;
     g.fillStyle = "#1ec850"; g.fillRect(bx, HUD_Y + 36, gw2, 14);
@@ -3370,7 +3384,7 @@ function renderHUD() {
     else if (phaseT > 0) text(phase > 0 ? `🐂 BULLRUN  ${Math.ceil(phaseT)} s  ·  ${L("1.5× POINTS", "1,5-FACHE PUNKTE")}`
       : `🐻 ${L("BEAR TRAP", "BÄRENFALLE")}  ${Math.ceil(phaseT)} s  ·  ${L("BEARS: SHORT GAIN ×2", "BÄREN: SHORT-GEWINN ×2")}`, 560, HUD_Y + 60, phase > 0 ? "#50ff82" : "#ff5050", 14);
     else if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
-    else fitText(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}${oilHint()}${heatHint()}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14, 380);
+    else fitText(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}${oilHint()}${heatHint()}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? L("  ·  ☠ DAY TRADER", "  ·  ☠ DAY-TRADER") : EZ() ? L("  ·  SMALL INVESTOR", "  ·  KLEINANLEGER") : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14, 380);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   for (const p of hurtPops) {   // Schaden faellt wie ein Kurssturz durchs Bild
@@ -3827,6 +3841,12 @@ function genSfx() {
       [1047, 1319, 1568, 2093].forEach((f, k) => addBell(o, .12 + k * .1, f, [[1, 1, 6], [2.01, .4, 9], [3, .2, 13]], .45, .6));
       lowpass(o, .6); fadeOut(o, .1); return o;
     },
+    LIQ() {   // Liquiditaetsschub: zwei Kofferschloesser klacken, dann prasselt ein Muenzregen
+      const o = buf(1.2);
+      for (const t of [0, .09]) { addNoise(o, t, .02, .6, 0, 1, .6); addBell(o, t, 2400, [[1, 1, 60], [2.3, .5, 80]], .4, .05); }
+      for (let k = 0; k < 14; k++) addBell(o, .2 + k * .05 + rand() * .02, 2600 + rand() * 1600, [[1, 1, 18], [2.7, .4, 25]], .35 * (1 - k / 20), .25);
+      lowpass(o, .7); fadeOut(o, .1); return o;
+    },
     BULLRUN() {   // Bullrun: aufsteigende Fanfare
       const o = buf(1.3);
       [[0, 392, .14], [.12, 523, .14], [.24, 659, .14], [.36, 784, .8]].forEach(([t, f, l]) => { addSweep(o, t, l, f, f, .35, 2, "saw"); addSweep(o, t, l, f * 1.003, f * 1.003, .2, 2, "sq"); });
@@ -4116,7 +4136,7 @@ function renderNameEntry() {
   chartBackground("#145a2d", "#282828");
   g.fillStyle = "rgba(0,0,0,.88)"; g.fillRect(140, 70, DW - 280, 400);
   const local = hsQualifies(hsEntry.score), place = hsList.filter(h => h.score >= hsEntry.score).length + 1;
-  text(local ? [L("NEW HIGHSCORE!", "NEUER HIGHSCORE!"), L("NEW HARDCORE HIGHSCORE!", "NEUER HARDCORE-HIGHSCORE!"), L("NEW EASY HIGHSCORE!", "NEUER EINFACH-HIGHSCORE!")][hsMode] : L("RUN OVER", "LAUF BEENDET"), DW / 2, 90, hsCol(), hsMode && local ? 36 : 44, "center");
+  text(local ? [L("NEW HIGHSCORE!", "NEUER HIGHSCORE!"), L("NEW DAY TRADER HIGHSCORE!", "NEUER DAY-TRADER-HIGHSCORE!"), L("NEW SMALL INVESTOR HIGHSCORE!", "NEUER KLEINANLEGER-HIGHSCORE!")][hsMode] : L("RUN OVER", "LAUF BEENDET"), DW / 2, 90, hsCol(), hsMode && local ? 36 : 44, "center");
   text(`${local ? `${L("RANK", "PLATZ")} ${place}  ·  ` : ""}P&L +$${hsEntry.score.toLocaleString(LOC())}  ·  ${hsEntry.won ? L("WON", "SIEG") : "LEVEL " + hsEntry.level}  ·  ☠ ${hsEntry.deaths}`, DW / 2, 152, "#50ff82", 20, "center");
   text(L("YOUR NAME", "DEIN NAME"), DW / 2, 196, "#8290b0", 15, "center");
   g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(280, 220, 400, 54);
@@ -4136,7 +4156,7 @@ function renderNameEntry() {
 function renderHighscores() {
   chartBackground("#145a2d", "#641919");
   g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(100, 26, DW - 200, 480);
-  text(["HIGHSCORES", L("☠ HARDCORE HIGHSCORES", "☠ HARDCORE-HIGHSCORES"), L("♥ EASY HIGHSCORES", "♥ EINFACH-HIGHSCORES")][hsMode], DW / 2, 34, hsCol(), 36, "center");
+  text([L("HIGHSCORES · SPECULATOR", "HIGHSCORES · SPEKULANT"), L("☠ HIGHSCORES · DAY TRADER", "☠ HIGHSCORES · DAY-TRADER"), L("♥ HIGHSCORES · SMALL INVESTOR", "♥ HIGHSCORES · KLEINANLEGER")][hsMode], DW / 2, 34, hsCol(), 36, "center");
   if (HS_TABS.length > 1) hsTabs().forEach((t, i) => {   // Reiter
     const x = 160 + i * 220, sel = i === hsTab;
     g.fillStyle = sel ? "#1e5a32" : "rgba(0,0,0,.6)"; g.fillRect(x, 76, 200, 26);
@@ -4157,7 +4177,7 @@ function renderHighscores() {
     text(t ? (hsTab === 2 ? new Date(t * 1000).toLocaleTimeString(LOC(), { hour: "2-digit", minute: "2-digit" }) : new Date(t * 1000).toLocaleDateString(LOC())) : "", 830, y, "#8290b0", 14, "right");
   };
   if (hsTab === 0) {
-    if (!hsList.length) text([L("No entries yet – play a solo round!", "Noch keine Einträge – spiel eine Runde Solo!"), L("No entries yet – dare to try hardcore!", "Noch keine Einträge – trau dich an Hardcore!"), L("No entries yet – play a round on easy!", "Noch keine Einträge – spiel eine Runde auf Einfach!")][hsMode], DW / 2, 230, "#a0a0b4", 18, "center");
+    if (!hsList.length) text([L("No entries yet – play a solo round!", "Noch keine Einträge – spiel eine Runde Solo!"), L("No entries yet – dare to try day trader!", "Noch keine Einträge – trau dich an Day-Trader!"), L("No entries yet – play a round as a small investor!", "Noch keine Einträge – spiel eine Runde als Kleinanleger!")][hsMode], DW / 2, 230, "#a0a0b4", 18, "center");
     hsList.forEach((h, i) => row(132 + i * 29, i + 1, h, i === hsNew));
   } else if (!ONLINE_HS_URL) {
     text(L("The online leaderboard is not set up yet.", "Die Online-Rangliste ist noch nicht eingerichtet."), DW / 2, 230, "#a0a0b4", 18, "center");
@@ -4172,7 +4192,7 @@ function renderHighscores() {
   }
   if (hsNote) text(hsNote, DW / 2, 430, "#ff7050", 14, "center");
   zoneButton(250, 452, 220, 38, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16);
-  zoneButton(490, 452, 220, 38, [L("[X] TO ☠ HARDCORE", "[X] ZU ☠ HARDCORE"), L("[X] TO ♥ EASY", "[X] ZU ♥ EINFACH"), L("[X] TO NORMAL", "[X] ZU NORMAL")][hsMode], ["#ff5050", "#50c8ff", "#ffd232"][hsMode], "x", 16);
+  zoneButton(490, 452, 220, 38, [L("[X] ☠ DAY TRADER", "[X] ☠ DAY-TRADER"), L("[X] ♥ SMALL INVESTOR", "[X] ♥ KLEINANLEGER"), L("[X] SPECULATOR", "[X] SPEKULANT")][hsMode], ["#ff5050", "#50c8ff", "#ffd232"][hsMode], "x", 16);
 }
 
 // ---------------------------------------------------------------- Texteingabe (Nickname, Spielname)
@@ -4372,7 +4392,7 @@ function joinKey(k) {
 let soloAsk = false;
 function startSolo(diff) {   // "easy", "normal" oder "hard"
   hardcore = diff === "hard"; easy = diff === "easy"; mode = "solo"; players = [me = makePlayer(0, true)]; newGame(); if (hardcore) me.ammo = 20;
-  state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("HARDCORE: ONE BANKRUPTCY AND IT'S OVER", "HARDCORE: EINE INSOLVENZ UND ES IST VORBEI"), 3);
+  state = ST.PLAY; fireCd = .4; sfx("KACHING"); lockMouse(); if (hardcore) say(L("DAY TRADER: ONE BANKRUPTCY AND IT'S OVER", "DAY-TRADER: EINE INSOLVENZ UND ES IST VORBEI"), 3);
   else if (!easy) say(L(`NORMAL: ${SOLO_LIVES} LIVES`, `NORMAL: ${SOLO_LIVES} LEBEN`), 2.5);
 }
 let touchHelpReturn = ST.PLAY;
@@ -4398,12 +4418,12 @@ function renderSoloAsk() {
   g.fillStyle = "#07090f"; g.fillRect(150, 110, 660, 320); g.strokeStyle = "#ffd232"; g.lineWidth = 2; g.strokeRect(150, 110, 660, 320);
   text(L("PLAY SOLO", "SOLO SPIELEN"), DW / 2, 128, "#ffd232", 30, "center");
   const col = (x, label, c, key, lines, lc) => {
-    zoneButton(x, 178, 200, 60, label, c, key, 18);
+    zoneButton(x, 178, 200, 60, label, c, key, 16);
     lines.forEach((l, i) => text(l, x + 100, 252 + i * 20, lc, 14, "center"));
   };
-  col(170, L("♥  [E] EASY", "♥  [E] EINFACH"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives.", "unbegrenzt Leben.")], "#b4dcf0");
-  col(380, "[ENTER] NORMAL", "#50ff82", "enter", [L(`${SOLO_LIVES} lives.`, `${SOLO_LIVES} Leben.`), L("Broke? A new loan", "Pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
-  col(590, "☠  [X] HARDCORE", "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
+  col(170, L("♥ [E] SMALL INVESTOR", "♥ [E] KLEINANLEGER"), "#50c8ff", "e", [L("Weaker enemies,", "Schwächere Gegner,"), L("unlimited lives.", "unbegrenzt Leben.")], "#b4dcf0");
+  col(380, L("[ENTER] SPECULATOR", "[ENTER] SPEKULANT"), "#50ff82", "enter", [L(`${SOLO_LIVES} lives.`, `${SOLO_LIVES} Leben.`), L("Broke? A new loan", "Pleite? Mit neuem"), L("gets you back in.", "Kredit geht's weiter.")], "#c8c8d7");
+  col(590, L("☠ [X] DAY TRADER", "☠ [X] DAY-TRADER"), "#ff5050", "x", [L("Much tougher enemies,", "Viel stärkere Gegner,"), L("fewer supplies,", "weniger Nachschub,"), L("1.5× points,", "1,5-fache Punkte,"), L("only ONE life.", "nur EIN Leben.")], "#ffb0a0");
   zoneButton(380, 362, 200, 40, L(`[${bindText("menuBack")}] BACK`, `[${bindText("menuBack")}] ZURÜCK`), "#8290b0", "Escape", 16);
 }
 let creditsMenu = false;   // Abspann aus dem Hauptmenue: danach zurueck ins Menue statt in die Steueroase
@@ -4584,7 +4604,7 @@ function frame(now) {
       if (isHost()) { roundT -= dt; if (roundT <= 0) { nextRound(); break; } }   // automatisch weiter nach der Pause
       renderRoundEnd(); break;
     case ST.DEAD: gameTime += dt;
-      if (HC()) renderEnd("GAME OVER", L("Hardcore: You're broke – GAME OVER", "Hardcore: Du bist pleite – GAME OVER"), "#ff3c3c", false);
+      if (HC()) renderEnd("GAME OVER", L("Day trader: You're broke – GAME OVER", "Day-Trader: Du bist pleite – GAME OVER"), "#ff3c3c", false);
       else if (outOfLives()) renderEnd("GAME OVER", L(`All ${SOLO_LIVES} lives used up – GAME OVER`, `Alle ${SOLO_LIVES} Leben verbraucht – GAME OVER`), "#ff3c3c", false);
       else renderEnd(L("BANKRUPT", "INSOLVENZ"), L(`Bankruptcy no. ${me.deaths} – penalty −$${deathPenalty.toLocaleString(LOC())}${EZ() ? "" : ` · ${livesLeft()} ${livesLeft() === 1 ? "life" : "lives"} left`}`, `Insolvenz Nr. ${me.deaths} – Strafe −$${deathPenalty.toLocaleString(LOC())}${EZ() ? "" : ` · noch ${livesLeft()} ${livesLeft() === 1 ? "Leben" : "Leben"}`}`), "#ff3c3c", false);
       break;

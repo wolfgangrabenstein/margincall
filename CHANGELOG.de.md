@@ -2,6 +2,13 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.31.0 – Kleinanleger, Spekulant, Day-Trader und der Liquiditätsschub (22.10.2026)
+
+- **Neue Namen für die Schwierigkeitsgrade:** Kleinanleger (bisher Einfach), Spekulant (bisher Normal) und Day-Trader (bisher Hardcore). Regeln und Bestenlisten bleiben gleich, die bisherigen Einträge bleiben erhalten.
+- **Liquiditätsschub:** Ein neuer, ganz seltener Drop – ein Aktenkoffer, aus dem Geldscheine quellen. Er bringt +60 Cash, +10 % Depot und 100 $ (Day-Trader: +45 Cash, +5 %). Er ist genauso selten wie das Refinanzierungspaket (1 % der eigenen Abschüsse, Day-Trader 0,5 %, Kleinanleger 1,5 %, höchstens einer pro Level) und hat einen eigenen Sound: Kofferschlösser klacken, dann prasselt ein Münzregen. Bei vollem Cash bleibt er für später liegen.
+
+Gilt für PC, Browser und Cardputer.
+
 ## Version 3.30.5 – Klarere Namenseingabe (22.10.2026)
 
 - **Highscore-Eingabe:** Die Schaltfläche „OHNE NAMEN“ heißt jetzt „KEIN EINTRAG“. Sie speichert den Lauf nicht, weder lokal noch online.

@@ -384,13 +384,26 @@ def snd_beartrap():
     return o
 
 
+def snd_liq():
+    """Liquiditaetsschub: zwei Kofferschloesser klacken, dann prasselt ein Muenzregen."""
+    o = buf(1.2)
+    for t in (0, 0.09):
+        add_noise(o, t, 0.02, 0.6, lp=1.0, hp=0.6)
+        add_bell(o, t, 2400, [(1, 1, 60), (2.3, 0.5, 80)], 0.4, 0.05)
+    for k in range(14):
+        add_bell(o, 0.2 + k * 0.05 + rng.random() * 0.02, 2600 + rng.random() * 1600, [(1, 1, 18), (2.7, 0.4, 25)], 0.35 * (1 - k / 20), 0.25)
+    lowpass(o, 0.7)
+    fade_out(o, 0.1)
+    return o
+
+
 SOUNDS = [
     ("KACHING", snd_kaching), ("COINS", snd_coins), ("SHOT", snd_shot), ("HIT", snd_hit),
     ("STAMP", snd_stamp), ("PHONE", snd_phone), ("ZAP", snd_zap), ("BELL", snd_bell),
     ("CRASH", snd_crash), ("DECLINED", snd_declined), ("POP", snd_pop),
     ("BULL", snd_bull), ("ROAR", snd_roar), ("GLITCH", snd_glitch), ("OIL", snd_oil), ("LASER", snd_laser),
     ("DODGE", snd_dodge), ("KEYCARD", snd_keycard), ("ALARM", snd_alarm),
-    ("REFI", snd_refi), ("BULLRUN", snd_bullrun), ("BEARTRAP", snd_beartrap),
+    ("REFI", snd_refi), ("BULLRUN", snd_bullrun), ("BEARTRAP", snd_beartrap), ("LIQ", snd_liq),
 ]
 
 

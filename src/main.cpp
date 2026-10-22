@@ -42,11 +42,11 @@ static uint16_t wallTex[NUM_WALL][TEX * TEX];       // RGB565 (nicht geswappt), 
 
 enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
        S_BULL0, S_BULL1, S_BARON0, S_BARON1, S_SLICK0, S_SLICK1, S_BOT0, S_BOT1, S_ALGO0, S_ALGO1,
-       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, S_NOTE, S_KEY, S_REFI, NUM_SPR };
+       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, S_NOTE, S_KEY, S_REFI, S_LIQ, NUM_SPR };
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.30.5"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.31.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -472,6 +472,15 @@ static void genSprites() {
   tellipse(12, 11, 4, 2.5f, RGB(30, 170, 70)); tellipse(20, 11, 4, 2.5f, RGB(30, 170, 70)); tcirc(16, 12, 1.5f, RGB(20, 120, 50));
   tcirc(16, 21, 3.5f, RGB(250, 205, 50)); trect(15, 19, 2, 4, RGB(255, 255, 255)); trect(14, 20, 4, 2, RGB(255, 255, 255));
   storeSprite(S_REFI);
+  // --- Liquiditaetsschub: schwarzer Aktenkoffer, aus dem Geldscheine quellen
+  tclear(T);
+  { uint32_t C = RGB(45, 45, 58), CL = RGB(100, 100, 120), GOLD = RGB(250, 205, 50), GOLDD = RGB(170, 120, 20), BILL = RGB(120, 205, 120), BILLD = RGB(25, 95, 40), BAND = RGB(250, 210, 60);
+  trect(12, 7, 8, 2, CL); trect(12, 7, 1, 4, CL); trect(19, 7, 1, 4, CL);   // Griff
+  static const int8_t BUND[3][3] = {{6, 10, 9}, {15, 9, 10}, {10, 11, 11}};   // Geldscheine quellen heraus
+  for (auto& b : BUND) { trect(b[0], b[1], b[2], 3, BILLD); trect(b[0], b[1], b[2] - 1, 2, BILL); trect(b[0] + b[2] / 2 - 1, b[1], 2, 3, BAND); }
+  trect(3, 13, 26, 15, C); trect(3, 13, 26, 1, CL); trect(3, 13, 1, 15, CL); trect(3, 19, 26, 1, CL);
+  trect(8, 18, 3, 3, GOLD); trect(21, 18, 3, 3, GOLD); tpx(9, 19, GOLDD); tpx(22, 19, GOLDD); }
+  storeSprite(S_LIQ);
   // --- fliegender Geldschein (Projektil der Waffe)
   tclear(T);
   trect(5, 11, 22, 11, RGB(25, 95, 40)); trect(6, 12, 20, 9, RGB(120, 205, 120)); tcirc(16, 16.5f, 3, RGB(25, 95, 40)); tcirc(16, 16.5f, 1.6f, RGB(170, 235, 170));
@@ -713,7 +722,7 @@ static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, b
 // Ausloeser: ueberhitzter Markt (2 Bullruns im Level oder 3 im Lauf) beim naechsten Abschwung, oder echter Kurs mit Live-Daten <= -3 %
 static int crashStage, levelBullruns, runBullruns, coolKills; static float crashStT, crashChg; static long marginDue, marginBase, marginPaid; static bool crashDone, rallySaid;
 static bool canCrash(); static bool overheated();   // unten definiert
-static bool refiDropped;   // Refinanzierungspaket: hoechstens eines pro Level
+static bool refiDropped, liqDropped;   // Refinanzierungspaket und Liquiditaetsschub: hoechstens je einer pro Level
 static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
 static inline bool bullRun() { return phase == 1 && phaseT > 0; }
@@ -994,7 +1003,7 @@ static void loadLevel(int lv) {
     if (TYPES[pend[k]].boss) levelHasBoss = true;
     float x, y; if (randomEnemyCell(TYPES[pend[k]].boss ? 9 : 5, x, y)) spawnEnemy(pend[k], x, y);
   }
-  hasKey = keyDropped = refiDropped = false; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 + (easy ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (easy && lv == 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
+  hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 + (easy ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (easy && lv == 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   static const float dirs[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
   int best = 0, bestLen = -1;
@@ -1155,6 +1164,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   if (ti.boss) dropItem(e.x, e.y, 1);
   else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f) * (bullRun() ? 2.0f : bearMkt() ? 0.75f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
   if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (hardcore ? 0.005f : easy ? 0.015f : 0.01f)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
+  if (!ti.boss && byPlayer && !e.summoned && !island && !liqDropped && frand() < (hardcore ? 0.005f : easy ? 0.015f : 0.01f)) { liqDropped = true; dropItem(e.x, e.y, 5); }   // genauso selten
 }
 
 // ---- Marktphasen
@@ -2277,6 +2287,12 @@ static void updateGame(float dt) {
       continue;
     }
     if (it.crash) { it.active = false; pickT = 0.25f; pnl += hardcore ? 225 : 150; ammo = min(99, ammo + 5); say(L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); sfxPlay(SFX_ID_KACHING); continue; }
+    if (it.type == 5) {   // Liquiditaetsschub: viel Cash, etwas Depot
+      if (ammo >= 99) continue;
+      it.active = false; pickT = 0.25f; ammo = min(99, ammo + (hardcore ? 45 : 60)); hp = min(100, hp + (hardcore ? 5 : 10)); pnl += hardcore ? 150 : 100; sfxPlay(SFX_ID_LIQ);
+      say(hardcore ? L("LIQUIDITY! CASH +45 PORTFOLIO +5%", "LIQUIDITAETSSCHUB! CASH+45 DEPOT+5%") : L("LIQUIDITY! CASH +60 PORTFOLIO +10%", "LIQUIDITAETSSCHUB! CASH+60 DEPOT+10%"), 2.5f);
+      continue;
+    }
     if (it.type == 4) {   // Refinanzierungspaket: Depot voll, dazu Cash
       if (hp >= 100) continue;
       it.active = false; pickT = 0.25f; hp = 100; ammo = min(99, ammo + (hardcore ? 15 : 20)); pnl += hardcore ? 150 : 100; sfxPlay(SFX_ID_REFI);
@@ -2454,7 +2470,7 @@ static void renderSprites() {
     }
     sprs[n++] = {e.x, e.y, (int16_t)t, sc, e.alive && e.hurt > 0, 0};
   }
-  for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type == 4 ? S_REFI : items[i].type == 3 ? S_KEY : items[i].type ? S_DIV : S_CASH), items[i].flash > 0 ? 0.5f + 0.15f * fabsf(sinf(gameTime * 10)) : 0.5f, false, 0};
+  for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type == 5 ? S_LIQ : items[i].type == 4 ? S_REFI : items[i].type == 3 ? S_KEY : items[i].type ? S_DIV : S_CASH), items[i].flash > 0 ? 0.5f + 0.15f * fabsf(sinf(gameTime * 10)) : 0.5f, false, 0};
   for (auto& p : projs) if (p.active) sprs[n++] = {p.x, p.y, (int16_t)p.spr, 0.35f, false, 0};
 
   for (int i = 0; i < n; i++) { float dx = sprs[i].x - px, dy = sprs[i].y - py; sprs[i].dist = dx * dx + dy * dy; }
@@ -2733,7 +2749,8 @@ static void renderTitle() {
   canvas.setTextColor(c565(160, 160, 180));
   canvas.drawString(L("E/S A/D W/R SPACE  P PAUSE  M MUSIC", "E/S A/D W/R SPACE  P PAUSE  M MUSIK"), 14, 109);
   int phase = ((int)(gameTime * 2)) % 4;
-  if (phase == 1 || phase == 3) centerText(L("[E]ASY [ENTER] NORMAL [X] HARDCORE", "[E]INFACH [ENTER] NORMAL [X] HARDCORE"), 121, 1, c565(255, 255, 255));
+  if (phase == 1) centerText(L("[E] SMALL INVESTOR [ENTER] SPECULATOR", "[E] KLEINANLEGER [ENTER] SPEKULANT"), 121, 1, c565(255, 255, 255));
+  else if (phase == 3) centerText(L("[X] DAY TRADER", "[X] DAY-TRADER"), 121, 1, c565(255, 120, 120));
   else if (phase == 2) centerText(L("[L] DEUTSCH", "[L] ENGLISH"), 121, 1, c565(120, 200, 255));
   else centerText("MADE BY WOLFGANG RABENSTEIN  V" FW_VERSION, 121, 1, c565(110, 120, 150));
 }
@@ -2895,10 +2912,11 @@ void loop() {
       gameTime += dt;
       if (!fetchedAtBoot && netConnected()) { fetchedAtBoot = true; fetchMarketsNow(); buildTicker(); }
       renderTitle();
-      if (enterHit || hit('x') || hit('e')) {   // E = Einfach, Enter = Normal, X = Hardcore
+      if (enterHit || hit('x') || hit('e')) {   // E = Kleinanleger, Enter = Spekulant, X = Day-Trader
         hardcore = !enterHit && hit('x'); easy = !enterHit && !hardcore; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
-        if (hardcore) say(L("HARDCORE: ONLY ONE LIFE", "HARDCORE: NUR EIN LEBEN"), 3.0f);
-        else if (!easy) say(L("NORMAL: 5 LIVES", "NORMAL: 5 LEBEN"), 2.5f);
+        if (hardcore) say(L("DAY TRADER: ONLY ONE LIFE", "DAY-TRADER: NUR EIN LEBEN"), 3.0f);
+        else if (!easy) say(L("SPECULATOR: 5 LIVES", "SPEKULANT: 5 LEBEN"), 2.5f);
+        else say(L("SMALL INVESTOR: UNLIMITED LIVES", "KLEINANLEGER: UNBEGRENZT LEBEN"), 2.5f);
       }
       else if (hit('w')) startWifiScan();
       else if (hit('l')) {   // Sprache umschalten und merken
@@ -2950,7 +2968,7 @@ void loop() {
     case ST_DEAD:
       gameTime += dt;
       if (hardcore || (!easy && deaths >= SOLO_LIVES)) {   // Hardcore bzw. alle Leben weg: der Lauf ist vorbei
-        renderEndScreen("GAME OVER", hardcore ? L("HARDCORE: THE RUN IS OVER", "HARDCORE: DER LAUF IST VORBEI") : L("ALL 5 LIVES USED UP", "ALLE 5 LEBEN VERBRAUCHT"), c565(255, 60, 60), false);
+        renderEndScreen("GAME OVER", hardcore ? L("DAY TRADER: THE RUN IS OVER", "DAY-TRADER: DER LAUF IST VORBEI") : L("ALL 5 LIVES USED UP", "ALLE 5 LEBEN VERBRAUCHT"), c565(255, 60, 60), false);
         if (enterHit) { state = ST_TITLE; musicStart(); }
       } else {
         static char sub[40];

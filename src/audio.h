@@ -24,6 +24,7 @@ enum SfxId {
   SFX_ID_REFI,      // Refinanzierungspaket
   SFX_ID_BULLRUN,   // Bullrun beginnt (Fanfare)
   SFX_ID_BEARTRAP,  // Baerenfalle beginnt
+  SFX_ID_LIQ,       // Liquiditaetsschub (Koffer und Muenzregen)
   SFX_COUNT
 };
 

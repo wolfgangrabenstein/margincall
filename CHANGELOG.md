@@ -2,6 +2,13 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.31.0 – Small investor, speculator, day trader and the liquidity boost (22.10.2026)
+
+- **New names for the difficulty levels:** Small investor (formerly easy), speculator (formerly normal) and day trader (formerly hardcore). Rules and leaderboards stay the same, existing entries are kept.
+- **Liquidity boost:** A new, very rare drop – a briefcase overflowing with banknotes. It gives +60 cash, +10 % portfolio and 00 (day trader: +45 cash, +5 %). It is just as rare as the refinancing package (1 % of your kills, day trader 0.5 %, small investor 1.5 %, at most one per level) and has its own sound: briefcase clasps click, then coins rain down. With full cash it stays on the floor for later.
+
+Applies to PC, browser and Cardputer.
+
 ## Version 3.30.5 – Clearer name entry (22.10.2026)
 
 - **Highscore entry:** The “SKIP” button is now called “DON’T SAVE”. It does not save the run, neither locally nor online.
