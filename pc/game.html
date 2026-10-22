@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.29.0";
+const APP_VERSION = "3.30.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -632,7 +632,11 @@ let spawnT = 0, cashT = 0, aiT = 0, aiFaceT = 0, fakeT = 0, crashT = 0, glitchT 
 // Marktphasen: phase 1 = Bullrun, -1 = Baerenmarkt (je PHASE_LEN s). sentiment (-1..1) steigt mit erlegten Baeren und faellt mit
 // erlegten Bullen; der echte Kurs gibt die Grundstimmung. Bei +-1 (oder spaetestens nach einer Weile) kippt der Markt.
 let levelTime = 0, quickBonus = 0, quickSecs = 0;   // Zeit im Level und Schnellhandel-Bonus am Tresor (2000 - 5 je Sekunde)
-let phase = 0, phaseT = 0, phaseCd = 25, sentiment = 0, quakeT = 0, stampedeAt = 0, bearHintAt = 0;
+let phase = 0, phaseT = 0, phaseCd = 25, sentiment = 0, quakeT = 0, stampedeAt = 0, bearHintAt = 0, trapSnapped = false;
+// Boersencrash (hoechstens einmal pro Lauf, nur Solo/Koop): crashStage 1 Handelsstopp, 2 Crash mit Margin Call, 3 Erholungsrallye.
+// Ausloeser: ueberhitzter Markt (2 Bullruns im Level oder 3 im Lauf) beim naechsten Abschwung, oder echter Kurs mit Live-Daten <= -3 %
+let crashStage = 0, crashStT = 0, crashChg = 0, marginDue = 0, marginBase = 0, marginPaid = 0, crashDone = false, rallySaid = false;
+let levelBullruns = 0, runBullruns = 0, coolKills = 0;
 const PHASE_LEN = 20;
 const bullRun = () => phase === 1 && phaseT > 0, bearMkt = () => phase === -1 && phaseT > 0;
 let tickerSegs = [], tickerW = 0, bullsAlive = 0, bearsAlive = 0;
@@ -750,7 +754,7 @@ function applyMarket(resetReplay = true) {
 // Manipulation blendet in den letzten 4 Sekunden aus
 const manipEff = () => manipT > 0 ? manipChg * Math.min(1, manipT / 4) : 0;
 function marketEffect() {   // Spielkurs = echter Kurs + Manipulation
-  levelChg = realChg + manipEff() + cheatChg;
+  levelChg = realChg + manipEff() + cheatChg + crashChg;
   pBullBase = clamp(.5 + levelChg * .2, .15, .85);
 }
 function manipulate(chg, t, msg) {
@@ -781,7 +785,8 @@ function spawnEnemy(type, x, y) {
   const a = frand() * 6.283;
   Object.assign(e, { x, y, type, f: ti.f, hp: Math.round(ti.hp * str * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), maxhp: Math.round(ti.hp * coop * (HC() ? 1.4 : EZ() ? .7 : 1)), str, alive: true, awake: false, gone: false,
     halfDone: false, pir: undefined, cd: 1 + frand(), anim: frand() * 6, hurt: 0, attackAnim: 0, think: frand() * .4, deadT: 0, chargeT: 0, chargeCd: 0,
-    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
+    mdx: Math.cos(a), mdy: Math.sin(a), spawnCd: 6, roarCd: 1 + frand() * 3, target: null, summoned: false, stampede: false, orb: 1, aggro: null, aggroT: 0, coverT: 0, coverCd: 0, lurkT: 0, lurkCd: frand() * 3, lurking: false, rushT: 0,
+    trapT: 0, hunter: false, guardX: undefined, alertT: 0 });   // wiederverwendete Objekte: Merkmale zuruecksetzen
   return e;
 }
 // Rasterlauf ueber alle Zellen, die die Strecke beruehrt; genau durch eine Ecke zaehlt als blockiert
@@ -943,13 +948,14 @@ function loadLevel(lv) {
   spawnT = 6; cashT = 40 + frand() * 30; aiT = lv === 0 ? 60 + frand() * 25 : lv === NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
   phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navDist = null; levelTime = 0;
+  crashStage = 0; crashChg = 0; levelBullruns = 0; coolKills = 0;
   sayAll(`LEVEL ${lv + 1}: ${levelName(lv)}`, 3);
   sfxAll("BELL"); musicStart(1 + level); emit(["music", 1 + level]);
 }
 function newGame() {
   marketsSimulate(true);   // ohne Live-Kurse: pro Lauf ein neuer simulierter Markttag
   rngState = (Math.random() * 4294967295 >>> 0) || 1;   // jedes Spiel anders verteilt
-  island = islandDone = false; cheated = false;
+  island = islandDone = false; cheated = false; crashDone = false; runBullruns = 0;
   players.forEach(p => { p.god = false; p.noclip = false; p.psy = false; });
   players.forEach(p => { p.hp = 100; p.ammo = 30; p.score = 0; p.kills = 0; p.deaths = 0; });
   loadLevel(0);
@@ -1086,8 +1092,14 @@ function moveSentiment(e, k) {
   const st = (level === 0 ? .34 : .2) * k;
   if (e.f === F.BEAR) sentiment = Math.min(1.2, sentiment + st); else if (e.f === F.BULL) sentiment = Math.max(-1.2, sentiment - st);
 }
-function startPhase(dir) {
-  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL");
+const canCrash = () => !crashDone && !island && !EZ() && level >= 1 && (mode === "solo" || mode === "coop");
+const overheated = () => levelBullruns >= 2 || runBullruns >= 3;
+const liveCrash = () => levelMarket().live && realChg <= -3;   // echter Markt bricht ein: Crash garantiert
+const heatHint = () => canCrash() && overheated() && !crashStage ? L("  ·  🔥 OVERHEATED", "  ·  🔥 ÜBERHITZT") : "";
+function startPhase(dir, noCrash = false) {
+  if (!noCrash && canCrash() && (liveCrash() || (dir < 0 && overheated()))) { startCrash(); return; }
+  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxAll("BELL"); trapSnapped = false;
+  if (dir > 0) { levelBullruns++; runBullruns++; }
   if (mode === "team") sayAll(dir > 0 ? L("TEAM BULL +35 % DAMAGE · FAST RESPAWN", "TEAM BULLE +35 % SCHADEN · SCHNELLER RESPAWN") : L("TEAM BEAR +35 % DAMAGE · FAST RESPAWN", "TEAM BÄR +35 % SCHADEN · SCHNELLER RESPAWN"), 3.5);
   if (dir > 0) {
     sayAll(L("🐂 BULLRUN! MORE CASH · 1.5× POINTS", "🐂 BULLRUN! MEHR BARGELD · 1,5-FACHE PUNKTE"), 3.5);
@@ -1095,7 +1107,7 @@ function startPhase(dir) {
     stampedeAt = 4;
   } else {
     sayAll(L("🐻 BEAR TRAP!", "🐻 BÄRENFALLE!"), 3);
-    marketCrash(); bearHintAt = 3.5;
+    bearTrap(); bearHintAt = 3.5;
   }
 }
 // Bullen-Stampede: eine Herde stuermt durch einen langen Gang auf einen Spieler zu
@@ -1121,14 +1133,82 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
   sfxAll("BULL");
   return true;
 }
-// Baerenfalle: Baeren greifen im Rudel an, Bargeld schlittert weg und taucht woanders wieder auf
-function marketCrash() {
+// Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede), Baeren zaehlen als Short-Gewinn doppelt
+function bearTrap() {
   sfxAll("ROAR");
   const c = findHiddenCell(5);
   if (c) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, c[0] + (k - 1) * .35, c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; } }   // Rudel greift gestaffelt an
-  for (const it of items) if (it.active && it.type === 0 && !it.slide) {
-    const t = findHiddenCell(3); if (t) it.slide = { fx: it.x, fy: it.y, tx: t[0], ty: t[1], t: 0 };
+}
+// letzte 4 Sekunden der Baerenfalle: der Markt dreht, die Baeren sitzen in der Falle (3 s benommen, Fallen-Bonus)
+function snapTrap() {
+  trapSnapped = true; sfxAll("BELL");
+  sayAll(L("THE TRAP SNAPS SHUT! BEARS STUNNED", "DIE FALLE SCHNAPPT ZU! BÄREN BENOMMEN"), 3);
+  for (const e of enemies) if (e.alive && e.f === F.BEAR && e.pir === undefined) { e.trapT = 3; e.lurkT = 0; e.lurking = false; e.coverT = 0; }
+}
+const teamCash = () => players.reduce((a, p) => a + p.score, 0);
+function startCrash() {
+  crashDone = true; crashStage = 1; crashStT = 3; rallySaid = false;
+  phase = 0; phaseT = 0; stampedeAt = 0; bearHintAt = 0;
+  sfxAll("CRASH"); sfxAll("GLITCH");
+  sayAll(L("⚠ TRADING HALT – STOCK MARKET CRASH!", "⚠ HANDELSSTOPP – BÖRSENCRASH!"), 3);
+  for (const e of enemies) { e.lurkT = 0; e.lurking = false; e.coverT = 0; e.chargeT = 0; }
+}
+function beginCrash() {   // nach dem Handelsstopp: Margin Call, Notverkaeufe mit Waechtern, Jagdrudel
+  crashStage = 2; crashStT = 20; sfxAll("ROAR");
+  marginDue = Math.round((500 + 250 * level) * (HC() ? 1.5 : 1) * (1 + .5 * (players.length - 1)) / 50) * 50;
+  marginBase = teamCash(); marginPaid = 0;
+  sayAll(L(`MARGIN CALL! RAISE $${marginDue.toLocaleString(LOC())} IN 20 S`, `MARGIN CALL! BRING $${marginDue.toLocaleString(LOC())} IN 20 S AUF`), 3.5);
+  for (let k = 0; k < 3; k++) {   // Bargeld-Haufen, jeweils von Baeren bewacht
+    const c = findHiddenCell(4); if (!c) continue;
+    for (let j = 0; j < 4; j++) items.push({ x: c[0] + (j % 2 - .5) * .5, y: c[1] + ((j >> 1) - .5) * .5, type: 0, active: true, crash: true });
+    for (let j = 0; j < (HC() ? 2 : 1); j++) { const e = spawnEnemy(E.BEAR, c[0] + (j ? .6 : -.6), c[1]); if (!e.gone) Object.assign(e, { guardX: c[0], guardY: c[1], awake: true }); }
   }
+  const h = findHiddenCell(5);
+  if (h) for (let k = 0; k < 3; k++) { const e = spawnEnemy(E.BEAR, h[0] + (k - 1) * .35, h[1]); if (!e.gone) Object.assign(e, { awake: true, cd: .5 + k * .45, hunter: true }); }
+}
+function endCrash(ok) {
+  crashStage = 3; crashStT = 12; quakeT = 0;
+  for (const e of enemies) { e.guardX = undefined; e.hunter = false; }
+  if (ok) {
+    const bonus = Math.round(marginDue * .25 / 50) * 50;
+    players.forEach(p => addScore(p, bonus)); sfxAll("KACHING");
+    sayAll(L(`MARGIN CALL MET! CRISIS PROFIT +$${bonus.toLocaleString(LOC())}`, `MARGIN CALL ERFÜLLT! KRISENGEWINN +$${bonus.toLocaleString(LOC())}`), 3.5);
+  } else {
+    sayAll(L("MARGIN CALL MISSED – ONE LIFE LOST", "MARGIN CALL VERFEHLT – EIN LEBEN WEG"), 3.5);
+    for (const p of players) {
+      if (p.dead || p.god) continue;
+      if (isMP() || HC() || livesLeft() <= 1) damagePlayer(p, 9999, null);   // letztes Leben bzw. Koop: Insolvenz
+      else { p.deaths++; sfxTo(p, "CRASH"); }
+    }
+  }
+}
+function updateCrash(dt) {
+  crashStT -= dt; aiT = Math.max(aiT, 5);   // keine ALGO-Ereignisse mitten im Crash
+  if (crashStage === 1) { if (crashStT <= 0) beginCrash(); return; }
+  if (crashStage === 2) {
+    quakeT = Math.max(quakeT, .5); crashChg = Math.max(-10, crashChg - dt * .5); marketEffect();   // Kurs faellt live
+    marginPaid = Math.max(marginPaid, teamCash() - marginBase);
+    if (marginPaid >= marginDue) endCrash(true); else if (crashStT <= 0) endCrash(false);
+    return;
+  }
+  crashChg += (-4 - crashChg) * Math.min(1, dt * .5); marketEffect();   // Erholung, aber nicht ganz
+  if (!rallySaid && crashStT < 8.5) { rallySaid = true; sayAll(L("📈 RECOVERY RALLY: 1.25× POINTS", "📈 ERHOLUNGSRALLYE: 1,25-FACHE PUNKTE"), 3); }
+  if (crashStT <= 0) { crashStage = 0; phaseCd = 60; sayAll(L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), 1.8); }
+}
+// Crash: Baer bewacht einen Bargeld-Haufen, greift nur in der Naehe an und laesst sich nicht weglocken
+function guardAI(e, dt, spd) {
+  const pl = nearestPlayer(e, 99, false); if (!pl) return;
+  const dg = Math.hypot(pl.x - e.guardX, pl.y - e.guardY), d = Math.hypot(pl.x - e.x, pl.y - e.y);
+  e.alertT -= dt;
+  if (e.hurt > 0 || (dg < 4 && lineOfSight(e.x, e.y, pl.x, pl.y))) e.alertT = 4;
+  if (e.alertT > 0 && dg < (HC() ? 7 : 6)) {
+    e.target = pl;
+    if (d > .75) chase(e, pl, 1.6 * spd, dt);
+    else if (e.cd <= 0) { e.cd = 1; e.attackAnim = .3; meleeHit(e, 12, 2, L("BEAR CLAW! PRICE DROP", "BÄRENTATZE! KURSVERLUST")); }
+    return;
+  }
+  const gx = e.guardX + Math.cos(e.anim * .8) * .7, gy = e.guardY + Math.sin(e.anim * .8) * .7;   // am Haufen auf und ab
+  chase(e, { x: gx, y: gy }, Math.hypot(gx - e.x, gy - e.y) > 1.5 ? 1.6 * spd : .8, dt);
 }
 function updatePhase(dt) {
   for (const it of items) if (it.slide) {   // Bargeld schlittert sichtbar zur neuen Stelle
@@ -1137,10 +1217,12 @@ function updatePhase(dt) {
     if (k >= 1) { it.slide = null; it.flash = 1.5; }
   }
   if (bearHintAt > 0 && (bearHintAt -= dt) <= 0) sayAll(L("SHORT GAINS: BEARS COUNT DOUBLE", "SHORT-GEWINNE: BÄREN ZÄHLEN DOPPELT"), 2.5);
+  if (crashStage) { updateCrash(dt); return; }
   if (phaseT > 0) {
     phaseT -= dt;
+    if (phase < 0 && !trapSnapped && phaseT <= 4) snapTrap();
     if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede() && phaseT > 3) stampedeAt = 2;   // kein Gang frei: gleich nochmal versuchen
-    if (phaseT <= 0) { phase = 0; phaseCd = 35; sayAll(L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), 1.8); }
+    if (phaseT <= 0) { phase = 0; phaseCd = 35; sayAll(canCrash() && overheated() ? L("MARKET OVERHEATED! KILLING BULLS COOLS IT DOWN", "MARKT ÜBERHITZT! BULLEN ERLEGEN KÜHLT IHN AB") : L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), canCrash() && overheated() ? 3 : 1.8); }
     return;
   }
   const base = clamp(levelChg * .08, -.2, .2);   // echter Kurs als Grundstimmung
@@ -1160,7 +1242,8 @@ function killEnemy(e, byPlayer) {
     byPlayer.kills++;
     if (!island && phaseT <= 0) moveSentiment(e, 1);
     const shortGain = bearMkt() && e.f === F.BEAR;
-    let pts = Math.round(ti.pts * (bullRun() ? 1.5 : 1) * (shortGain ? 2 : 1) * (e.summoned ? .5 : 1));
+    let pts = Math.round(ti.pts * (bullRun() ? 1.5 : 1) * (shortGain ? 2 : 1) * (e.summoned ? .5 : 1) * (e.trapT > 0 ? 1.5 : 1) * (crashStage === 3 ? 1.25 : 1));
+    if (e.f === F.BULL && canCrash() && overheated() && ++coolKills >= 6) { coolKills = 0; levelBullruns = 0; runBullruns = Math.min(runBullruns, 1); sayAll(L("MARKET COOLED DOWN", "MARKT ABGEKÜHLT"), 2); }
     if (ti.boss && !isMP()) {   // 4.2: Boss-Punkte gibt es pro Level nur einmal voll (nach einem Tod 10 %)
       byPlayer.bossPaid = byPlayer.bossPaid || {};
       if (byPlayer.bossPaid[level]) pts = Math.round(pts * .1); else byPlayer.bossPaid[level] = true;
@@ -1181,7 +1264,7 @@ function killEnemy(e, byPlayer) {
   }
   const chance = byPlayer ? (e.type === E.SELLER || e.type === E.BARON ? 1 : e.summoned ? .25 : .38) : .22;
   if (ti.boss) dropItem(e.x, e.y, 1);
-  else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .5 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
+  else if (frand() < chance * (HC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .75 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -1368,6 +1451,7 @@ function chooseTarget(e) {
   if ((bullRun() && e.type === E.BULL) || (bearMkt() && e.type === E.BEAR)) {   // Marktphase: jagt den naechsten Spieler, egal wo
     const p = nearestPlayer(e, 99, false); if (p) { e.target = p; e.awake = true; return; }
   }
+  if (e.hunter && crashStage === 2) { const p = nearestPlayer(e, 99, false); if (p) { e.target = p; e.awake = true; return; } }   // Crash-Jagdrudel
   if (e.aggroT > 0 && e.aggro && !e.aggro.dead) { e.target = e.aggro; return; }   // wer schiesst, wird verfolgt – auch aus der Ferne
   let bt = null, best = 1e9;
   const pl = nearestPlayer(e, 11, true);
@@ -1388,10 +1472,18 @@ function meleeHit(e, dmgP, dmgE, why) {
 }
 function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt;   // Gesamttakt hoechstens x2
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt; e.trapT -= dt;   // Gesamttakt hoechstens x2
+  if (crashStage === 1) return;   // Handelsstopp: alles erstarrt
   if (e.pir !== undefined) { pirateAI(e, dt); return; }
   unstick(e, e.type === E.SHARK ? .35 : .25);
   const spd = Math.min(1.6, (crashT > 0 ? 1.4 : 1) * bearRage), animal = e.f === F.BULL || e.f === F.BEAR;
+  if (animal && e.trapT > 0) { if (frand() < dt * 2) { const a = frand() * 6.283; e.mdx = Math.cos(a); e.mdy = Math.sin(a); } moveEntity(e, e.mdx * .4 * dt, e.mdy * .4 * dt, .25); return; }   // in der Falle: benommen
+  if (crashStage === 2 && e.f === F.BULL) {   // Crash: Panik, die Bullen fliehen
+    const pl = nearestPlayer(e, 12, false);
+    if (pl) { const dx = e.x - pl.x, dy = e.y - pl.y, l = Math.hypot(dx, dy) + 1e-4; if (!moveEntity(e, dx / l * 2 * dt, dy / l * 2 * dt, .25)) moveEntity(e, -dy / l * 2 * dt, dx / l * 2 * dt, .25); }
+    return;
+  }
+  if (crashStage === 2 && e.guardX !== undefined) { guardAI(e, dt, spd); return; }
   if (animal && e.think <= 0) { e.think = .4; chooseTarget(e); if (e.target) e.awake = true; }
   let t = e.target;
   if (!animal) t = nearestPlayer(e, 40, false);
@@ -1594,7 +1686,7 @@ const r2 = v => Math.round(v * 100) / 100;
 function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), ts: teamScore,
-    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT)], ba: [bullsAlive, bearsAlive], mk: marketKills,
+    fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT), crashStage, r2(crashStT), marginDue, marginPaid, r2(crashChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
     pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off"]),
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1621,7 +1713,7 @@ function clientSnapshot(m) {
   hasKey = !!m.k;
   if (state === ST.OPTIONS) optReturn = m.st; else state = m.st;
   roundT = m.rt; teamScore = m.ts; [bullsAlive, bearsAlive] = m.ba; marketKills = m.mk;
-  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0, cheatChg = 0, phase = 0, phaseT = 0, sentiment = 0, quakeT = 0] = m.fx;
+  [fakeT, glitchT, aiFaceT, invertT, crashT, manipChg = 0, manipT = 0, cheatChg = 0, phase = 0, phaseT = 0, sentiment = 0, quakeT = 0, crashStage = 0, crashStT = 0, marginDue = 0, marginPaid = 0, crashChg = 0] = m.fx;
   marketEffect();
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
@@ -1709,11 +1801,11 @@ let cheated = false, cheatChg = 0, hsNote = "";
 const hx = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const CX = { 2420334519: ["p"], 4213436061: ["g"], 2774362824: ["f"], 2824693482: ["c"], 1222718734: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
   934299367: ["l", 1], 951076986: ["l", 2], 967854605: ["l", 3], 850411272: ["l", 4], 867188891: ["l", 5], 883966510: ["l", 6],
-  2701532541: ["m", 1], 2650612120: ["m", -1], 1273636928: ["m", -1] };
+  2701532541: ["m", 1], 1036699575: ["m", -1], 1133165847: ["x"] };
 function cx(pl, txt) {
   const c = CX[hx(String(txt).slice(1).replace(/\s+/g, "").toLowerCase())];
   if (!c || state !== ST.PLAY || (mode !== "solo" && mode !== "coop")) return;
-  if (isMP() && !pl.local && ["k", "a", "m", "l"].includes(c[0])) { sayTo(pl, L("HOST ONLY", "NUR HOST"), 1.5); return; }   // was alle betrifft, darf nur der Host
+  if (isMP() && !pl.local && ["k", "a", "m", "l", "x"].includes(c[0])) { sayTo(pl, L("HOST ONLY", "NUR HOST"), 1.5); return; }   // was alle betrifft, darf nur der Host
   cheated = true;
   switch (c[0]) {
     case "g": pl.god = !pl.god; sayTo(pl, pl.god ? L("INVULNERABLE", "UNVERWUNDBAR") : L("VULNERABLE AGAIN", "WIEDER VERWUNDBAR"), 1.5); break;
@@ -1723,7 +1815,8 @@ function cx(pl, txt) {
     case "p": pl.psy = !pl.psy; if (pl.local) me.psy = pl.psy; else emit(["psy", pl.id, pl.psy ? 1 : 0]); break;
     case "k": cheatChg = c[1] - realChg; marketEffect(); sayAll(`${L("PRICE", "KURS")} ${fmtChg(levelChg)}`, 2); break;
     case "a": if (!island) aiEvent(); break;
-    case "m": if (!island) { phaseT = 0; stampedeAt = 0; startPhase(c[1]); } break;   // Marktphase sofort
+    case "m": if (!island && !crashStage) { phaseT = 0; stampedeAt = 0; startPhase(c[1], true); } break;   // Marktphase sofort (ohne Crash-Pruefung)
+    case "x": if (!island && !crashStage) startCrash(); break;   // Boersencrash sofort
     case "l":
       if (c[1] === 6) { if (!isMP()) startIsland(); break; }
       island = false; loadLevel(c[1] - 1); state = ST.PLAY; fireCd = .4;
@@ -2364,6 +2457,7 @@ function updateGame(dt) {
       if (pl.dead || (pl.x - it.x) ** 2 + (pl.y - it.y) ** 2 > .3) continue;
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
       if (it.type === 3) { it.active = false; hasKey = true; sayAll(L(`${keyColName()} KEYCARD! THE VAULT IS OPEN`, `${keyColName()} KEYCARD! DER TRESOR IST OFFEN`), 2.5); sfxAll("KEYCARD"); break; }
+      if (it.crash) { it.active = false; addScore(pl, 150); pl.ammo = Math.min(99, pl.ammo + 5); sayTo(pl, L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "KACHING"); break; }
       if (it.type === 0) { if (pl.ammo >= 99) continue; const n = HC() ? 7 : 10; pl.ammo = Math.min(99, pl.ammo + n); sayTo(pl, `CASHFLOW +${n}`, 1.2); }
       else { if (pl.hp >= 100) continue; const n = HC() ? 15 : 20; pl.hp = Math.min(100, pl.hp + n); sayTo(pl, `${L("DIVIDEND PAID", "DIVIDENDE AUSGESCHÜTTET")} +${n} %`, 1.2); }
       it.active = false; addScore(pl, 25);
@@ -2405,7 +2499,7 @@ function updateGame(dt) {
   cashT -= dt;
   if (cashT <= 0) {
     const broke = players.some(p => !p.dead && p.ammo <= 3);
-    cashT = (broke ? 15 + frand() * 10 : 45 + frand() * 30) * (HC() ? 1.6 : 1) * (bullRun() ? .5 : bearMkt() ? 1.6 : 1);
+    cashT = (broke ? 15 + frand() * 10 : 45 + frand() * 30) * (HC() ? 1.6 : 1) * (bullRun() ? .5 : 1);
     if (items.filter(i => i.active && i.stray).length < 2) {
       const c = findHiddenCell(6);
       if (c) items.push({ x: c[0], y: c[1], type: 0, active: true, stray: true });
@@ -2725,7 +2819,7 @@ function startIsland() {
   enemies = []; items = []; projs = []; hist = []; histT = 0;
   manipChg = manipT = dumpAt = 0; marketEffect(); manipDrawn = 0;
   aiFaceT = fakeT = crashT = glitchT = invertT = 0;
-  phase = 0; phaseT = 0; sentiment = 0; quakeT = 0;   // keine Marktphasen in der Steueroase
+  phase = 0; phaseT = 0; sentiment = 0; quakeT = 0; crashStage = 0; crashChg = 0;   // keine Marktphasen in der Steueroase
   let sy = MAP - 2; while (sy > 2 && world[sy][10] !== ".") sy--;   // Start am Suedstrand, Blick zur Inselmitte
   px = 10.5; py = sy - .5; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
   players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
@@ -3201,10 +3295,12 @@ function renderHUD() {
     }
     const m = levelMarket();
     const ml = level === NUM_LEVELS - 1 ? "MIX" : m.label;
-    if (phaseT > 0) text(phase > 0 ? `🐂 BULLRUN  ${Math.ceil(phaseT)} s  ·  ${L("1.5× POINTS", "1,5-FACHE PUNKTE")}`
-      : `🐻 ${L("BEAR MARKET", "BÄRENMARKT")}  ${Math.ceil(phaseT)} s  ·  ${L("BEARS: SHORT GAIN ×2", "BÄREN: SHORT-GEWINN ×2")}`, 560, HUD_Y + 60, phase > 0 ? "#50ff82" : "#ff5050", 14);
+    if (crashStage) text(crashStage === 3 ? `📈 ${L("RECOVERY RALLY", "ERHOLUNGSRALLYE")}  ${Math.ceil(crashStT)} s  ·  ${L("1.25× POINTS", "1,25-FACHE PUNKTE")}`
+      : `⚠ ${L("STOCK MARKET CRASH", "BÖRSENCRASH")}  ·  ${ml} ${fmtChg(levelChg)}`, 560, HUD_Y + 60, crashStage === 3 ? "#50ff82" : "#ff5050", 14);
+    else if (phaseT > 0) text(phase > 0 ? `🐂 BULLRUN  ${Math.ceil(phaseT)} s  ·  ${L("1.5× POINTS", "1,5-FACHE PUNKTE")}`
+      : `🐻 ${L("BEAR TRAP", "BÄRENFALLE")}  ${Math.ceil(phaseT)} s  ·  ${L("BEARS: SHORT GAIN ×2", "BÄREN: SHORT-GEWINN ×2")}`, 560, HUD_Y + 60, phase > 0 ? "#50ff82" : "#ff5050", 14);
     else if (manipT > 0) text(`${ml} ${fmtChg(realChg)} → ALGO ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}`, 560, HUD_Y + 60, Math.floor(gameTime * 4) % 2 ? "#ff3cc8" : (levelChg >= 0 ? "#50ff82" : "#ff5050"), 14);
-    else fitText(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}${oilHint()}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14, 380);
+    else fitText(`${ml} ${fmtChg(levelChg)}  ·  ${L("OIL", "ÖL")} ${fmtChg(oilChg)}${oilHint()}${heatHint()}  ·  ${mStat()}${mode === "coop" ? `  ·  ${L("CO-OP", "KOOP")} ${players.length} ${L("PLAYERS", "SPIELER")}` : ""}${HC() ? "  ·  ☠ HARDCORE" : EZ() ? L("  ·  EASY", "  ·  EINFACH") : ""}`, 560, HUD_Y + 60, levelChg >= 0 ? "#50ff82" : "#ff5050", 14, 380);
   }
   if (hurtT > 0) { g.strokeStyle = "rgba(255,0,0,.9)"; g.lineWidth = 10; g.strokeRect(5, 5, DW - 10, HUD_Y - 10); }
   for (const p of hurtPops) {   // Schaden faellt wie ein Kurssturz durchs Bild
@@ -3705,7 +3801,7 @@ function nextStep() {
 }
 function pulse(v) { v.ph = (v.ph + v.inc) % 1; return v.ph < v.duty ? 1 : -1; }
 function renderMusic(out) {
-  const s = ms, stepLen = Math.floor(MR * 60 / (s.song.bpm * (musicPanic ? 1.22 : 1) * (bullRun() ? 1.12 : bearMkt() ? .9 : 1) * 4));
+  const s = ms, stepLen = Math.floor(MR * 60 / (s.song.bpm * (musicPanic ? 1.22 : 1) * (bullRun() ? 1.12 : bearMkt() ? .9 : crashStage === 2 ? .82 : 1) * 4));
   for (let i = 0; i < out.length; i++) {
     if (--s.left <= 0) { s.left = stepLen; nextStep(); }
     if (++s.lfoC >= 64) { s.lfoC = 0; s.lfoPh += 64 * 6 * 2 * Math.PI / MR; s.vib = Math.sin(s.lfoPh); if (s.lead.inc !== s.lead.target) s.lead.inc += (s.lead.target - s.lead.inc) / 6; }
@@ -3726,7 +3822,7 @@ function renderMusic(out) {
 // Musik laeuft nur, wenn sie an ist, das Spiel nicht pausiert ist, der Tab sichtbar ist und der Server noch laeuft.
 // Beim Pausieren bleibt der Sequencer stehen und macht danach an derselben Stelle weiter.
 let musicSources = [], serverGone = false, pingFails = 0;
-const musicAudible = () => musicOn && musicRunning && !document.hidden && !serverGone &&
+const musicAudible = () => musicOn && musicRunning && !document.hidden && !serverGone && crashStage !== 1 &&
   state !== ST.PAUSE && !(state === ST.OPTIONS && optReturn === ST.PAUSE);
 function musicKill() {
   for (const s of musicSources) { try { s.stop(); } catch (e) { } }
@@ -4264,6 +4360,18 @@ function renderPlay(dt) {
   const shx = (hk > 0 ? (Math.random() - .5) * 16 * hk : 0) + (Math.random() - .5) * 9 * qk, shy = (hk > 0 ? (Math.random() - .5) * 10 * hk : 0) + (Math.random() - .5) * 7 * qk;
   if (shx || shy) { g.fillStyle = "#300"; g.fillRect(0, 0, DW, HUD_Y); }
   g.drawImage(low, 0, 0, RW, VH, shx, shy, DW, HUD_Y);
+  if (crashStage === 1 || crashStage === 2) {   // Boersencrash: rote Notbeleuchtung, kuerzere Sicht
+    g.fillStyle = `rgba(110,0,0,${crashStage === 1 ? .25 : .32 + .08 * Math.sin(gameTime * 3)})`; g.fillRect(0, 0, DW, HUD_Y);
+    const gr = g.createRadialGradient(DW / 2, HUD_Y / 2, HUD_Y * .22, DW / 2, HUD_Y / 2, DW * .62);
+    gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,.8)"); g.fillStyle = gr; g.fillRect(0, 0, DW, HUD_Y);
+    if (crashStage === 1) text(`${L("TRADING HALT", "HANDELSSTOPP")}  ${Math.ceil(crashStT)}`, DW / 2, 120, "#ff5050", 34, "center");
+    else {
+      const w = 420, x = (DW - w) / 2, y = 112, k = Math.min(1, marginPaid / Math.max(1, marginDue));
+      g.fillStyle = "rgba(0,0,0,.65)"; g.fillRect(x - 6, y - 6, w + 12, 46);
+      text(`MARGIN CALL  $${Math.min(marginPaid, marginDue).toLocaleString(LOC())} / $${marginDue.toLocaleString(LOC())}  ·  ${Math.ceil(crashStT)} s`, DW / 2, y - 2, "#ffc828", 16, "center");
+      g.fillStyle = "#3a0a0a"; g.fillRect(x, y + 22, w, 12); g.fillStyle = Math.floor(gameTime * 4) % 2 && crashStT < 6 ? "#ff5050" : "#ffc828"; g.fillRect(x, y + 22, w * k, 12);
+    }
+  }
   if (!island && phaseT > 0) {   // Marktphase: gruener bzw. roter Rand, im Baerenmarkt dunkler
     if (phase < 0) { g.fillStyle = "rgba(0,0,0,.2)"; g.fillRect(0, 0, DW, HUD_Y); }
     const a = .35 + .25 * Math.sin(gameTime * 6);

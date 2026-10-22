@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.29.0"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.30.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -667,8 +667,9 @@ struct Enemy {
   bool stampede, summoned; int8_t orb;   // Stampede-Bulle, vom Boss gerufener Bot, Kreisrichtung des Hais in Phase 2
   float aggroT, coverT, coverCd, covX, covY;   // beschossen: verfolgt den Spieler; Deckung bei covX/covY
   float lurkT, lurkCd, rushT; bool lurking;   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
+  float trapT;   // Baerenfalle: benommen (role 3 = Crash-Waechter bei gx/gy, role 4 = Crash-Jaeger)
 };
-struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; };   // slide > 0: schlittert gerade (Baerenfalle)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
+struct Item { float x, y; uint8_t type; bool active, stray; float fx, fy, tx, ty, slide, flash; bool crash; };   // crash: Notverkauf-Bargeld (150 $)   // slide > 0: schlittert gerade (Baerenfalle)   // 0 = Cash, 1 = Dividende; stray = verstreutes Bargeld
 struct Proj { float x, y, dx, dy; bool active; uint8_t dmg, faction, spr; };
 static constexpr uint8_t F_SHOT = 9;   // Geldschein aus der Waffe des Spielers
 
@@ -695,7 +696,10 @@ static float spawnT, cashT, aiT, aiFaceT, fakeT, crashT, glitchT, invertT;
 // Marktphasen: 1 = Bullrun, -1 = Baerenmarkt. sentiment steigt mit erlegten Baeren, faellt mit erlegten Bullen; echter Kurs = Grundstimmung
 static float stampHitT;   // Schutz nach einem Stampede-Treffer
 static float levelTime;   // Zeit im Level (Schnellhandel-Bonus am Tresor: 2000 - 5 je Sekunde)
-static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, bearHintAt;
+static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, bearHintAt; static bool trapSnapped;
+// Boersencrash (hoechstens einmal pro Lauf): crashStage 1 Handelsstopp, 2 Crash mit Margin Call, 3 Erholungsrallye.
+// Ausloeser: ueberhitzter Markt (2 Bullruns im Level oder 3 im Lauf) beim naechsten Abschwung, oder echter Kurs mit Live-Daten <= -3 %
+static int crashStage, levelBullruns, runBullruns, coolKills; static float crashStT, crashChg; static long marginDue, marginBase, marginPaid; static bool crashDone, rallySaid;
 static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
 static inline bool bullRun() { return phase == 1 && phaseT > 0; }
@@ -759,7 +763,7 @@ static void buildTicker() {
 // Manipulation blendet in den letzten 4 Sekunden aus
 static float manipEff() { return manipT > 0 ? manipChg * min(1.0f, manipT / 4) : 0.0f; }
 static void marketEffect() {   // Spielkurs = echter Kurs + Manipulation
-  levelChg = realChg + manipEff();
+  levelChg = realChg + manipEff() + crashChg;
   pBullBase = constrain(0.5f + levelChg * 0.2f, 0.15f, 0.85f);
 }
 
@@ -991,6 +995,7 @@ static void loadLevel(int lv) {
   spawnT = 6; cashT = 40 + frand() * 30; aiT = level == 0 ? 60 + frand() * 25 : level == NUM_LEVELS - 1 ? 22 + frand() * 10 : 40 + frand() * 25;
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
   phase = 0; phaseT = 0; phaseCd = 15; sentiment = 0; quakeT = 0; stampedeAt = 0; bearHintAt = 0; navOk = false; levelTime = 0;
+  crashStage = 0; crashChg = 0; levelBullruns = 0; coolKills = 0;
   char b[48]; snprintf(b, sizeof(b), "LEVEL %d: %s", lv + 1, L(LEVEL_NAMES_EN[lv], LEVEL_NAMES[lv]));
   say(b, 3.0f);
   sfxPlay(SFX_ID_BELL);   // Eroeffnungsglocke
@@ -999,7 +1004,7 @@ static void loadLevel(int lv) {
 
 // Hardcore (Variable oben): staerkere, schnellere Gegner, weniger Nachschub, 1,5-fache Punkte – ein Tod beendet den Lauf
 static uint8_t bossPaid;   // Bit je Level: Boss-Punkte schon kassiert
-static void newGame() { marketsSimulate(); bossPaid = 0; rngState = esp_random() | 1; hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; island = islandDone = false; loadLevel(0); }
+static void newGame() { marketsSimulate(); bossPaid = 0; rngState = esp_random() | 1; hp = 100; ammo = hardcore ? 20 : 30; pnl = 0; deaths = 0; winBonus = 0; level = 0; crashDone = false; runBullruns = 0; island = islandDone = false; loadLevel(0); }
 
 static bool freeAt(float x, float y, float r) {
   return !solidCell((int)(x - r), (int)(y - r)) && !solidCell((int)(x + r), (int)(y - r)) &&
@@ -1107,7 +1112,8 @@ static void killEnemy(Enemy& e, bool byPlayer) {
     kills++;
     if (!island && phaseT <= 0) moveSentiment(e, 1.0f);
     const bool shortGain = bearMkt() && e.faction == F_BEAR;
-    int pts = (int)(ti.pts * (bullRun() ? 1.5f : 1.0f) * (shortGain ? 2 : 1) * (e.summoned ? 0.5f : 1.0f));
+    int pts = (int)(ti.pts * (bullRun() ? 1.5f : 1.0f) * (shortGain ? 2 : 1) * (e.summoned ? 0.5f : 1.0f) * (e.trapT > 0 ? 1.5f : 1.0f) * (crashStage == 3 ? 1.25f : 1.0f));
+    if (e.faction == F_BULL && canCrash() && overheated() && ++coolKills >= 6) { coolKills = 0; levelBullruns = 0; runBullruns = min(runBullruns, 1); say(L("MARKET COOLED DOWN", "MARKT ABGEKUEHLT"), 2); }
     if (ti.boss) { if (bossPaid & (1 << level)) pts /= 10; else bossPaid |= 1 << level; }   // nach einem Tod gibt es den Boss nur noch mit 10 %
     pnl += hardcore ? pts * 3 / 2 : pts;
     char b[48];
@@ -1133,7 +1139,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   }
   float dropChance = byPlayer ? (e.type == E_SELLER || e.type == E_BARON ? 1.0f : e.summoned ? 0.25f : 0.38f) : 0.22f;
   if (ti.boss) dropItem(e.x, e.y, 1);
-  else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f) * (bullRun() ? 2.0f : bearMkt() ? 0.5f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
+  else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f) * (bullRun() ? 2.0f : bearMkt() ? 0.75f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
 }
 
 // ---- Marktphasen
@@ -1157,26 +1163,80 @@ static bool stampede() {   // Bullen-Herde stuermt durch einen langen Gang auf d
   say(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2); sfxPlay(SFX_ID_BULL);
   return true;
 }
-static void marketCrash() {   // Baerenfalle: Baerenrudel, Bargeld schlittert weg
+static void bearTrap() {   // Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede)
   sfxPlay(SFX_ID_ROAR);
   float x, y;
   if (findHiddenCell(x, y, 5)) for (int k = 0; k < 3; k++) { int i = spawnEnemy(E_BEAR, x + (k - 1) * 0.35f, y); if (i >= 0) { enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; } }   // Rudel greift gestaffelt an
-  for (int i = 0; i < nItems; i++) {
-    Item& it = items[i];
-    if (!it.active || it.type != 0 || it.slide > 0) continue;
-    float tx, ty; if (!findHiddenCell(tx, ty, 3)) continue;
-    it.fx = it.x; it.fy = it.y; it.tx = tx; it.ty = ty; it.slide = 0.001f;
+}
+// letzte 4 Sekunden der Baerenfalle: der Markt dreht, die Baeren sitzen in der Falle (3 s benommen, Fallen-Bonus)
+static void snapTrap() {
+  trapSnapped = true; sfxPlay(SFX_ID_BELL);
+  say(L("TRAP SNAPS SHUT! BEARS STUNNED", "FALLE ZU! BAEREN BENOMMEN"), 3);
+  for (int i = 0; i < nEnemies; i++) { Enemy& e = enemies[i]; if (e.alive && e.faction == F_BEAR && e.pir < 0) { e.trapT = 3; e.lurkT = 0; e.lurking = false; e.coverT = 0; } }
+}
+static bool canCrash() { return !crashDone && !island && !easy && level >= 1; }
+static bool overheated() { return levelBullruns >= 2 || runBullruns >= 3; }
+static void startCrash() {
+  crashDone = true; crashStage = 1; crashStT = 3; rallySaid = false;
+  phase = 0; phaseT = 0; stampedeAt = 0; bearHintAt = 0;
+  sfxPlay(SFX_ID_CRASH); sfxPlay(SFX_ID_GLITCH); musicStop();   // Stille im Handelsstopp
+  say(L("TRADING HALT - CRASH!", "HANDELSSTOPP - BOERSENCRASH!"), 3);
+  for (int i = 0; i < nEnemies; i++) { enemies[i].lurkT = 0; enemies[i].lurking = false; enemies[i].coverT = 0; enemies[i].chargeT = 0; }
+}
+static void crashCash(float x, float y) {
+  int i = 0; while (i < nItems && items[i].active) i++;
+  if (i == nItems) { if (nItems >= MAX_I) return; nItems++; }
+  items[i] = {x, y, 0, true, false}; items[i].crash = true;
+}
+static void beginCrash() {   // nach dem Handelsstopp: Margin Call, Notverkaeufe mit Waechtern, Jagdrudel
+  crashStage = 2; crashStT = 20; sfxPlay(SFX_ID_ROAR); musicStart(1 + level);
+  marginDue = (long)((500 + 250 * level) * (hardcore ? 1.5f : 1.0f) / 50) * 50;
+  marginBase = pnl; marginPaid = 0;
+  char b[48]; snprintf(b, sizeof(b), L("MARGIN CALL! RAISE $%ld", "MARGIN CALL! BRING $%ld AUF"), marginDue); say(b, 3.5f);
+  for (int k = 0; k < 3; k++) {   // Bargeld-Haufen, jeweils von Baeren bewacht
+    float x, y; if (!findHiddenCell(x, y, 4)) continue;
+    for (int j = 0; j < 4; j++) crashCash(x + (j % 2 - 0.5f) * 0.5f, y + ((j >> 1) - 0.5f) * 0.5f);
+    for (int j = 0; j < (hardcore ? 2 : 1); j++) { int i = spawnEnemy(E_BEAR, x + (j ? 0.6f : -0.6f), y); if (i >= 0) { enemies[i].role = 3; enemies[i].gx = x; enemies[i].gy = y; enemies[i].awake = true; } }
+  }
+  float hx, hy;
+  if (findHiddenCell(hx, hy, 5)) for (int k = 0; k < 3; k++) { int i = spawnEnemy(E_BEAR, hx + (k - 1) * 0.35f, hy); if (i >= 0) { enemies[i].role = 4; enemies[i].awake = true; enemies[i].cd = 0.5f + k * 0.45f; } }
+}
+static void endCrash(bool ok) {
+  crashStage = 3; crashStT = 12; quakeT = 0;
+  for (int i = 0; i < nEnemies; i++) if (enemies[i].pir < 0) enemies[i].role = 0;
+  if (ok) {
+    long bonus = (long)(marginDue * 0.25f / 50) * 50; pnl += hardcore ? bonus * 3 / 2 : bonus; sfxPlay(SFX_ID_KACHING);
+    char b[48]; snprintf(b, sizeof(b), L("MARGIN CALL MET! +$%ld", "MARGIN CALL ERFUELLT! +$%ld"), bonus); say(b, 3.5f);
+  } else {
+    say(L("MARGIN CALL MISSED - 1 LIFE LOST", "MARGIN CALL VERFEHLT - 1 LEBEN WEG"), 3.5f);
+    if (hardcore || deaths >= SOLO_LIVES - 1) damagePlayer(9999, nullptr);   // letztes Leben: Insolvenz
+    else { deaths++; sfxPlay(SFX_ID_CRASH); }
   }
 }
-static void startPhase(int dir) {
-  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxPlay(SFX_ID_BELL);
+static void updateCrash(float dt) {
+  crashStT -= dt; aiT = max(aiT, 5.0f);   // keine ALGO-Ereignisse mitten im Crash
+  if (crashStage == 1) { if (crashStT <= 0) beginCrash(); return; }
+  if (crashStage == 2) {
+    quakeT = max(quakeT, 0.5f); crashChg = max(-10.0f, crashChg - dt * 0.5f); marketEffect();   // Kurs faellt live
+    marginPaid = max(marginPaid, pnl - marginBase);
+    if (marginPaid >= marginDue) endCrash(true); else if (crashStT <= 0) endCrash(false);
+    return;
+  }
+  crashChg += (-4 - crashChg) * min(1.0f, dt * 0.5f); marketEffect();   // Erholung, aber nicht ganz
+  if (!rallySaid && crashStT < 8.5f) { rallySaid = true; say(L("RECOVERY RALLY: 1.25x POINTS", "ERHOLUNGSRALLYE: 1,25-FACHE PUNKTE"), 3); }
+  if (crashStT <= 0) { crashStage = 0; phaseCd = 60; say(L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), 1.8f); }
+}
+static void startPhase(int dir, bool noCrash = false) {
+  if (!noCrash && canCrash() && ((levelMarket().live && realChg <= -3) || (dir < 0 && overheated()))) { startCrash(); return; }
+  phase = dir; phaseT = PHASE_LEN; sentiment = 0; sfxPlay(SFX_ID_BELL); trapSnapped = false;
+  if (dir > 0) { levelBullruns++; runBullruns++; }
   if (dir > 0) {
     say(L("BULLRUN! 1.5x POINTS", "BULLRUN! 1,5-FACHE PUNKTE"), 3.5f);
     for (int k = 0; k < 2; k++) { float x, y; if (findHiddenCell(x, y, 4)) dropItem(x, y, 0, true); }
     stampedeAt = 4;
   } else {
     say(L("BEAR TRAP!", "BAERENFALLE!"), 3);
-    marketCrash(); bearHintAt = 3.5f;
+    bearTrap(); bearHintAt = 3.5f;
   }
 }
 static void updatePhase(float dt) {
@@ -1189,10 +1249,16 @@ static void updatePhase(float dt) {
     if (k >= 1) { it.slide = 0; it.flash = 1.5f; }
   }
   if (bearHintAt > 0 && (bearHintAt -= dt) <= 0) say(L("SHORT GAINS: BEARS COUNT 2x", "SHORT-GEWINNE: BAEREN ZAEHLEN 2x"), 2.5f);
+  if (crashStage) { updateCrash(dt); return; }
   if (phaseT > 0) {
     phaseT -= dt;
+    if (phase < 0 && !trapSnapped && phaseT <= 4) snapTrap();
     if (stampedeAt > 0 && (stampedeAt -= dt) <= 0 && !stampede() && phaseT > 3) stampedeAt = 2;
-    if (phaseT <= 0) { phase = 0; phaseCd = 35; say(L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), 1.8f); }
+    if (phaseT <= 0) {
+      phase = 0; phaseCd = 35;
+      if (canCrash() && overheated()) say(L("MARKET OVERHEATED! KILL BULLS", "MARKT UEBERHITZT! BULLEN ERLEGEN"), 3);
+      else say(L("THE MARKET CALMS DOWN", "DER MARKT BERUHIGT SICH"), 1.8f);
+    }
     return;
   }
   float base = constrain(levelChg * 0.08f, -0.2f, 0.2f);
@@ -1330,6 +1396,7 @@ static void stepShot(Proj& p, float dt) {   // Geldschein bewegen, in zwei Teils
 // ---------------------------------------------------------------- Gegner-KI
 static void chooseTarget(Enemy& e, int self) {
   if ((bullRun() && e.type == E_BULL) || (bearMkt() && e.type == E_BEAR)) { e.target = -1; e.awake = true; return; }   // Marktphase: jagt den Spieler, egal wo
+  if (e.role == 4 && crashStage == 2) { e.target = -1; e.awake = true; return; }   // Crash-Jagdrudel
   if (e.aggroT > 0) { e.target = -1; return; }   // wer schiesst, wird verfolgt – auch aus der Ferne
   float best = 1e9f; int bt = -2;
   float dp = sqrtf(dist2Player(e.x, e.y));
@@ -1357,11 +1424,34 @@ static void meleeHit(Enemy& e, int tgt, int dmgPlayer, int dmgEnemy, const char*
 static void pirateAI(Enemy& e, float dt);
 static void updateEnemy(Enemy& e, int idx, float dt) {
   const float bearRage = bearMkt() && e.faction == F_BEAR ? 1.3f : 1.0f;   // Baerenmarkt: Baeren schneller und angriffslustiger
-  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt;   // Gesamttakt hoechstens x2
+  e.anim += dt; e.hurt -= dt; e.cd -= dt * min(2.0f, fireRateMul() * (hardcore ? 1.45f : easy ? 0.75f : 1.0f) * (bearRage > 1 ? 1.15f : 1.0f)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt; e.trapT -= dt;   // Gesamttakt hoechstens x2
+  if (crashStage == 1) return;   // Handelsstopp: alles erstarrt
   if (e.pir >= 0) { pirateAI(e, dt); return; }
   unstick(e.x, e.y, e.type == E_SHARK ? 0.35f : 0.25f);
   const float spdMul = min(1.6f, (crashT > 0 ? 1.4f : 1.0f) * bearRage);
   const bool animal = e.faction == F_BULL || e.faction == F_BEAR;
+  if (animal && e.trapT > 0) {   // in der Falle: benommen
+    if (frand() < dt * 2) { float a = frand() * 6.283f; e.mdx = cosf(a); e.mdy = sinf(a); }
+    moveEntity(e.x, e.y, e.mdx * 0.4f * dt, e.mdy * 0.4f * dt, 0.25f); return;
+  }
+  if (crashStage == 2 && e.faction == F_BULL) {   // Crash: Panik, die Bullen fliehen
+    float fx = e.x - px, fy = e.y - py, l = sqrtf(fx * fx + fy * fy) + 1e-4f;
+    if (l < 12 && !moveEntity(e.x, e.y, fx / l * 2 * dt, fy / l * 2 * dt, 0.25f)) moveEntity(e.x, e.y, -fy / l * 2 * dt, fx / l * 2 * dt, 0.25f);
+    return;
+  }
+  if (crashStage == 2 && e.role == 3) {   // Crash-Waechter: bleibt am Bargeld-Haufen, greift nur in der Naehe an
+    float gdx = px - e.gx, gdy = py - e.gy, dg = sqrtf(gdx * gdx + gdy * gdy), d = sqrtf(dist2Player(e.x, e.y));
+    e.alertT -= dt;
+    if (e.hurt > 0 || (dg < 4 && lineOfSight(e.x, e.y, px, py))) e.alertT = 4;
+    if (e.alertT > 0 && dg < (hardcore ? 7 : 6)) {
+      if (d > 0.75f) chase(e.x, e.y, px, py, true, 1.6f * spdMul, dt);
+      else if (e.cd <= 0) { e.cd = 1; e.attackAnim = 0.3f; meleeHit(e, -1, 12, 2, L("BEAR CLAW! PRICE DROP", "BAERENTATZE! KURSVERLUST")); }
+      return;
+    }
+    float gx = e.gx + cosf(e.anim * 0.8f) * 0.7f, gy = e.gy + sinf(e.anim * 0.8f) * 0.7f, ddx = gx - e.x, ddy = gy - e.y;
+    chase(e.x, e.y, gx, gy, false, ddx * ddx + ddy * ddy > 2.25f ? 1.6f * spdMul : 0.8f, dt);
+    return;
+  }
 
   if (animal && e.think <= 0) { e.think = 0.4f; chooseTarget(e, idx); if (e.target != -2) e.awake = true; }
 
@@ -1697,7 +1787,7 @@ static void startIsland() {
   for (auto& p : projs) p.active = false;
   manipChg = manipT = dumpAt = 0; manipDrawn = 0; marketEffect();
   aiFaceT = fakeT = crashT = glitchT = invertT = slowT = 0;
-  phase = 0; phaseT = 0; sentiment = 0; quakeT = 0;   // keine Marktphasen in der Steueroase
+  phase = 0; phaseT = 0; sentiment = 0; quakeT = 0; crashStage = 0; crashChg = 0;   // keine Marktphasen in der Steueroase
   int sy = MAP_H - 2; while (sy > 2 && world[sy][10] != '.') sy--;   // Start am Suedstrand, Blick zur Inselmitte
   px = 10.5f; py = sy - 0.5f; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
   hp = 100; ammo = min(99, ammo + 20); histN = 0;
@@ -2048,7 +2138,7 @@ static void updateGame(float dt) {
   musicSetPanic(hp > 0 && hp < 30);
   fireCd -= dt; flashT -= dt; hurtT -= dt; pickT -= dt; msgT -= dt; slowT -= dt;
   aiFaceT -= dt; crashT -= dt; glitchT -= dt; invertT -= dt; quakeT -= dt; stampHitT -= dt;
-  musicSetMood(bullRun() ? 112 : bearMkt() ? 90 : 100);   // Bullrun schnellere, Baerenmarkt langsamere Musik
+  musicSetMood(bullRun() ? 112 : bearMkt() ? 90 : crashStage == 2 ? 82 : 100);   // Bullrun schnellere, Baerenmarkt langsamere Musik
   if (fakeT > 0) { fakeT -= dt; if (fakeT <= 0 || ((int)(gameTime * 4) % 2)) buildTicker(); }
   if (manipT > 0) {
     manipT -= dt;
@@ -2125,6 +2215,7 @@ static void updateGame(float dt) {
       char b[48]; snprintf(b, sizeof(b), L("%s KEYCARD! THE VAULT IS OPEN", "%s KEYCARD! DER TRESOR IST OFFEN"), L(KEY_EN[level % 5], KEY_DE[level % 5])); say(b, 2.5f);
       continue;
     }
+    if (it.crash) { it.active = false; pickT = 0.25f; pnl += hardcore ? 225 : 150; ammo = min(99, ammo + 5); say(L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); sfxPlay(SFX_ID_KACHING); continue; }
     if (it.type == 0) { if (ammo >= 99) continue; ammo = min(99, ammo + (hardcore ? 7 : 10)); say(hardcore ? "CASHFLOW +7" : "CASHFLOW +10", 1.2f); }
     else { if (hp >= 100) continue; hp = min(100, hp + (hardcore ? 15 : 20)); say(hardcore ? L("DIVIDEND PAID +15%", "DIVIDENDE AUSGESCHUETTET +15%") : L("DIVIDEND PAID +20%", "DIVIDENDE AUSGESCHUETTET +20%"), 1.2f); }
     it.active = false; pickT = 0.25f; pnl += hardcore ? 37 : 25; sfxPlay(it.type == 0 ? SFX_ID_KACHING : SFX_ID_COINS);
@@ -2168,7 +2259,7 @@ static void updateGame(float dt) {
   // wer fast leer ist, findet schneller etwas, mehr als 2 solcher Scheine liegen nie herum
   cashT -= dt;
   if (cashT <= 0) {
-    cashT = (ammo <= 3 ? 15 + frand() * 10 : 45 + frand() * 30) * (hardcore ? 1.6f : 1.0f) * (bullRun() ? 0.5f : bearMkt() ? 1.6f : 1.0f);
+    cashT = (ammo <= 3 ? 15 + frand() * 10 : 45 + frand() * 30) * (hardcore ? 1.6f : 1.0f) * (bullRun() ? 0.5f : 1.0f);
     int strays = 0;
     for (int i = 0; i < nItems; i++) if (items[i].active && items[i].stray) strays++;
     float x, y;
@@ -2457,7 +2548,8 @@ static void renderHUD() {
   // Level-Markt
   const Market& m = levelMarket();
   canvas.setTextColor(manipT > 0 && ((int)(gameTime * 4) % 2) ? c565(255, 60, 200) : levelChg >= 0 ? c565(80, 255, 130) : c565(255, 80, 80));
-  if (phaseT > 0) { canvas.setTextColor(phase > 0 ? c565(80, 255, 130) : c565(255, 80, 80)); snprintf(b, sizeof(b), "%s %ds", phase > 0 ? "BULLRUN" : L("BEAR MKT", "BAERENMARKT"), (int)ceilf(phaseT)); }
+  if (crashStage) { canvas.setTextColor(crashStage == 3 ? c565(80, 255, 130) : c565(255, 80, 80)); snprintf(b, sizeof(b), "%s %ds", crashStage == 3 ? L("RALLY", "RALLYE") : "CRASH", (int)ceilf(crashStT)); }
+  else if (phaseT > 0) { canvas.setTextColor(phase > 0 ? c565(80, 255, 130) : c565(255, 80, 80)); snprintf(b, sizeof(b), "%s %ds", phase > 0 ? "BULLRUN" : L("BEAR TRAP", "BAERENFALLE"), (int)ceilf(phaseT)); }
   else if (manipT > 0) snprintf(b, sizeof(b), "%s ALGO%+.1f%%", level == NUM_LEVELS - 1 ? "MIX" : m.label, levelChg);   // manipulierter Spielkurs
   else snprintf(b, sizeof(b), "%s %s%.2f%%%s", level == NUM_LEVELS - 1 ? "MIX" : m.label, levelChg >= 0 ? "+" : "", levelChg, m.live ? "" : "*");
   canvas.drawString(b, 148, VH + 19);
@@ -2476,6 +2568,17 @@ static void renderHUD() {
   if (phaseT > 0 && !island && ((int)(gameTime * 3) % 2)) {   // Marktphase: pulsierender gruener bzw. roter Rand
     uint16_t pc = phase > 0 ? c565(60, 220, 110) : c565(230, 50, 50);
     canvas.drawRect(0, 0, SW, VH, pc); canvas.drawRect(1, 1, SW - 2, VH - 2, pc); canvas.drawRect(2, 2, SW - 4, VH - 4, pc);
+  }
+  if (crashStage == 1 || crashStage == 2) {   // Boersencrash: rote Notbeleuchtung (Rahmen) und Margin-Call-Anzeige
+    uint16_t rc = (int)(gameTime * 2) % 2 ? c565(200, 0, 0) : c565(110, 0, 0);
+    for (int k = 0; k < 4; k++) canvas.drawRect(k, k, SW - 2 * k, VH - 2 * k, rc);
+    char cb[48];
+    if (crashStage == 1) { snprintf(cb, sizeof(cb), "%s %d", L("TRADING HALT", "HANDELSSTOPP"), (int)ceilf(crashStT)); centerText(cb, 30, 1, c565(255, 80, 80)); }
+    else {
+      snprintf(cb, sizeof(cb), "MARGIN CALL $%ld/$%ld %ds", min(marginPaid, marginDue), marginDue, (int)ceilf(crashStT)); centerText(cb, 14, 1, c565(255, 200, 40));
+      int bw = 120, bx = (SW - bw) / 2, fw = (int)(bw * min(1.0f, (float)marginPaid / max(1L, marginDue)));
+      canvas.fillRect(bx, 24, bw, 4, c565(60, 10, 10)); canvas.fillRect(bx, 24, fw, 4, c565(255, 200, 40));
+    }
   }
   if (slowT > 0) canvas.drawRect(0, 9, SW, VH - 9, c565(60, 30, 90));
   if (dodgeT > 0)   // Bewegungsstreifen beim Ausweichen
@@ -2842,6 +2945,6 @@ void loop() {
   audioUpdate();
   // Stream: WLAN-Menues (Passwort!) werden nie uebertragen
   if (fb && state != ST_WIFI_PASS && state != ST_WIFI_LIST && streamWantsFrame()) streamSubmitFrame(fb, SW, SH);
-  if (quakeT > 0 && state == ST_PLAY) canvas.pushSprite((int)(esp_random() % 5) - 2, (int)(esp_random() % 3) - 1);   // Boden bebt (derzeit ungenutzt)
+  if (quakeT > 0 && state == ST_PLAY) canvas.pushSprite((int)(esp_random() % 5) - 2, (int)(esp_random() % 3) - 1);   // Boersencrash: Boden bebt
   else canvas.pushSprite(0, 0);
 }

@@ -6,7 +6,7 @@
 
 Ein Retro-Ego-Shooter rund um die Börse: Bullen und Bären kämpfen gegeneinander und gegen dich, die echten Tageskurse von Dow Jones, S&P 500, Nasdaq-100 und Rohöl bestimmen das Kräfteverhältnis, und die KI ALGO-9000 manipuliert den Markt.
 
-**Bullrun und Bärenmarkt:** Erlegst du viele Bären, kippt der Markt in einen **Bullrun** (schneller, mehr Bargeld, 1,5-fache Punkte, dazu eine Bullen-Stampede, der du ausweichen musst). Erlegst du viele Bullen, folgt ein **Bärenmarkt** mit **Bärenfalle**: Bargeld schlittert weg, Bären greifen im Rudel an – dafür bringen Bären doppelte **Short-Gewinne**. Der echte Kurs gibt die Grundstimmung vor; ein Zeiger über der Bullen/Bären-Leiste zeigt, wohin der Markt kippt.
+**Bullrun und Bärenmarkt:** Erlegst du viele Bären, kippt der Markt in einen **Bullrun** (schneller, mehr Bargeld, 1,5-fache Punkte, dazu eine Bullen-Stampede, der du ausweichen musst). Erlegst du viele Bullen, folgt eine **Bärenfalle**: Bären greifen im Rudel an – dafür bringen Bären doppelte **Short-Gewinne**, und kurz vor Schluss schnappt die Falle zu. Überhitzt der Markt nach mehreren Bullruns (oder bricht der echte Kurs ein), droht ein seltener **Börsencrash**: Handelsstopp, rote Notbeleuchtung, flüchtende Bullen, bewachtes Bargeld – und ein **Margin Call**, den du in 20 Sekunden erfüllen musst, sonst kostet er ein Leben. Der echte Kurs gibt die Grundstimmung vor; ein Zeiger über der Bullen/Bären-Leiste zeigt, wohin der Markt kippt.
 
 ## Im Browser spielen
 
@@ -14,14 +14,14 @@ Ganz ohne Installation: **[MARGIN CALL im Browser spielen](https://wolfgangraben
 
 ## Downloads
 
-Aktuelle Version **3.29.0** – Datei anklicken, der Download startet sofort:
+Aktuelle Version **3.30.0** – Datei anklicken, der Download startet sofort:
 
 | Download | System |
 |---|---|
-| [**MarginCall-3.29.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.29.0/MarginCall-3.29.0-Windows.exe) | Windows 10/11 |
-| [**MarginCall-3.29.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.29.0/MarginCall-3.29.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
-| [**MarginCall-3.29.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.29.0/MarginCall-3.29.0-Linux.AppImage) | Linux (x86_64) |
-| [**MarginCall-3.29.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.29.0/MarginCall-3.29.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
+| [**MarginCall-3.30.0-Windows.exe**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.30.0/MarginCall-3.30.0-Windows.exe) | Windows 10/11 |
+| [**MarginCall-3.30.0-macOS.dmg**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.30.0/MarginCall-3.30.0-macOS.dmg) | macOS 10.15 und neuer (Intel und Apple Silicon) |
+| [**MarginCall-3.30.0-Linux.AppImage**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.30.0/MarginCall-3.30.0-Linux.AppImage) | Linux (x86_64) |
+| [**MarginCall-3.30.0-Cardputer.bin**](https://github.com/wolfgangrabenstein/margincall/releases/download/v3.30.0/MarginCall-3.30.0-Cardputer.bin) | M5Stack Cardputer ADV, über den M5Launcher von der SD-Karte |
 
 Neuere Version erschienen? Immer aktuell: [neueste Version](https://github.com/wolfgangrabenstein/margincall/releases/latest) · ältere: [alle Releases](https://github.com/wolfgangrabenstein/margincall/releases) · Änderungen: [CHANGELOG](CHANGELOG.de.md)
 

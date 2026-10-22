@@ -2,6 +2,17 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.30.0 – Der echte Börsencrash (22.10.2026)
+
+- **Börsencrash:** Ein seltenes, eigenständiges Ereignis, höchstens einmal pro Spiel, nicht in Level 1 und nicht im leichten Modus. Mehrspieler nur im Koop.
+  - **Auslöser:** Nach zwei Bullruns im selben Level oder drei im Spiel ist der Markt **überhitzt** (Anzeige „🔥 ÜBERHITZT“). Der nächste Abschwung wird dann keine Bärenfalle, sondern ein Crash. Sechs erlegte Bullen kühlen den Markt wieder ab. Mit Live-Kursen löst außerdem ein echter Kurseinbruch von 3 % oder mehr den Crash garantiert aus.
+  - **Handelsstopp (3 s):** Die Musik verstummt, alle Gegner erstarren.
+  - **Crash (20 s):** Rote Notbeleuchtung, kürzere Sicht, der Boden bebt, der Kurs stürzt live ab. Die Bullen fliehen in Panik, ein Bärenrudel jagt dich, weitere Bären bewachen Haufen mit Notverkauf-Bargeld (150 $ je Schein).
+  - **Margin Call:** Eine Nachschussforderung (750 $ in Level 2 bis 1.500 $ in Level 5, im Hardcore-Modus und im Koop mehr) muss in 20 Sekunden erfüllt sein. Geschafft: Krisengewinn. Verfehlt: **ein Leben weg**.
+  - **Erholungsrallye (12 s):** 1,25-fache Punkte für Abschüsse.
+- **Bärenfalle als Gegenstück zum Bullrun:** Das Bargeld rutscht nicht mehr weg, und es gibt keine verschärfte Knappheit mehr (Drops nur noch leicht reduziert). Neu: In den letzten 4 Sekunden **schnappt die Falle zu**. Alle Bären sind 3 Sekunden benommen und bringen 1,5-fache Punkte. In der Statuszeile heißt die Phase jetzt „Bärenfalle“.
+- **Cardputer:** Börsencrash und Bärenfalle gibt es auch dort, mit rotem Rahmen statt Notbeleuchtung.
+
 ## Version 3.29.0 – Deckung, Hinterhalt und Bärenfalle (22.10.2026)
 
 - **Schützen nutzen Deckung:** Short Seller, Ölbaron und Trading-Bot laden nach einem Schuss hinter einer Wand in der Nähe nach, lehnen sich zum nächsten Schuss heraus und ziehen sich wieder zurück. Ohne Deckung in der Nähe kämpfen sie offen. Bosse bleiben stehen.

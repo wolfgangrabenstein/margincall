@@ -2,6 +2,17 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.30.0 – The real stock market crash (22.10.2026)
+
+- **Stock market crash:** A rare, distinct event, at most once per game, not in level 1 and not in easy mode. In multiplayer only in co-op.
+  - **Trigger:** After two bull runs in the same level or three in a game the market is **overheated** (shown as "🔥 OVERHEATED"). The next downturn then becomes a crash instead of a bear trap. Six bull kills cool the market down again. With live prices, a real drop of 3 % or more also guarantees a crash.
+  - **Trading halt (3 s):** The music falls silent and all enemies freeze.
+  - **Crash (20 s):** Red emergency lighting, shorter sight, the floor shakes and the price plunges live. Bulls flee in panic, a bear pack hunts you, and more bears guard piles of fire-sale cash ($150 per note).
+  - **Margin call:** A margin call ($750 in level 2 up to $1,500 in level 5, more in hardcore and co-op) has to be met within 20 seconds. Met: crisis profit. Missed: **you lose a life**.
+  - **Recovery rally (12 s):** 1.25× points for kills.
+- **Bear trap as the counterpart to the bull run:** Cash no longer slides away and there is no extra scarcity any more (drops only slightly reduced). New: in the last 4 seconds **the trap snaps shut**. All bears are stunned for 3 seconds and give 1.5× points. The status line now calls the phase "bear trap".
+- **Cardputer:** The stock market crash and the bear trap are there too, with a red frame instead of emergency lighting.
+
 ## Version 3.29.0 – Cover, ambushes and bear trap (22.10.2026)
 
 - **Shooters use cover:** Short sellers, oil barons and trading bots reload behind a nearby wall after each shot, lean out for the next one and pull back again. With no cover nearby they fight in the open. Bosses hold their ground.
