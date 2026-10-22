@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.34.1";
+const APP_VERSION = "3.34.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -3689,12 +3689,12 @@ function renderLobby() {
   }
   zoneButton(375, 442, 210, 36, L("⚙ [S] MATCH SETTINGS", "⚙ [S] MATCH-EINSTELLUNGEN"), "#50c8ff", "s", 13);
   zoneButton(600, 442, 210, 36, L(`[${bindText("menuBack")}] LEAVE`, `[${bindText("menuBack")}] VERLASSEN`), "#ff7050", "Escape", 15);
-  if (matchSetOpen) renderMatchSettings(host);
   if (lobbyNoteT > 0) text(lobbyNote, DW / 2, 382, "#ff7050", 14, "center");
-  text(net.online ? (net.pub ? L(`Others find your game under ONLINE PLAY – or join by code ${net.code}`, `Mitspieler finden dein Spiel unter ONLINE SPIELEN – oder treten mit Code ${net.code} bei`)
+  if (!matchSetOpen) text(net.online ? (net.pub ? L(`Others find your game under ONLINE PLAY – or join by code ${net.code}`, `Mitspieler finden dein Spiel unter ONLINE SPIELEN – oder treten mit Code ${net.code} bei`)
       : L(`Private game: others join under ONLINE PLAY with code ${net.code}`, `Privates Spiel: Mitspieler treten unter ONLINE SPIELEN mit Code ${net.code} bei`))
     : isLocalOrigin() ? L(`Others find you under [N] MULTIPLAYER → [J] JOIN (or address ${myAddr || "…"})`, `Mitspieler finden dich unter [N] MULTIPLAYER → [J] BEITRETEN (oder Adresse ${myAddr || "…"})`)
     : `${L("Connected to", "Verbunden mit")} ${location.host}`, DW / 2, 492, "#6b7896", 13, "center");
+  if (matchSetOpen) renderMatchSettings(host);   // zuletzt: das Fenster liegt ueber allem anderen
 }
 function renderMatchSettings(host) {   // Fenster ueber der Lobby: nur seine Knoepfe sind anklickbar
   clickZones = [];

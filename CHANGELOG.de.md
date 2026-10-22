@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.34.2 – Match-Einstellungen ohne Überlagerung (22.10.2026)
+
+- **Lobby:** Solange das Fenster „Match-Einstellungen“ offen ist, wird die Hinweiszeile der Lobby ausgeblendet. Bisher lag sie quer über dem Fenster.
+
 ## Version 3.34.1 – Chatfarben in der Lobby (22.10.2026)
 
 - **Lobby-Chat:** Lange Nachrichten, die über mehrere Zeilen umbrechen, behalten jetzt in jeder Zeile die Farbe des Absenders. Bisher wurden die Folgezeilen grau.

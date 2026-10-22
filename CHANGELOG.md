@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.34.2 – Match settings without overlap (22.10.2026)
+
+- **Lobby:** While the “Match settings” window is open, the lobby’s hint line is hidden. Previously it ran across the window.
+
 ## Version 3.34.1 – Chat colours in the lobby (22.10.2026)
 
 - **Lobby chat:** Long messages that wrap over several lines now keep the sender’s colour on every line. Previously the following lines turned grey.
