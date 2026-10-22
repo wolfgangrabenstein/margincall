@@ -5,6 +5,7 @@
 ## Version 3.34.1 – Chatfarben in der Lobby (22.10.2026)
 
 - **Lobby-Chat:** Lange Nachrichten, die über mehrere Zeilen umbrechen, behalten jetzt in jeder Zeile die Farbe des Absenders. Bisher wurden die Folgezeilen grau.
+- **Lobby-Chat:** Sehr lange Wörter ohne Leerzeichen werden jetzt umgebrochen, statt über den Chat-Rand hinauszulaufen.
 
 ## Version 3.34.0 – Last Man Standing (22.10.2026)
 

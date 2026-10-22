@@ -5,6 +5,7 @@
 ## Version 3.34.1 – Chat colours in the lobby (22.10.2026)
 
 - **Lobby chat:** Long messages that wrap over several lines now keep the sender’s colour on every line. Previously the following lines turned grey.
+- **Lobby chat:** Very long words without spaces now wrap instead of running past the edge of the chat box.
 
 ## Version 3.34.0 – Last man standing (22.10.2026)
 

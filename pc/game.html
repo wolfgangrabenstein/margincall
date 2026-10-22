@@ -3651,7 +3651,7 @@ function renderLobby() {
   const lines = [];
   for (const [cid, cname, ctext] of chat) {
     const who = cname.replace("TRADER ", "");
-    const words = `${who}: ${ctext}`.match(/.{1,36}(\s|$)|\S+/g) || [];
+    const words = `${who}: ${ctext}`.match(/.{1,36}(\s|$)|.{1,36}/g) || [];   // ueberlange Woerter hart umbrechen
     words.forEach(w => lines.push([cid, w.trim()]));   // alle Zeilen einer Nachricht in der Farbe des Absenders
   }
   lines.slice(-8).forEach(([cid, l], i) => {
