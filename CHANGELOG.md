@@ -2,6 +2,21 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.31.3 – Calmer small investor, no firing while turning on phones (22.10.2026)
+
+- **Phone: turning never fires.**
+  - As soon as your finger swipes on the right, continuous fire stops.
+  - Continuous fire starts only after holding still for 0.25 seconds.
+  - A tap shot only counts for a short, steady tap; small turning corrections no longer fire.
+  - Tapping the left stick no longer fires.
+- **Small investor (easiest level):**
+  - At most three enemies attack at the same time. The others keep their distance and circle until a slot frees up.
+  - The bear trap brings 2 instead of 3 bears, the bull run 3 instead of 4 bulls.
+  - Animals you shoot hunt you for 8 instead of 20 seconds.
+  - In testing (level 1, 90 seconds with a bull run and a bear trap) damage taken drops by about two thirds; at most 3–4 enemies are close to you at once instead of up to 16.
+
+The small investor changes also apply on the Cardputer.
+
 ## Version 3.31.2 – Hint line that fits the screen (22.10.2026)
 
 - **Hint line at the bottom (PC and browser):** It now only shows the keys that apply right now. In game you see the game keys with “L log”, in the main menu the menu keys with “L language”, in other menus back, music and fullscreen. Custom key bindings are shown.

@@ -2,6 +2,21 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.31.3 – Entspannter Kleinanleger, kein Feuern beim Drehen am Handy (22.10.2026)
+
+- **Handy: Drehen ist nie mehr Schießen.**
+  - Sobald der Finger rechts wischt, endet das Dauerfeuer.
+  - Dauerfeuer startet erst nach 0,25 Sekunden ruhigem Halten.
+  - Ein Tipp-Schuss zählt nur bei einem kurzen, ruhigen Tippen; kleine Dreh-Korrekturen schießen nicht mehr.
+  - Das Antippen des linken Sticks feuert nicht mehr.
+- **Kleinanleger (leichtester Grad):**
+  - Höchstens drei Gegner greifen gleichzeitig an. Die übrigen halten Abstand und kreisen, bis ein Platz frei wird.
+  - Die Bärenfalle bringt 2 statt 3 Bären, der Bullrun 3 statt 4 Bullen.
+  - Beschossene Tiere jagen dich 8 statt 20 Sekunden.
+  - Im Test (Level 1, 90 Sekunden mit Bullrun und Bärenfalle) sinkt der erlittene Schaden um rund zwei Drittel; statt bis zu 16 sind höchstens 3–4 Gegner gleichzeitig in deiner Nähe.
+
+Die Änderungen am Kleinanleger gelten auch auf dem Cardputer.
+
 ## Version 3.31.2 – Hilfezeile passend zum Bildschirm (22.10.2026)
 
 - **Hilfezeile unten (PC und Browser):** Sie zeigt jetzt nur die Tasten, die gerade gelten. Im Spiel stehen die Spieltasten mit „L Log“, im Hauptmenü die Menütasten mit „L Sprache“, in den übrigen Menüs „Zurück“, Musik und Vollbild. Eigene Tastenbelegungen werden angezeigt.

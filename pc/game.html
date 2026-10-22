@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.31.2";
+const APP_VERSION = "3.31.3";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1143,7 +1143,7 @@ function stampedeHerd() {
   }
   for (let g = 0; g < 2; g++) {
     const c = near.length ? near.splice(rnd() % near.length, 1)[0] : findHiddenCell(5); if (!c) continue;
-    for (let j = 0; j < 2; j++) { const e = spawnEnemy(E.BULL, c[0] + (j ? .3 : -.3), c[1]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; }   // stuermt mit erhoehtem Tempo los
+    for (let j = 0; j < 2 && n < (EZ() ? 3 : 4); j++) { const e = spawnEnemy(E.BULL, c[0] + (j ? .3 : -.3), c[1]); if (e.gone) continue; Object.assign(e, { awake: true, target: pl, stampede: true, chargeCd: 1 + g + j * .5, rushT: 6 }); n++; }   // stuermt mit erhoehtem Tempo los
   }
   if (!n) return;
   if (mode === "team") alive.forEach(p => sayTo(p, L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2)); else sayAll(L("WATCH OUT, BULLRUN!", "VORSICHT, BULLRUN!"), 2);
@@ -1162,7 +1162,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
   }
   if (!best) return false;
   const sx = cx + best.dx * best.n + .5, sy = cy + best.dy * best.n + .5;
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; k < (EZ() ? 3 : 4); k++) {   // Kleinanleger: 3 Bullen
     const e = spawnEnemy(E.BULL, sx - best.dx * k * .7 + best.dy * (k % 2 ? .2 : -.2), sy - best.dy * k * .7 + best.dx * (k % 2 ? .2 : -.2));   // gestaffelt, damit man alle vier sieht
     if (e.gone) continue;
     Object.assign(e, { awake: true, target: pl, chargeT: 4 + k * .15, chargeCd: 6, mdx: -best.dx, mdy: -best.dy, attackAnim: .7, stampede: true });
@@ -1174,7 +1174,7 @@ function stampede() {   // liefert false, wenn gerade kein passender Gang da ist
 // Baerenfalle: ein Baerenrudel greift an (Gegenstueck zur Stampede), Baeren zaehlen als Short-Gewinn doppelt
 function bearTrap() {
   sfxAll("ROAR");
-  for (let k = 0; k < 3; k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an
+  for (let k = 0; k < (EZ() ? 2 : 3); k++) {   // Rudel aus verschiedenen Verstecken, greift gestaffelt an (Kleinanleger: 2 Baeren)
     const c = findHiddenCell(5); if (!c) continue;
     const e = spawnEnemy(E.BEAR, c[0], c[1]); if (!e.gone) { e.awake = true; e.cd = .5 + k * .45; e.pack = true; }
   }
@@ -1331,7 +1331,7 @@ function dodgeAim(e, t, d, dt) {
   const sd = frand() < .5 ? 1 : -1; e.sdx = -t.dirY * sd; e.sdy = t.dirX * sd; e.sideT = .3; return true;
 }
 function provoke(e, pl) {
-  e.aggro = pl; e.aggroT = 20; e.think = 0;
+  e.aggro = pl; e.aggroT = EZ() ? 8 : 20; e.think = 0;
   if (HC()) for (const o of enemies)   // Hardcore: Rudel-Alarm, Artgenossen in der Naehe verfolgen den Schuetzen mit
     if (o !== e && o.alive && o.f === e.f && o.pir === undefined && !(o.aggroT > 0) && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < 36) { o.aggro = pl; o.aggroT = 10; o.think = 0; o.awake = true; }
   if (e.coverCd > 0 || e.stampede || Math.hypot(pl.x - e.x, pl.y - e.y) < 6 || frand() < .5) return;
@@ -1528,6 +1528,14 @@ function meleeHit(e, dmgP, dmgE, why) {
   if (t.isPlayer) damagePlayer(t, Math.floor(dmgP * e.str), why);
   else { hurtEnemy(t, Math.ceil(dmgE * e.str), null); sfxNear(e.f === F.BULL ? "BULL" : "ROAR", e.x, e.y, 6); }
 }
+let attackers = null;   // Kleinanleger: Gegner, die gerade angreifen duerfen
+// Kleinanleger: wer gerade keinen Angriffsplatz hat, haelt Abstand und kreist, statt anzugreifen
+function holdBack(e, t, d, nx, ny, dt) {
+  e.chargeT = 0;
+  if (d < 5) moveEntity(e, -nx * .9 * dt, -ny * .9 * dt, .25);
+  else if (d > 8) chase(e, t, .9, dt);
+  else if (!moveEntity(e, -ny * e.orb * .6 * dt, nx * e.orb * .6 * dt, .25)) e.orb = -e.orb;
+}
 function updateEnemy(e, dt) {
   const bearRage = bearMkt() && e.f === F.BEAR ? 1.3 : 1;   // Baerenmarkt: Baeren schneller und angriffslustiger
   e.anim += dt; e.hurt -= dt; e.cd -= dt * Math.min(2, fireRateMul() * (HC() ? 1.45 : EZ() ? .75 : 1) * (bearRage > 1 ? 1.15 : 1)); e.attackAnim -= dt; e.chargeCd -= dt; e.think -= dt; e.aggroT -= dt; e.coverT -= dt; e.coverCd -= dt; e.lurkT -= dt; e.lurkCd -= dt; e.rushT -= dt; e.trapT -= dt;   // Gesamttakt hoechstens x2
@@ -1560,6 +1568,7 @@ function updateEnemy(e, dt) {
   if (animal && e.coverT > 0) { if (Math.hypot(e.covX - e.x, e.covY - e.y) > .1) chase(e, { x: e.covX, y: e.covY }, 2 * spd, dt); return; }   // kurz in Deckung, dann Angriff
   const tx = t.x, ty = t.y, dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) + 1e-4, nx = dx / d, ny = dy / d, ang = Math.atan2(dy, dx);
   if (HC() && e.awake && t.isPlayer && !TYPES[e.type].boss && e.type !== E.BUBBLE && !(e.chargeT > 0) && dodgeAim(e, t, d, dt)) return;
+  if (attackers && e.awake && t.isPlayer && !TYPES[e.type].boss && !attackers.has(e)) { holdBack(e, t, d, nx, ny, dt); return; }   // wartet auf einen freien Angriffsplatz
 
   if (!animal) {
     const fo = d < (TYPES[e.type].boss ? 30 : 12) ? fireOrigin(e, tx, ty) : null, los = !!fo;   // Bosse schiessen ueber die ganze Karte zurueck
@@ -2214,7 +2223,8 @@ function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. w
     if (!looks.has(e.pointerId)) return;
     const dx = e.clientX - looks.get(e.pointerId); looks.set(e.pointerId, e.clientX);
     const tp = taps.get(e.pointerId);
-    if (tp && !tp.moved && Math.hypot(e.clientX - tp.x, e.clientY - tp.y) > 12) { tp.moved = true; clearTimeout(tp.timer); }
+    if (tp) tp.max = Math.max(tp.max, Math.hypot(e.clientX - tp.x, e.clientY - tp.y));
+    if (tp && !tp.moved && tp.max > 12) { tp.moved = true; clearTimeout(tp.timer); if (firing.delete(e.pointerId)) setFire(); }   // wer wischt, dreht – Dauerfeuer endet
     if (tp && !tp.moved) return;   // erst ab 12 px Bewegung wird gedreht (sonst zittert das Bild beim Tippen)
     const k = 2.4 + (settings.touchSens || 6) * .75;   // Drehempfindlichkeit aus den Optionen
     const rad = dx / Math.max(320, innerWidth) * k * (1 + Math.min(1.5, Math.abs(dx) / 40));   // schnelle Wischer drehen staerker
@@ -2222,11 +2232,14 @@ function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. w
   };
   const release = e => {
     if (e.pointerId === stickId) {
-      if (stickMax < 10 && performance.now() - stickT < 220) shoot();   // links nur angetippt: Schuss
       stickId = null; touchMv.x = touchMv.y = 0; base.style.display = "none";
     }
     const tp = taps.get(e.pointerId);
-    if (tp) { clearTimeout(tp.timer); if (!firing.delete(e.pointerId) && !tp.moved) shoot(); taps.delete(e.pointerId); setFire(); }
+    if (tp) {   // Tipp-Schuss nur bei kurzem, ruhigem Tippen
+      clearTimeout(tp.timer);
+      if (!firing.delete(e.pointerId) && !tp.moved && tp.max < 8 && performance.now() - tp.t0 < 200) shoot();
+      taps.delete(e.pointerId); setFire();
+    }
     looks.delete(e.pointerId);
   };
   layer.addEventListener("pointerdown", e => {
@@ -2240,8 +2253,8 @@ function mobileFullscreen() {   // Vollbild-Knopf: Querformat im Vollbild bzw. w
       base.style.left = sx + "px"; base.style.top = sy + "px"; base.style.display = "block"; knob.style.transform = "";
     } else {
       looks.set(e.pointerId, e.clientX);
-      const tp = { x: e.clientX, y: e.clientY, moved: false };
-      tp.timer = setTimeout(() => { if (!tp.moved) { firing.add(e.pointerId); setFire(); } }, 140);   // ruhig drauf = Dauerfeuer
+      const tp = { x: e.clientX, y: e.clientY, moved: false, max: 0, t0: performance.now() };
+      tp.timer = setTimeout(() => { if (!tp.moved) { firing.add(e.pointerId); setFire(); } }, 250);   // ruhig drauf = Dauerfeuer
       taps.set(e.pointerId, tp);
     }
     try { layer.setPointerCapture(e.pointerId); } catch (err) { }
@@ -2567,6 +2580,12 @@ function updateGame(dt) {
     momentum = (m.s[replayIdx] - m.s[i0]) / m.s[i0] * 100;
   }
   updatePhase(dt); updateNav(dt); levelTime += dt;
+  attackers = null;
+  if (EZ()) {   // Kleinanleger: hoechstens 3 Gegner greifen gleichzeitig an, die naechsten zuerst
+    const dist = e => Math.min(1e9, ...players.filter(p => !p.dead).map(p => (p.x - e.x) ** 2 + (p.y - e.y) ** 2));
+    attackers = new Set(enemies.filter(e => e.alive && !e.gone && e.awake && e.pir === undefined && !TYPES[e.type].boss && (!(e.f === F.BULL || e.f === F.BEAR) || (e.target && e.target.isPlayer)))
+      .sort((a, b) => dist(a) - dist(b)).slice(0, 3));
+  }
   bullsAlive = bearsAlive = 0;
   for (const e of enemies) {
     if (e.gone) continue;
