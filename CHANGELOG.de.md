@@ -2,6 +2,14 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.33.2 – Der Ölschlick springt gezielt (22.10.2026)
+
+- **Ölschlick:** Er kriecht normal und springt nur noch, wenn es zählt.
+  - **Angriffssprung:** aus Sprungweite (bis knapp 3 Felder) auf dich zu; landet er neben dir, klebt das Öl.
+  - **Ausweichsprung zur Seite**, abgestimmt auf die anderen Gegner: als Kleinanleger nie, als Spekulant nur wenn er getroffen wird (50 %), als Day-Trader auch wenn du auf ihn zielst (60 %). Ganz aus der Nähe weicht er nicht aus.
+
+Gilt für PC, Browser, Multiplayer und Cardputer.
+
 ## Version 3.33.1 – Der Ölschlick springt nach vorne (22.10.2026)
 
 - **Ölschlick:** Sein Sprung ist jetzt ein deutlicher Satz nach vorne statt fast nach oben. Er fliegt gut 2,5 Felder weit, etwas flacher und leicht schräg, damit man die Bewegung auch von vorne sieht. Aus der Nähe springt er nur bis knapp vor dich, nicht über dich hinweg.

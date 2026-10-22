@@ -2,6 +2,14 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.33.2 – The oil slick jumps with purpose (22.10.2026)
+
+- **Oil slick:** It crawls normally and only jumps when it matters.
+  - **Attack leap:** from jumping range (up to about 3 tiles) towards you; if it lands next to you, the oil sticks.
+  - **Dodge leap to the side**, matched to the other enemies: never as a small investor, as a speculator only when it gets hit (50 %), as a day trader also when you aim at it (60 %). It does not dodge from point-blank range.
+
+Applies to PC, browser, multiplayer and Cardputer.
+
 ## Version 3.33.1 – The oil slick leaps forward (22.10.2026)
 
 - **Oil slick:** Its jump is now a clear leap forward instead of mostly upward. It travels about 2.5 tiles, a little flatter and slightly at an angle so you can see the movement from the front too. From close range it only jumps to just in front of you, never over you.

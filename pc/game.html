@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.33.1";
+const APP_VERSION = "3.33.2";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -1605,14 +1605,23 @@ function updateEnemy(e, dt) {
         if (d > 4.5 || !los) chase(e, t, 1, dt); else if (d < 2.5) moveEntity(e, -nx * .8 * dt, -ny * .8 * dt, .25);
         if (los && e.cd <= 0 && d < 10) { e.cd = 2 + frand(); e.attackAnim = .4; spawnProj(fo[0], fo[1], leadAng(fo, t, 3.4), 3.4, 10, F.NEUTRAL, S.PROJ_OIL); sfxNear("OIL", e.x, e.y, 10); }
         return;
-      case E.SLICK:   // kriecht und springt immer wieder ein Stueck auf dich zu
+      case E.SLICK:   // kriecht; springt nur zum Angriff (aus Sprungweite) oder um auszuweichen
         e.hopCd -= dt;
         if (e.hopT > 0) {   // in der Luft: schneller, landet mit einem Platsch
           e.hopT -= dt; moveEntity(e, e.mdx * e.hopV * dt, e.mdy * e.hopV * dt, .25);   // Satz nach vorne, bis gut 2 Felder weit
           if (e.hopT <= 0) { sfxNear("OIL", e.x, e.y, 7); if (d < .9 && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); } }
           return;
         }
-        if (e.hopCd <= 0 && d > 1.2 && d < 7 && los) { e.hopCd = (EZ() ? 2.4 : HC() ? 1.1 : 1.6) + frand() * 1.2; e.hopT = HOP_T; e.hopV = Math.min(4.5 * spd, (d - .6) / HOP_T); const sw = (frand() - .5) * .9; e.mdx = nx * Math.cos(sw) - ny * Math.sin(sw); e.mdy = ny * Math.cos(sw) + nx * Math.sin(sw); return; }   // leicht schraeg, damit man den Satz sieht
+        if (e.hopCd <= 0 && d > 1.2 && d < 3.1 && los) {   // Angriffssprung: aus Sprungweite auf den Spieler
+          e.hopCd = (EZ() ? 2.4 : HC() ? 1.1 : 1.6) + frand() * 1.2; e.hopT = HOP_T; e.hopV = Math.min(4.5 * spd, (d - .6) / HOP_T);
+          const sw = (frand() - .5) * .3; e.mdx = nx * Math.cos(sw) - ny * Math.sin(sw); e.mdy = ny * Math.cos(sw) + nx * Math.sin(sw); return;
+        }
+        // Ausweichsprung wie bei den anderen Gegnern je Schwierigkeitsgrad: Kleinanleger nie, Spekulant nur wenn getroffen (50 %),
+        // Day-Trader auch wenn du auf ihn zielst (60 %); nicht ganz aus der Naehe
+        if (!EZ() && e.hopCd <= 0 && t.isPlayer && d > 1.2 && d < 9 && los && (e.hurt > 0 || (HC() && ((e.x - t.x) * t.dirX + (e.y - t.y) * t.dirY) / d > .985))) {
+          e.hopCd = HC() ? 1.8 + frand() * 1.2 : 3 + frand();
+          if (frand() < (HC() ? .6 : .5)) { e.hopT = HOP_T; e.hopV = 3.2 * spd; const sd = frand() < .5 ? 1 : -1; e.mdx = -ny * sd; e.mdy = nx * sd; return; }
+        }
         if (d > .7) chase(e, t, .9 * spd, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2; e.attackAnim = .3; t.slowT = 3; sfxTo(t, "OIL"); damagePlayer(t, 8, L("OIL SPILL! YOU'RE STUCK", "ÖLPEST! DU KLEBST FEST")); }
         return;

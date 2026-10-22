@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.33.1"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.33.2"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -1600,14 +1600,23 @@ static void updateEnemy(Enemy& e, int idx, float dt) {
           sfxNear(SFX_ID_OIL, e.x, e.y, 10);
         }
         return;
-      case E_SLICK:   // kriecht und springt immer wieder ein Stueck auf dich zu
+      case E_SLICK:   // kriecht; springt nur zum Angriff (aus Sprungweite) oder um auszuweichen
         e.hopCd -= dt;
         if (e.hopT > 0) {   // in der Luft: schneller, landet mit einem Platsch
           e.hopT -= dt; moveEntity(e.x, e.y, e.mdx * e.hopV * dt, e.mdy * e.hopV * dt, 0.25f);   // Satz nach vorne, bis gut 2 Felder weit
           if (e.hopT <= 0) { sfxNear(SFX_ID_OIL, e.x, e.y, 7); if (d < 0.9f && e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; slowT = 3; damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); } }
           return;
         }
-        if (e.hopCd <= 0 && d > 1.2f && d < 7 && los) { e.hopCd = (easy ? 2.4f : hardcore ? 1.1f : 1.6f) + frand() * 1.2f; e.hopT = 0.55f; e.hopV = min(4.5f * spdMul, (d - 0.6f) / 0.55f); float sw = (frand() - 0.5f) * 0.9f; e.mdx = nx * cosf(sw) - ny * sinf(sw); e.mdy = ny * cosf(sw) + nx * sinf(sw); return; }   // leicht schraeg, damit man den Satz sieht
+        if (e.hopCd <= 0 && d > 1.2f && d < 3.1f && los) {   // Angriffssprung: aus Sprungweite auf den Spieler
+          e.hopCd = (easy ? 2.4f : hardcore ? 1.1f : 1.6f) + frand() * 1.2f; e.hopT = 0.55f; e.hopV = min(4.5f * spdMul, (d - 0.6f) / 0.55f);
+          float sw = (frand() - 0.5f) * 0.3f; e.mdx = nx * cosf(sw) - ny * sinf(sw); e.mdy = ny * cosf(sw) + nx * sinf(sw); return;
+        }
+        // Ausweichsprung wie bei den anderen Gegnern je Schwierigkeitsgrad: Kleinanleger nie, Spekulant nur wenn getroffen (50 %),
+        // Day-Trader auch wenn du auf ihn zielst (60 %); nicht ganz aus der Naehe
+        if (!easy && e.hopCd <= 0 && d > 1.2f && d < 9 && los && (e.hurt > 0 || (hardcore && ((e.x - px) * dirX + (e.y - py) * dirY) / d > 0.985f))) {
+          e.hopCd = hardcore ? 1.8f + frand() * 1.2f : 3.0f + frand();
+          if (frand() < (hardcore ? 0.6f : 0.5f)) { e.hopT = 0.55f; e.hopV = 3.2f * spdMul; float sd = frand() < 0.5f ? 1.0f : -1.0f; e.mdx = -ny * sd; e.mdy = nx * sd; return; }
+        }
         if (d > 0.7f) chase(e.x, e.y, tx, ty, toPl, 0.9f * spdMul, dt);
         else if (e.cd <= 0 && !segBlocked(e.x, e.y, tx, ty)) { e.cd = 1.2f; e.attackAnim = 0.3f; slowT = 3; sfxPlay(SFX_ID_OIL); damagePlayer(8, L("OIL SPILL! YOU'RE STUCK", "OELPEST! DU KLEBST FEST")); }
         return;
