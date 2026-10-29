@@ -397,6 +397,28 @@ def snd_liq():
     return o
 
 
+def snd_yolo():
+    """YOLO: lautes Schluerfen durch den Strohhalm, dann ein jubelnder Lauf nach oben."""
+    o = buf(1.1)
+    add_noise(o, 0, 0.34, 0.55, lp=0.35, hp=0.4, env=lambda t: math.sin(math.pi * min(1, t / 0.34)) * (0.55 + 0.45 * math.sin(t * 95)))
+    for k, f in enumerate((523, 659, 784, 1047, 1319)):
+        add_sweep(o, 0.38 + k * 0.07, 0.12, f, f, 0.32, 3, "sq")
+    add_bell(o, 0.75, 1568, [(1, 1, 5), (2.01, 0.4, 8)], 0.4, 0.3)
+    lowpass(o, 0.55)
+    fade_out(o, 0.1)
+    return o
+
+
+def snd_tick():
+    """YOLO laeuft gleich ab: kurzer, heller Doppelpiep."""
+    o = buf(0.2)
+    add_sweep(o, 0, 0.05, 1760, 1760, 0.35, 10, "sq")
+    add_sweep(o, 0.09, 0.05, 1760, 1760, 0.35, 10, "sq")
+    lowpass(o, 0.5)
+    fade_out(o, 0.02)
+    return o
+
+
 SOUNDS = [
     ("KACHING", snd_kaching), ("COINS", snd_coins), ("SHOT", snd_shot), ("HIT", snd_hit),
     ("STAMP", snd_stamp), ("PHONE", snd_phone), ("ZAP", snd_zap), ("BELL", snd_bell),
@@ -404,6 +426,7 @@ SOUNDS = [
     ("BULL", snd_bull), ("ROAR", snd_roar), ("GLITCH", snd_glitch), ("OIL", snd_oil), ("LASER", snd_laser),
     ("DODGE", snd_dodge), ("KEYCARD", snd_keycard), ("ALARM", snd_alarm),
     ("REFI", snd_refi), ("BULLRUN", snd_bullrun), ("BEARTRAP", snd_beartrap), ("LIQ", snd_liq),
+    ("YOLO", snd_yolo), ("TICK", snd_tick),
 ]
 
 

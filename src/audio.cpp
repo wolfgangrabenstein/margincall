@@ -11,7 +11,7 @@ struct SfxDef { const int8_t* data; size_t len; uint8_t ch; };
 static const SfxDef SFX_TABLE[SFX_COUNT] = {
   SFX(KACHING, 3), SFX(COINS, 3), SFX(SHOT, 1), SFX(HIT, 2), SFX(STAMP, 2), SFX(PHONE, 5),
   SFX(ZAP, 4), SFX(BELL, 6), SFX(CRASH, 6), SFX(DECLINED, 7), SFX(POP, 2),
-  SFX(BULL, 7), SFX(ROAR, 7), SFX(GLITCH, 6), SFX(OIL, 4), SFX(LASER, 4), SFX(DODGE, 3), SFX(KEYCARD, 3), SFX(ALARM, 6), SFX(REFI, 3), SFX(BULLRUN, 6), SFX(BEARTRAP, 6), SFX(LIQ, 3),
+  SFX(BULL, 7), SFX(ROAR, 7), SFX(GLITCH, 6), SFX(OIL, 4), SFX(LASER, 4), SFX(DODGE, 3), SFX(KEYCARD, 3), SFX(ALARM, 6), SFX(REFI, 3), SFX(BULLRUN, 6), SFX(BEARTRAP, 6), SFX(LIQ, 3), SFX(YOLO, 3), SFX(TICK, 5),
 };
 
 void sfxPlay(SfxId id) {
@@ -53,6 +53,10 @@ static const Song SONGS[] = {
    {72,0,77,0,1,81,0,77,0,1,84,0,81,0,77,0,74,0,77,0,1,82,0,77,0,1,86,0,84,0,82,0,76,0,79,0,1,84,0,79,0,1,88,0,86,0,84,82,81,0,0,0,77,0,72,0,77,0,81,0,79,0,77,1},
    {77,0,81,0,86,0,81,0,77,0,74,0,77,0,81,0,77,0,82,0,86,0,82,0,77,0,74,0,77,0,82,0,79,0,82,0,86,0,84,0,82,0,81,0,79,0,77,0,76,0,79,0,84,0,88,0,86,0,84,0,82,79,76,1},
    {{41,53,57,60}, {46,53,58,62}, {48,55,60,64}, {41,53,57,60}}, {{38,50,53,57}, {46,53,58,62}, {43,55,58,62}, {48,55,60,64}}},
+  {192, "x...x...x...x...", "RORORORORORORORO", true, true,   // YOLO: ausgelassene Party in G-Dur, jede Runde einen Halbton hoeher
+   {79,0,79,0,78,79,83,0,79,0,76,0,74,0,71,0,72,0,72,0,71,72,76,0,72,0,69,0,72,74,76,0,74,0,74,0,72,74,78,0,74,0,71,0,74,76,78,0,79,0,83,0,86,0,83,0,79,0,74,0,71,74,79,1},
+   {83,0,81,0,79,0,76,0,79,81,83,0,86,0,83,0,84,0,83,0,81,0,79,0,76,79,84,0,88,0,84,0,81,0,79,0,78,0,76,0,74,76,78,0,81,0,86,0,86,0,88,0,90,0,86,0,83,0,81,0,78,0,0,1},
+   {{43,55,59,62}, {48,55,60,64}, {38,50,54,57}, {43,55,59,62}}, {{40,52,55,59}, {48,55,60,64}, {45,57,60,64}, {38,50,54,57}}},
 };
 static constexpr int NUM_SONGS = sizeof(SONGS) / sizeof(SONGS[0]);
 static const Song* song = &SONGS[0];

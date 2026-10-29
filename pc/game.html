@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.38.1";
+const APP_VERSION = "3.39.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -210,7 +210,7 @@ function storeWall(idx) {
 const S = {}; ["BEAR0","BEAR1","SELL0","SELL1","BUB0","BUB1","SHARK0","SHARK1","BULL0","BULL1","BARON0","BARON1",
   "SLICK0","SLICK1","BOT0","BOT1","ALGO0","ALGO1","DEAD","PROJ","PROJ_OIL","LASER","CASH","DIV",
   "AVM0","AVM1","AVM2","AVM3","AVMBULL","AVMBEAR","AVF0","AVF1","AVF2","AVF3","AVFBULL","AVFBEAR",
-  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5","NOTE","KEY","REFI","LIQ"].forEach((n, i) => S[n] = i);
+  "PIR0","PIR1","PIR2","PIR3","PIR4","PIR5","NOTE","KEY","REFI","LIQ","YOLO"].forEach((n, i) => S[n] = i);
 const sprTex = [];
 function storeSprite(idx) { sprTex[idx] = tmp.slice(); }
 // Keycard des Levels: jede Tresortuer braucht ihre eigene Farbe
@@ -494,6 +494,17 @@ function genSprites() {
   trect(3, 13, 26, 15, C); trect(3, 13, 26, 1, CL); trect(3, 13, 1, 15, CL); trect(3, 19, 26, 1, CL);
   trect(8, 18, 3, 3, GOLD); trect(21, 18, 3, 3, GOLD); tpx(9, 19, GOLDD); tpx(22, 19, GOLDD); }
   storeSprite(S.LIQ);
+  tclear(N);   // YOLO: bunter Cocktail mit Strohhalm, Kirsche und Limettenscheibe
+  { const G = RGB(185, 225, 240), GD = RGB(110, 160, 185), O = RGB(255, 150, 40), Y = RGB(255, 215, 70), R = RGB(235, 50, 95);
+  for (let k = 0; k < 10; k++) trect(13 + Math.round(k * .8), 12 - k, 2, 1, k % 2 ? RGB(255, 255, 255) : RGB(230, 30, 60));   // Strohhalm, rot-weiss
+  trect(8, 8, 16, 2, G); trect(8, 10, 1, 6, G); trect(23, 10, 1, 6, G);   // Glasrand
+  trect(9, 10, 14, 3, Y); trect(9, 13, 14, 3, O); ttri(9, 16, 22, 16, 16, 23, O); ttri(11, 17, 21, 17, 16, 22, R);   // Drink: gelb, orange, rot
+  ttri(8, 16, 9, 16, 16, 24, GD); ttri(23, 16, 24, 16, 16, 24, GD);
+  trect(10, 11, 1, 3, RGB(255, 245, 210)); tpx(11, 14, RGB(255, 245, 210));   // Glanz
+  trect(15, 23, 2, 5, G); trect(11, 28, 10, 2, G); trect(11, 29, 10, 1, GD);   // Stiel und Fuss
+  tcirc(24, 9, 3, RGB(90, 180, 40)); tcirc(24, 9, 2, RGB(200, 245, 150)); tpx(24, 9, RGB(90, 180, 40));   // Limette
+  tcirc(10, 7, 2, RGB(210, 20, 40)); tpx(9, 6, RGB(255, 150, 160)); trect(11, 3, 1, 3, RGB(60, 120, 30)); }   // Kirsche
+  storeSprite(S.YOLO);
   tclear(N);   // fliegender Geldschein (Projektil der Waffe)
   trect(5, 11, 22, 11, RGB(25, 95, 40)); trect(6, 12, 20, 9, RGB(120, 205, 120)); tcirc(16, 16.5, 3, RGB(25, 95, 40)); tcirc(16, 16.5, 1.6, RGB(170, 235, 170));
   trect(7, 13, 3, 2, RGB(25, 95, 40)); trect(22, 18, 3, 2, RGB(25, 95, 40));
@@ -919,6 +930,13 @@ function buildWorld(lv) {
 }
 // Keycard: Bosse lassen sie fallen; in Leveln ohne Boss faellt sie nach 8-16 erledigten Gegnern (jedes Mal zufaellig, ohne Hinweis)
 let refiDropped = false, liqDropped = false;   // Refinanzierungspaket und Liquiditaetsschub: hoechstens je einer pro Level
+// YOLO: aeusserst seltener Cocktail (hoechstens einer pro Level, nur Solo und Koop). Macht unverwundbar; beruehrte Gegner sterben,
+// Bosse verlieren pro Beruehrung nur einen kleinen Teil ihrer Energie und erst nach einer langen Pause wieder.
+let yoloDropped = false;
+const YOLO_SONG = 7, YOLO_BOSS_CD = 4;
+const yoloTime = () => nEZ() ? 15 : nHC() ? 10 : 12;           // Sekunden unverwundbar
+const yoloBoss = () => nEZ() ? .1 : nHC() ? .06 : .08;         // Anteil der Boss-Energie pro Beruehrung
+const yoloChance = () => resEZ() ? .004 : resHC() ? .002 : .003;   // pro Abschuss
 let vaultPos = [0, 0], hasKey = false, keyDropped = false, keyKills = 0, keyNeed = 12, levelHasBoss = false;
 function reachableCells() {   // alle Felder, die man vom Start aus zu Fuss erreicht
   const R = Array.from({ length: MAP }, () => new Array(MAP).fill(false)), q = [[Math.floor(startCell[0]), Math.floor(startCell[1])]];
@@ -975,7 +993,7 @@ function loadLevel(lv) {
     if (m < 1) base.sort(() => frand() - .5).slice(0, Math.round(base.length * (1 - m))).forEach(it => it.active = false);
     else for (let k = Math.round(base.length * (m - 1)); k > 0; k--) { const c = findHiddenCell(3); if (c) items.push({ x: c[0], y: c[1], type: base.length ? base[rnd() % base.length].type : 0, active: true }); }
   }
-  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (nEZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (nEZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
+  levelHasBoss = spawns.some(t => TYPES[t].boss); hasKey = keyDropped = refiDropped = liqDropped = yoloDropped = false; players.forEach(p => p.yoloT = 0); keyKills = 0; keyNeed = lv === 0 ? 3 + rnd() % 3 + (nEZ() ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (nEZ() && lv === 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   if (pvpMode()) {   // Bosse nur im Koop/Solo
     enemies.forEach(e => { if (TYPES[e.type].boss) { e.alive = false; e.gone = true; } });
@@ -1098,8 +1116,22 @@ function killLine(a, b) {
   lastKillLine = i;
   return L(...KILL_LINES[i]).replace(/\bA\b/, "\u0001").replace(/\bB\b/, "\u0002").replace("\u0001", a).replace("\u0002", b);
 }
+// YOLO laeuft: Zeit herunterzaehlen, Warnton in den letzten 2 Sekunden, beruehrte Gegner umrennen
+function yoloStep(pl, dt) {
+  const before = pl.yoloT; pl.yoloT = Math.max(0, pl.yoloT - dt); pl.slowT = 0;
+  if (!pl.yoloT) { sayTo(pl, L("YOLO IS OVER", "YOLO IST VORBEI"), 1.5); return; }
+  if (pl.yoloT < 2 && Math.ceil(pl.yoloT * 2) !== Math.ceil(before * 2)) sfxTo(pl, "TICK");
+  for (const e of enemies) {
+    if (!e.alive || e.gone) continue;
+    const ti = TYPES[e.type], r = .32 * ti.scale + .35;
+    if ((e.x - pl.x) ** 2 + (e.y - pl.y) ** 2 > r * r) continue;
+    if (!ti.boss) { hurtEnemy(e, e.hp, pl); continue; }
+    if ((e.yoloCd || 0) > gameTime) continue;   // Bosse: nur ein kleiner Treffer, dann lange Pause
+    e.yoloCd = gameTime + YOLO_BOSS_CD; hurtEnemy(e, Math.max(1, Math.round(e.maxhp * yoloBoss())), pl);
+  }
+}
 function damagePlayer(pl, d, why, attacker = null) {
-  if (!pl || pl.dead || (state !== ST.PLAY) || pl.god) return;
+  if (!pl || pl.dead || (state !== ST.PLAY) || pl.god || pl.yoloT > 0) return;
   if (!attacker?.isPlayer) { if (nHC()) d *= 1.65; else if (nEZ()) d *= .7; }   // Schwierigkeit wirkt nur auf Treffer der NPCs
   pl.hp -= Math.round(d);
   const src = hitSrc || attacker || curEnemy; hitSrc = null;   // woher der Treffer kam (fuer die Trefferrichtung)
@@ -1143,7 +1175,7 @@ function spawnProj(x, y, ang, spd, dmg, f, spr) {
   projs.push({ x, y, dx: Math.cos(ang) * spd, dy: Math.sin(ang) * spd, active: true, dmg, f, spr });
 }
 const dropItem = (x, y, type) => { if (items.length < 80) items.push({ x, y, type, active: true }); };
-const itemSpr = t => t === 5 ? S.LIQ : t === 4 ? S.REFI : t === 3 ? S.KEY : t ? S.DIV : S.CASH;
+const itemSpr = t => t === 6 ? S.YOLO : t === 5 ? S.LIQ : t === 4 ? S.REFI : t === 3 ? S.KEY : t ? S.DIV : S.CASH;
 
 // Stimmung nach einem Abschuss: erlegter Baer/Short Seller -> Richtung Bullrun, Bulle/Krypto-Blase -> Richtung Baerenfalle.
 // Level 1 hat wenige Gegner, daher dort groessere Schritte (netto 3 statt 5 Abschuesse)
@@ -1254,7 +1286,7 @@ function endCrash(ok) {
   } else {
     sayAll(L("MARGIN CALL MISSED! ONE LIFE LOST", "MARGIN CALL VERFEHLT! EIN LEBEN VERLOREN"), 3.5);
     for (const p of players) {
-      if (p.dead || p.god) continue;
+      if (p.dead || p.god || p.yoloT > 0) continue;
       if (isMP() || HC() || livesLeft() <= 1) damagePlayer(p, 9999, null);   // letztes Leben bzw. Koop: Insolvenz
       else { p.deaths++; sfxTo(p, "CRASH"); }
     }
@@ -1346,6 +1378,7 @@ function killEnemy(e, byPlayer) {
   else if (frand() < chance * (isMP() ? resMul().drop : nHC() ? .6 : 1) * (bullRun() ? 2 : bearMkt() ? .75 : 1)) dropItem(e.x, e.y, frand() < .15 ? 1 : 0);
   if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (resHC() ? .005 : resEZ() ? .015 : .01)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
   if (!ti.boss && byPlayer && !e.summoned && !island && !liqDropped && frand() < (resHC() ? .005 : resEZ() ? .015 : .01)) { liqDropped = true; dropItem(e.x, e.y, 5); }   // genauso selten
+  if (!ti.boss && byPlayer && !e.summoned && !island && !yoloDropped && !pvpMode() && frand() < yoloChance()) { yoloDropped = true; dropItem(e.x, e.y, 6); }   // noch seltener
 }
 function hurtEnemy(t, dmg, byPlayer) {
   if (!t.alive) return;
@@ -1878,7 +1911,7 @@ function hostSendSnapshot() {
   const snap = {
     t: "snap", to: "all", st: state, mode, lv: level, seq: levelSeq, rt: Math.ceil(roundT), rd: readyT > 0 ? r2(readyT) : undefined, ts: teamScore,
     fx: [r2(fakeT), r2(glitchT), r2(aiFaceT), r2(invertT), r2(crashT), r2(manipChg), r2(manipT), r2(cheatChg), phase, r2(phaseT), r2(sentiment), r2(quakeT), crashStage, r2(crashStT), marginDue, marginPaid, r2(crashChg)], ba: [bullsAlive, bearsAlive], mk: marketKills,
-    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0, mode === "lms" && state !== ST.PLAY ? p.tot : undefined, p.ping || 0]),
+    pl: players.map(p => [p.id, r2(p.x), r2(p.y), r2(p.dirX), r2(p.dirY), p.hp, p.ammo, p.score, p.dead ? 1 : 0, p.team, Math.ceil(p.respawnT), p.slowT > 0 ? 1 : 0, p.kills, p.avatar, p.frags || 0, p.deaths || 0, p.name, p.local ? myMpAim() : p.aim || "off", p.lives || 0, p.out ? 1 : 0, mode === "lms" && state !== ST.PLAY ? p.tot : undefined, p.ping || 0, p.yoloT > 0 ? Math.round(p.yoloT * 10) / 10 : 0]),
     lms: mode === "lms" ? [lmsRound, lobbyBestOf, lmsDuel ? 1 : 0, Object.entries(lmsWins), lmsWinner, lmsOver ? 1 : 0] : undefined,
     en: enemies.filter(e => !e.gone).map(e => {
       let alt = e.attackAnim > 0 || e.chargeT > 0;
@@ -1911,10 +1944,11 @@ function clientSnapshot(m) {
   const ids = m.pl.map(p => p[0]);
   syncPlayersWithPeers(ids);
   if (m.lms) { [lmsRound, lobbyBestOf] = m.lms; lmsDuel = !!m.lms[2]; lmsWins = Object.fromEntries(m.lms[3]); lmsWinner = m.lms[4]; lmsOver = !!m.lms[5]; }
-  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out, tot, ping] of m.pl) {
+  for (const [id, x, y, dx, dy, hp, ammo, score, dead, team, resp, slow, kills, avatar, frags, deaths, pname, aim, lives, out, tot, ping, yolo] of m.pl) {
     const p = players.find(q => q.id === id);
     Object.assign(p, { hp, ammo, score, team, respawnT: resp, kills, frags: frags || 0, deaths: deaths || 0, name: pname || p.name, slowT: slow ? .2 : 0, avatar: avatar || "m", aim: aim || "off", lives: lives || 0, out: !!out, tot: tot || null });
     if (!p.local) p.ping = ping || 0;
+    p.yoloT = yolo || 0;
     if (!p.local) Object.assign(p, { x, y, dirX: dx, dirY: dy });
     if (p.local && p.dead && !dead) hurtT = 0;
     p.dead = !!dead;
@@ -1999,7 +2033,7 @@ let cheated = false, cheatChg = 0, hsNote = "";
 const hx = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const CX = { 2420334519: ["p"], 4213436061: ["g"], 2774362824: ["f"], 2824693482: ["c"], 1222718734: ["k", 10], 441275864: ["k", -10], 3467203134: ["a"],
   934299367: ["l", 1], 951076986: ["l", 2], 967854605: ["l", 3], 850411272: ["l", 4], 867188891: ["l", 5], 883966510: ["l", 6],
-  2701532541: ["m", 1], 1036699575: ["m", -1], 1133165847: ["x"] };
+  2701532541: ["m", 1], 1036699575: ["m", -1], 1133165847: ["x"], 2692881201: ["y"] };
 function cx(pl, txt) {
   const c = CX[hx(String(txt).slice(1).replace(/\s+/g, "").toLowerCase())];
   if (!c || state !== ST.PLAY || (mode !== "solo" && mode !== "coop")) return;
@@ -2015,6 +2049,7 @@ function cx(pl, txt) {
     case "a": if (!island) aiEvent(); break;
     case "m": if (!island && !crashStage) { phaseT = 0; stampedeAt = 0; startPhase(c[1], true); } break;   // Marktphase sofort (ohne Crash-Pruefung)
     case "x": if (!island && !crashStage) startCrash(); break;   // Boersencrash sofort
+    case "y": pl.yoloT = yoloTime(); pl.slowT = 0; sayTo(pl, `YOLO! ${pl.yoloT} s`, 2); sfxTo(pl, "YOLO"); break;
     case "l":
       if (c[1] === 6) { if (!isMP()) startIsland(); break; }
       island = false; loadLevel(c[1] - 1); state = ST.PLAY; fireCd = .4;
@@ -2675,6 +2710,7 @@ function updateGame(dt) {
     pl.slowT -= dt;
     if (pl.stampHitT > 0) pl.stampHitT -= dt;
     if (pl.dead && isMP()) { pl.respawnT -= dt; if (pl.respawnT <= 0) respawnPlayer(pl); }
+    if (pl.yoloT > 0 && !pl.dead) yoloStep(pl, dt);
   }
   checkExit();
   if (state !== ST.PLAY) return;
@@ -2686,6 +2722,11 @@ function updateGame(dt) {
       if (it.type === 2) { it.active = false; islandCoin(pl); break; }   // Goldmuenze in der Steueroase
       if (it.type === 3) { it.active = false; hasKey = true; sayAll(L(`${keyColName()} KEYCARD! THE VAULT IS OPEN`, `${keyColName()} KEYCARD! DER TRESOR IST OFFEN`), 2.5); sfxAll("KEYCARD"); break; }
       if (it.crash) { it.active = false; addScore(pl, 150); pl.ammo = Math.min(99, pl.ammo + 5); sayTo(pl, L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "KACHING"); break; }
+      if (it.type === 6) {   // YOLO: unverwundbar, Gegner umrennen
+        it.active = false; pl.yoloT = yoloTime(); pl.slowT = 0; addScore(pl, 100);
+        sayTo(pl, L(`YOLO! ${pl.yoloT} SECONDS INVULNERABLE – RUN THEM OVER`, `YOLO! ${pl.yoloT} SEKUNDEN UNVERWUNDBAR – RENN SIE UM`), 3);
+        if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "YOLO"); break;
+      }
       if (it.type === 5) {   // Liquiditaetsschub: viel Cash, etwas Depot
         if (pl.ammo >= 99) continue;
         it.active = false; const n = resHC() ? 45 : 60, h = resHC() ? 5 : 10; pl.ammo = Math.min(99, pl.ammo + n); pl.hp = Math.min(100, pl.hp + h); addScore(pl, 100);
@@ -3083,7 +3124,7 @@ function startIsland() {
   phase = 0; phaseT = 0; sentiment = 0; quakeT = 0; crashStage = 0; crashChg = 0;   // keine Marktphasen in der Steueroase
   let sy = MAP - 2; while (sy > 2 && world[sy][10] !== ".") sy--;   // Start am Suedstrand, Blick zur Inselmitte
   px = 10.5; py = sy - .5; dirX = 0; dirY = -1; planeX = -dirY * PLANE; planeY = dirX * PLANE;
-  players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; });
+  players.forEach(p => { p.hp = 100; p.ammo = Math.min(99, p.ammo + 20); p.x = px; p.y = py; p.yoloT = 0; });
   const taken = isleBuildObjects();
   isleCoinsPlaced = 0;
   for (let k = 0; k < ISLE_COINS; k++) { const c = isleFreeCell(2.5, taken); if (!c) break; taken.push(c); items.push({ x: c[0], y: c[1], type: 2, active: true }); isleCoinsPlaced++; }
@@ -4073,6 +4114,18 @@ function genSfx() {
       for (let k = 0; k < 14; k++) addBell(o, .2 + k * .05 + rand() * .02, 2600 + rand() * 1600, [[1, 1, 18], [2.7, .4, 25]], .35 * (1 - k / 20), .25);
       lowpass(o, .7); fadeOut(o, .1); return o;
     },
+    YOLO() {   // YOLO: lautes Schluerfen durch den Strohhalm, dann ein jubelnder Lauf nach oben
+      const o = buf(1.1);
+      addNoise(o, 0, .34, .55, 0, .35, .4, t => Math.sin(Math.PI * Math.min(1, t / .34)) * (.55 + .45 * Math.sin(t * 95)));
+      [523, 659, 784, 1047, 1319].forEach((f, k) => addSweep(o, .38 + k * .07, .12, f, f, .32, 3, "sq"));
+      addBell(o, .75, 1568, [[1, 1, 5], [2.01, .4, 8]], .4, .3);
+      lowpass(o, .55); fadeOut(o, .1); return o;
+    },
+    TICK() {   // YOLO laeuft gleich ab: kurzer, heller Doppelpiep
+      const o = buf(.2);
+      addSweep(o, 0, .05, 1760, 1760, .35, 10, "sq"); addSweep(o, .09, .05, 1760, 1760, .35, 10, "sq");
+      lowpass(o, .5); fadeOut(o, .02); return o;
+    },
     BULLRUN() {   // Bullrun: aufsteigende Fanfare
       const o = buf(1.3);
       [[0, 392, .14], [.12, 523, .14], [.24, 659, .14], [.36, 784, .8]].forEach(([t, f, l]) => { addSweep(o, t, l, f, f, .35, 2, "saw"); addSweep(o, t, l, f * 1.003, f * 1.003, .2, 2, "sq"); });
@@ -4126,6 +4179,10 @@ const SONGS = [   // 0 Titel/Abspann, 1-5 Level, 6 Steueroase: gleiche Instrumen
     a: [72,0,77,0,1,81,0,77,0,1,84,0,81,0,77,0,74,0,77,0,1,82,0,77,0,1,86,0,84,0,82,0,76,0,79,0,1,84,0,79,0,1,88,0,86,0,84,82,81,0,0,0,77,0,72,0,77,0,81,0,79,0,77,1],
     b: [77,0,81,0,86,0,81,0,77,0,74,0,77,0,81,0,77,0,82,0,86,0,82,0,77,0,74,0,77,0,82,0,79,0,82,0,86,0,84,0,82,0,81,0,79,0,77,0,76,0,79,0,84,0,88,0,86,0,84,0,82,79,76,1],
     ca: [[41,53,57,60],[46,53,58,62],[48,55,60,64],[41,53,57,60]], cb: [[38,50,53,57],[46,53,58,62],[43,55,58,62],[48,55,60,64]] },
+  { bpm: 192, kick: "x...x...x...x...", bass: "RORORORORORORORO", cow: 1, arp: 1,   // YOLO: ausgelassene Party in G-Dur, jede Runde einen Halbton hoeher
+    a: [79,0,79,0,78,79,83,0,79,0,76,0,74,0,71,0,72,0,72,0,71,72,76,0,72,0,69,0,72,74,76,0,74,0,74,0,72,74,78,0,74,0,71,0,74,76,78,0,79,0,83,0,86,0,83,0,79,0,74,0,71,74,79,1],
+    b: [83,0,81,0,79,0,76,0,79,81,83,0,86,0,83,0,84,0,83,0,81,0,79,0,76,79,84,0,88,0,84,0,81,0,79,0,78,0,76,0,74,76,78,0,81,0,86,0,86,0,88,0,90,0,86,0,83,0,81,0,78,0,0,1],
+    ca: [[43,55,59,62],[48,55,60,64],[38,50,54,57],[43,55,59,62]], cb: [[40,52,55,59],[48,55,60,64],[45,57,60,64],[38,50,54,57]] },
 ];
 const P = { A: 0, A_COW: 1, B: 2, B_FILL: 3, CRAZY: 4, A_SLIDE: 5 };
 const KICK_B = "x...x...x.x.x..x", SNARE = "....x.......x...", FILL = "x.x.xxxxxxxxxxxx",
@@ -4199,7 +4256,8 @@ function musicSchedule() {
     musicTime += CHUNK / MR;
   }
 }
-function musicStart(song = 0) { musicKill(); musicReset(song); musicPanic = false; musicRunning = true; }
+let musicSong = 0;   // zuletzt gestarteter Song ausser YOLO (dorthin geht es nach YOLO zurueck)
+function musicStart(song = 0) { if (song !== YOLO_SONG) musicSong = song; musicKill(); musicReset(song); musicPanic = false; musicRunning = true; }
 function musicStop() { musicRunning = false; musicKill(); }
 function applyVolumes() {
   musicOn = settings.musicVol > 0;
@@ -4812,6 +4870,15 @@ function renderPlay(dt) {
     const a = .35 + .25 * Math.sin(gameTime * 6);
     g.strokeStyle = phase > 0 ? `rgba(80,255,130,${a})` : `rgba(255,60,60,${a})`; g.lineWidth = 14; g.strokeRect(7, 7, DW - 14, HUD_Y - 14);
   }
+  if (me && me.yoloT > 0 && (me.yoloT > 2 || Math.floor(gameTime * 8) % 2)) {   // YOLO: Rand leuchtet in wandernden Regenbogenfarben, zum Schluss blinkend
+    const h0 = (gameTime * 300) % 360, w = 12, top = 26;
+    const rainbow = (x0, y0, x1, y1) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (let k = 0; k <= 6; k++) gr.addColorStop(k / 6, `hsla(${(h0 + k * 60) % 360},100%,60%,.85)`); return gr; };
+    g.fillStyle = rainbow(0, 0, DW, 0); g.fillRect(0, top, DW, w);
+    g.fillStyle = rainbow(DW, 0, 0, 0); g.fillRect(0, HUD_Y - w, DW, w);
+    g.fillStyle = rainbow(0, HUD_Y, 0, top); g.fillRect(0, top + w, w, HUD_Y - top - 2 * w);
+    g.fillStyle = rainbow(0, top, 0, HUD_Y); g.fillRect(DW - w, top + w, w, HUD_Y - top - 2 * w);
+  }
+  if (me && me.yoloT > 0) text(`YOLO ${Math.ceil(me.yoloT)} s`, DW - 22, 44, `hsl(${(gameTime * 300) % 360},100%,65%)`, 24, "right");
   renderHitDirs(dt); renderSounds(dt); renderReady();
   renderHUD();
   if (down("scores") && !chatTyping) renderScoreOverlay();
@@ -4847,7 +4914,9 @@ function frame(now) {
     if (state === ST.LOBBY && (lobbyT -= dt) <= 0) { lobbyT = net.online ? 1 : .3; hostSendLobby(); }
   }
   lobbyNoteT -= dt;
-  if (document.pointerLockElement === screen && state !== ST.PLAY) document.exitPointerLock?.();   // Maus freigeben, auch wenn der Host die Runde beendet hat (Mitspieler)
+  if (document.pointerLockElement === screen && state !== ST.PLAY) document.exitPointerLock?.();
+  { const yolo = state === ST.PLAY && me && me.yoloT > 0, onYolo = ms && ms.song === SONGS[YOLO_SONG];   // YOLO-Musik nur fuer den, der den Cocktail hat
+    if (yolo && musicRunning && !onYolo) musicStart(YOLO_SONG); else if (!yolo && onYolo && musicRunning) musicStart(musicSong); }   // Maus freigeben, auch wenn der Host die Runde beendet hat (Mitspieler)
   if (isClient() && (pingT -= dt) <= 0) { pingT = 2; netSend({ t: "ping", ts: performance.now(), rtt: myPing }); }
   // Spiel im LAN ankuendigen, solange der Host in der Lobby ist (nur in der App bzw. am eigenen Server)
   const shouldAdvertise = isLocalOrigin() && net.connected && !net.online && isHost() && state === ST.LOBBY;

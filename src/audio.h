@@ -25,13 +25,15 @@ enum SfxId {
   SFX_ID_BULLRUN,   // Bullrun beginnt (Fanfare)
   SFX_ID_BEARTRAP,  // Baerenfalle beginnt
   SFX_ID_LIQ,       // Liquiditaetsschub (Koffer und Muenzregen)
+  SFX_ID_YOLO,      // YOLO-Cocktail (Schluerfen und Jubellauf)
+  SFX_ID_TICK,      // YOLO laeuft gleich ab (Doppelpiep)
   SFX_COUNT
 };
 
 void audioInit();
 void audioUpdate();               // jeden Frame aufrufen (fuettert den Musik-Stream)
 void sfxPlay(SfxId id);
-void musicStart(int song = 0);    // ab Songanfang; 0 Titel/Abspann, 1-5 Level, 6 Steueroase
+void musicStart(int song = 0);    // ab Songanfang; 0 Titel/Abspann, 1-5 Level, 6 Steueroase, 7 YOLO
 void musicStop();
 void musicToggle();
 bool musicEnabled();

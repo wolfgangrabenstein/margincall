@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.39.0 – YOLO (29.10.2026)
+
+- **Neuer Buff YOLO:** Ein bunter Cocktail mit Strohhalm, der äußerst selten von besiegten Gegnern fallen gelassen wird (höchstens einer pro Level; Kleinanleger 0,4 %, Spekulant 0,3 %, Day-Trader 0,2 % pro Abschuss). Wer ihn trinkt, ist eine Weile unverwundbar – Kleinanleger 15, Spekulant 12, Day-Trader 10 Sekunden – und rennt Gegner einfach um. Bosse verlieren pro Berührung nur 6–10 % ihrer Energie und erst nach 4 Sekunden wieder etwas. Solange YOLO wirkt, läuft eine eigene Partymusik und der Bildschirmrand leuchtet in wandernden Regenbogenfarben; in den letzten 2 Sekunden blinkt er und ein Warnton piept. Solo und Koop, auch auf dem Cardputer.
+
 ## Version 3.38.1 – Sicherheitskorrekturen für LAN-Spiele (28.10.2026)
 
 - **Desktop-App und PC-Server:** Der eingebaute Spiel-Server sammelte die Teilstücke (Fragmente) einer WebSocket-Nachricht ohne Obergrenze. Ein Gerät im selben Netz hätte so den Speicher füllen und die App zum Absturz bringen können. Eine Nachricht darf jetzt insgesamt höchstens 64 KiB groß sein (die größten Spielnachrichten liegen unter 6 KB); die Prüfung erfolgt, bevor Daten gelesen werden. Fehlerhafte oder übergroße Steuer-Frames beenden die Verbindung.

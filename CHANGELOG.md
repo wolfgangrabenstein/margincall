@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.39.0 – YOLO (29.10.2026)
+
+- **New buff YOLO:** A colourful cocktail with a straw that is dropped extremely rarely by defeated enemies (at most one per level; small investor 0.4 %, speculator 0.3 %, day trader 0.2 % per kill). Drinking it makes you invulnerable for a while – small investor 15, speculator 12, day trader 10 seconds – and you simply run enemies over. Bosses only lose 6–10 % of their health per touch and only again after 4 seconds. While YOLO is active, its own party music plays and the screen border glows in moving rainbow colours; in the last 2 seconds it flashes and a warning beep sounds. Solo and co-op, also on the Cardputer.
+
 ## Version 3.38.1 – Security fixes for LAN games (28.10.2026)
 
 - **Desktop app and PC server:** The built-in game server collected the parts (fragments) of a WebSocket message without an upper limit. A device on the same network could have filled the memory and crashed the app. A message may now be at most 64 KiB in total (the largest game messages are below 6 KB); the check happens before any data is read. Malformed or oversized control frames close the connection.

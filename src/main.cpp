@@ -42,11 +42,11 @@ static uint16_t wallTex[NUM_WALL][TEX * TEX];       // RGB565 (nicht geswappt), 
 
 enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
        S_BULL0, S_BULL1, S_BARON0, S_BARON1, S_SLICK0, S_SLICK1, S_BOT0, S_BOT1, S_ALGO0, S_ALGO1,
-       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, S_NOTE, S_KEY, S_REFI, S_LIQ, NUM_SPR };
+       S_DEAD, S_PROJ, S_PROJ_OIL, S_LASER, S_CASH, S_DIV, S_PIR0, S_PIR1, S_PIR2, S_PIR3, S_PIR4, S_PIR5, S_NOTE, S_KEY, S_REFI, S_LIQ, S_YOLO, NUM_SPR };
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.38.1"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.39.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -481,6 +481,18 @@ static void genSprites() {
   trect(3, 13, 26, 15, C); trect(3, 13, 26, 1, CL); trect(3, 13, 1, 15, CL); trect(3, 19, 26, 1, CL);
   trect(8, 18, 3, 3, GOLD); trect(21, 18, 3, 3, GOLD); tpx(9, 19, GOLDD); tpx(22, 19, GOLDD); }
   storeSprite(S_LIQ);
+  // --- YOLO: bunter Cocktail mit Strohhalm, Kirsche und Limettenscheibe
+  tclear(T);
+  { uint32_t G = RGB(185, 225, 240), GD = RGB(110, 160, 185), O = RGB(255, 150, 40), Y = RGB(255, 215, 70), R = RGB(235, 50, 95);
+  for (int k = 0; k < 10; k++) trect(13 + (int)roundf(k * 0.8f), 12 - k, 2, 1, k % 2 ? RGB(255, 255, 255) : RGB(230, 30, 60));   // Strohhalm, rot-weiss
+  trect(8, 8, 16, 2, G); trect(8, 10, 1, 6, G); trect(23, 10, 1, 6, G);   // Glasrand
+  trect(9, 10, 14, 3, Y); trect(9, 13, 14, 3, O); ttri(9, 16, 22, 16, 16, 23, O); ttri(11, 17, 21, 17, 16, 22, R);   // Drink: gelb, orange, rot
+  ttri(8, 16, 9, 16, 16, 24, GD); ttri(23, 16, 24, 16, 16, 24, GD);
+  trect(10, 11, 1, 3, RGB(255, 245, 210)); tpx(11, 14, RGB(255, 245, 210));   // Glanz
+  trect(15, 23, 2, 5, G); trect(11, 28, 10, 2, G); trect(11, 29, 10, 1, GD);   // Stiel und Fuss
+  tcirc(24, 9, 3, RGB(90, 180, 40)); tcirc(24, 9, 2, RGB(200, 245, 150)); tpx(24, 9, RGB(90, 180, 40));   // Limette
+  tcirc(10, 7, 2, RGB(210, 20, 40)); tpx(9, 6, RGB(255, 150, 160)); trect(11, 3, 1, 3, RGB(60, 120, 30)); }   // Kirsche
+  storeSprite(S_YOLO);
   // --- fliegender Geldschein (Projektil der Waffe)
   tclear(T);
   trect(5, 11, 22, 11, RGB(25, 95, 40)); trect(6, 12, 20, 9, RGB(120, 205, 120)); tcirc(16, 16.5f, 3, RGB(25, 95, 40)); tcirc(16, 16.5f, 1.6f, RGB(170, 235, 170));
@@ -688,6 +700,7 @@ struct Enemy {
   float sideT, sideCd, sdx, sdy;   // Hardcore: Seitschritt aus dem Fadenkreuz
   bool pack;   // gehoert zum Rudel der Baerenfalle
   bool atk;    // Kleinanleger: darf gerade angreifen
+  float yoloCd; // YOLO: Boss erst nach dieser Spielzeit wieder angreifbar
   float hopT, hopCd, hopV;   // Oelschlick: Sprung (Dauer, Pause, Tempo)   // Hinterhalt: lauert hinter einer Ecke, bricht dann hervor
   float trapT;   // Baerenfalle: benommen (role 3 = Crash-Waechter bei gx/gy, role 4 = Crash-Jaeger)
 };
@@ -725,6 +738,12 @@ static int phase; static float phaseT, phaseCd, sentiment, quakeT, stampedeAt, b
 static int crashStage, levelBullruns, runBullruns, coolKills; static float crashStT, crashChg; static long marginDue, marginBase, marginPaid; static bool crashDone, rallySaid;
 static bool canCrash(); static bool overheated();   // unten definiert
 static bool refiDropped, liqDropped;   // Refinanzierungspaket und Liquiditaetsschub: hoechstens je einer pro Level
+// YOLO: aeusserst seltener Cocktail (hoechstens einer pro Level). Macht unverwundbar; beruehrte Gegner sterben,
+// Bosse verlieren pro Beruehrung nur einen kleinen Teil ihrer Energie und erst nach einer langen Pause wieder.
+static bool yoloDropped;
+static float yoloT;   // Restzeit unverwundbar
+static constexpr int YOLO_SONG = 7;
+static constexpr float YOLO_BOSS_CD = 4.0f;
 static int16_t navDist[MAP_W * MAP_H]; static float navT; static bool navOk;   // Wegkarte: Schritte bis zum Spieler je Feld
 static constexpr float PHASE_LEN = 20;
 static inline bool bullRun() { return phase == 1 && phaseT > 0; }
@@ -1017,7 +1036,7 @@ static void loadLevel(int lv) {
     if (TYPES[pend[k]].boss) levelHasBoss = true;
     float x, y; if (randomEnemyCell(TYPES[pend[k]].boss ? 9 : 5, x, y)) spawnEnemy(pend[k], x, y);
   }
-  hasKey = keyDropped = refiDropped = liqDropped = false; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 + (easy ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (easy && lv == 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
+  hasKey = keyDropped = refiDropped = liqDropped = yoloDropped = false; yoloT = 0; keyKills = 0; keyNeed = lv == 0 ? 3 + rnd() % 3 + (easy ? 0 : 1 + rnd() % 2) : 8 + rnd() % 9 - (easy && lv == 1 ? 1 + rnd() % 3 : 0);   // im ersten Level gibt es wenige Gegner
   makeKeySprite(lv);
   static const float dirs[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
   int best = 0, bestLen = -1;
@@ -1113,6 +1132,7 @@ static int hurtAmt;   // Staerke des letzten Treffers (fuer roten Blitz und Scha
 // Trefferrichtung: Herkunft des letzten Treffers (Weltkoordinaten); hitSrcOk = Quelle fuer den naechsten Treffer gesetzt
 static float hitSrcX, hitSrcY, hitDirX, hitDirY, hitDirT; static bool hitSrcOk;
 static void damagePlayer(int d, const char* why) {
+  if (yoloT > 0) return;   // YOLO: unverwundbar
   if (hitSrcOk && state == ST_PLAY) { hitDirX = hitSrcX; hitDirY = hitSrcY; hitDirT = 1.0f; }
   if (state != ST_PLAY) return;
   if (hardcore) d = (int)roundf(d * 1.65f); else if (easy) d = (int)roundf(d * 0.7f);
@@ -1182,6 +1202,7 @@ static void killEnemy(Enemy& e, bool byPlayer) {
   else if (frand() < dropChance * (hardcore ? 0.6f : 1.0f) * (bullRun() ? 2.0f : bearMkt() ? 0.75f : 1.0f)) dropItem(e.x, e.y, frand() < 0.15f ? 1 : 0);
   if (!ti.boss && byPlayer && !e.summoned && !island && !refiDropped && frand() < (hardcore ? 0.005f : easy ? 0.015f : 0.01f)) { refiDropped = true; dropItem(e.x, e.y, 4); }   // ganz selten
   if (!ti.boss && byPlayer && !e.summoned && !island && !liqDropped && frand() < (hardcore ? 0.005f : easy ? 0.015f : 0.01f)) { liqDropped = true; dropItem(e.x, e.y, 5); }   // genauso selten
+  if (!ti.boss && byPlayer && !e.summoned && !island && !yoloDropped && frand() < (hardcore ? 0.002f : easy ? 0.004f : 0.003f)) { yoloDropped = true; dropItem(e.x, e.y, 6); }   // noch seltener
 }
 
 // ---- Marktphasen
@@ -1274,7 +1295,8 @@ static void endCrash(bool ok) {
     char b[48]; snprintf(b, sizeof(b), L("MARGIN CALL MET! +$%ld", "MARGIN CALL ERFUELLT! +$%ld"), bonus); say(b, 3.5f);
   } else {
     say(L("MARGIN CALL MISSED! 1 LIFE LOST", "MARGIN CALL VERFEHLT! 1 LEBEN WEG"), 3.5f);
-    if (hardcore || deaths >= SOLO_LIVES - 1) damagePlayer(9999, nullptr);   // letztes Leben: Insolvenz
+    if (yoloT > 0) { }   // YOLO: unverwundbar
+    else if (hardcore || deaths >= SOLO_LIVES - 1) damagePlayer(9999, nullptr);   // letztes Leben: Insolvenz
     else { deaths++; sfxPlay(SFX_ID_CRASH); }
   }
 }
@@ -2250,6 +2272,23 @@ static void renderCredits() {
   for (auto& l : CL) { const char* s = L(l.en, l.de); if (s[0] && y > -20 && y < SH) centerText(s, y, l.size, l.col); y += l.size * 8 + 4; }
 }
 
+// YOLO laeuft: Zeit herunterzaehlen, Warnton in den letzten 2 Sekunden, beruehrte Gegner umrennen
+static void yoloStep(float dt) {
+  float before = yoloT; yoloT = max(0.0f, yoloT - dt); slowT = 0;
+  if (yoloT <= 0) { say(L("YOLO IS OVER", "YOLO IST VORBEI"), 1.5f); if (state == ST_PLAY) musicStart(island ? 6 : 1 + level); return; }
+  if (yoloT < 2 && ceilf(yoloT * 2) != ceilf(before * 2)) sfxPlay(SFX_ID_TICK);
+  for (int i = 0; i < nEnemies; i++) {
+    Enemy& e = enemies[i];
+    if (!e.alive || e.gone) continue;
+    const auto& ti = TYPES[e.type]; float r = 0.32f * ti.scale + 0.35f;
+    if (dist2Player(e.x, e.y) > r * r) continue;
+    if (!ti.boss) { hurtEnemy(e, e.hp, true); continue; }
+    if (e.yoloCd > gameTime) continue;   // Bosse: nur ein kleiner Treffer, dann lange Pause
+    e.yoloCd = gameTime + YOLO_BOSS_CD;
+    float maxhp = ti.hp * (hardcore ? 1.4f : easy ? 0.7f : 1.0f);
+    hurtEnemy(e, max(1, (int)roundf(maxhp * (easy ? 0.1f : hardcore ? 0.06f : 0.08f))), true);
+  }
+}
 static void updateGame(float dt) {
   gameTime += dt;
   musicSetPanic(hp > 0 && hp < 30);
@@ -2324,6 +2363,7 @@ static void updateGame(float dt) {
     dodgeT -= dt;
   }
   if (state != ST_PLAY) return;
+  if (yoloT > 0) { yoloStep(dt); if (state != ST_PLAY) return; }
 
   // Items
   for (int i = 0; i < nItems; i++) {
@@ -2337,6 +2377,12 @@ static void updateGame(float dt) {
       continue;
     }
     if (it.crash) { it.active = false; pickT = 0.25f; pnl += hardcore ? 225 : 150; ammo = min(99, ammo + 5); say(L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); sfxPlay(SFX_ID_KACHING); continue; }
+    if (it.type == 6) {   // YOLO: unverwundbar, Gegner umrennen
+      it.active = false; pickT = 0.25f; yoloT = easy ? 15 : hardcore ? 10 : 12; slowT = 0; pnl += hardcore ? 150 : 100;
+      sfxPlay(SFX_ID_YOLO); musicStart(YOLO_SONG);
+      char b[48]; snprintf(b, sizeof(b), L("YOLO! %ds INVULNERABLE", "YOLO! %ds UNVERWUNDBAR"), (int)yoloT); say(b, 3);
+      continue;
+    }
     if (it.type == 5) {   // Liquiditaetsschub: viel Cash, etwas Depot
       if (ammo >= 99) continue;
       it.active = false; pickT = 0.25f; ammo = min(99, ammo + (hardcore ? 45 : 60)); hp = min(100, hp + (hardcore ? 5 : 10)); pnl += hardcore ? 150 : 100; sfxPlay(SFX_ID_LIQ);
@@ -2531,7 +2577,7 @@ static void renderSprites() {
     }
     sprs[n++] = {e.x, e.y, (int16_t)t, sc, e.alive && e.hurt > 0, 0, e.alive && e.hopT > 0 ? sinf(3.1416f * (1 - e.hopT / 0.55f)) * 0.42f : 0.0f};
   }
-  for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type == 5 ? S_LIQ : items[i].type == 4 ? S_REFI : items[i].type == 3 ? S_KEY : items[i].type ? S_DIV : S_CASH), items[i].flash > 0 ? 0.5f + 0.15f * fabsf(sinf(gameTime * 10)) : 0.5f, false, 0};
+  for (int i = 0; i < nItems; i++) if (items[i].active) sprs[n++] = {items[i].x, items[i].y, (int16_t)(items[i].type == 6 ? S_YOLO : items[i].type == 5 ? S_LIQ : items[i].type == 4 ? S_REFI : items[i].type == 3 ? S_KEY : items[i].type ? S_DIV : S_CASH), items[i].flash > 0 ? 0.5f + 0.15f * fabsf(sinf(gameTime * 10)) : 0.5f, false, 0};
   for (auto& p : projs) if (p.active) sprs[n++] = {p.x, p.y, (int16_t)p.spr, 0.35f, false, 0};
 
   for (int i = 0; i < n; i++) { float dx = sprs[i].x - px, dy = sprs[i].y - py; sprs[i].dist = dx * dx + dy * dy; }
@@ -2596,6 +2642,26 @@ static void screenDir(float x, float y, float& ox, float& oy) {
   ox = (sx * planeX + sy * planeY) / (l * pl); oy = -(sx * dirX + sy * dirY) / l;
 }
 // Trefferrichtung: roter Balken am Bildrand in Richtung des Angreifers (vorne = oben, hinten = unten, schraeg = Ecke)
+// YOLO: Rand der 3D-Ansicht leuchtet in wandernden Regenbogenfarben, zum Schluss blinkend; Restzeit oben rechts
+static uint16_t hue565(float h) {
+  h = fmodf(h, 360.0f); if (h < 0) h += 360;
+  float x = 1 - fabsf(fmodf(h / 60, 2) - 1); float r = 0, g = 0, b = 0;
+  if (h < 60) { r = 1; g = x; } else if (h < 120) { r = x; g = 1; } else if (h < 180) { g = 1; b = x; }
+  else if (h < 240) { g = x; b = 1; } else if (h < 300) { r = x; b = 1; } else { r = 1; b = x; }
+  return c565((uint8_t)(r * 255), (uint8_t)(g * 255), (uint8_t)(b * 255));
+}
+static void renderYolo() {
+  if (yoloT <= 0 || state != ST_PLAY) return;
+  const int w = 3, top = 9;   // oben liegt der Kurs-Ticker
+  if (yoloT > 2 || (int)(gameTime * 8) % 2) {
+    float h0 = gameTime * 300;
+    for (int x = 0; x < SW; x += 4) { uint16_t c = hue565(h0 + x * 1.5f); canvas.fillRect(x, top, 4, w, c); canvas.fillRect(SW - 4 - x, VH - w, 4, w, c); }
+    for (int y = top; y < VH; y += 4) { uint16_t c = hue565(h0 + y * 3.0f); canvas.fillRect(0, y, w, 4, c); canvas.fillRect(SW - w, VH - 4 - (y - top), w, 4, c); }
+  }
+  char b[16]; snprintf(b, sizeof(b), "YOLO %d", (int)ceilf(yoloT));
+  canvas.setTextSize(1); canvas.setTextDatum(top_right); canvas.setTextColor(hue565(gameTime * 300)); canvas.drawString(b, SW - 6, top + w + 2);
+  canvas.setTextDatum(top_left);
+}
 static void renderHitDir() {
   if (hitDirT <= 0) return;
   float x, y; screenDir(hitDirX, hitDirY, x, y);
@@ -3023,7 +3089,7 @@ void loop() {
       if (hit('p')) { state = ST_PAUSE; musicSetPaused(true); break; }
       updateGame(dt);
       if (island) renderIsland(); else { renderWalls(); renderSprites(); renderGlitch(); renderFlicker(); }
-      renderCrashTint(); renderHurt(); renderWeapon(); renderHitDir(); renderSounds(); renderHUD();
+      renderCrashTint(); renderHurt(); renderWeapon(); renderHitDir(); renderSounds(); renderYolo(); renderHUD();
       if (hurtT > 0) { char hb[16]; snprintf(hb, sizeof(hb), "v -%d%%", hurtAmt); centerText(hb, 30 + (int)((0.35f - hurtT) * 60), 2, c565(255, 50, 50)); }
       if (island) {   // HUD in der Steueroase: Gold und Zeit statt Bullen/Baeren und Kurs
         canvas.fillRect(146, VH + 10, SW - 146, 17, c565(8, 12, 26));
