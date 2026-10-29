@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.38.0";
+const APP_VERSION = "3.38.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -665,7 +665,7 @@ const MODES = [["coop", "CO-OP", "KOOP"], ["team", "TEAM BULL VS. TEAM BEAR", "T
 const pvpMode = () => mode === "team" || mode === "dm" || mode === "lms";   // Spieler gegen Spieler (ohne Bosse und Tresor)
 // Last Man Standing: Leben pro Spieler (1–5); genau 2 Spieler spielen ein Duell ueber mehrere Runden (Best of 3/5/7/9)
 let lobbyLives = 1, lobbyBestOf = 3, lmsDuel = false, lmsRound = 1, lmsWins = {}, lmsWinner = 0, lmsOver = false;
-const modeName = i => L(MODES[i][1], MODES[i][2]);
+const modeName = i => { const m = MODES[i] || MODES[0]; return L(m[1], m[2]); };   // unbekannte Modusnummer (fremder Raum): erster Modus
 const PNAMES_I18N = [["GREEN", "GRÜN"], ["BLUE", "BLAU"], ["ORANGE", "ORANGE"], ["PINK", "PINK"]];
 const pName = i => L(...PNAMES_I18N[i]);
 const ROUND_TIME = 240, ROUND_TARGET = 3000, ROUND_BREAK = 5;   // Rundenpause in Sekunden
@@ -1781,7 +1781,11 @@ function netConnect(url) {   // ohne url: LAN ueber den eigenen Server; mit url:
   net.online = !!url; net.code = "";
   const ws = new WebSocket(url || `ws://${location.host}/ws`);
   net.ws = ws;
-  ws.onmessage = ev => netReceive(JSON.parse(ev.data));
+  ws.onmessage = ev => {   // fehlerhafte Nachrichten verwerfen, statt das Spiel aus dem Tritt zu bringen
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (!m || typeof m !== "object" || Array.isArray(m)) return;
+    try { netReceive(m); } catch (e) { console.warn("Netz-Nachricht verworfen", e); }
+  };
   ws.onclose = () => {
     if (net.ws !== ws) return;
     net.ws = null; net.connected = false;
@@ -1855,8 +1859,8 @@ function netReceive(m) {
   // Mitspieler: Lobby und Spielzustand vom Host
   if (m.t === "pong") { if (typeof m.ts === "number") { myPing = Math.round(performance.now() - m.ts); if (me) me.ping = myPing; } return; }
   if (m.t === "lobby") {
-    lobbyMode = m.mode; lobbyInfo = m.players; lobbyChat = m.chat || []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub; lobbyLives = m.lives || 1; lobbyBestOf = m.bo || 3; lobbyDiff = [0, 1, 2].includes(m.diff) ? m.diff : 1; lobbyRes = [0, 1, 2].includes(m.res) ? m.res : 1;
-    const mine = m.players.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
+    lobbyMode = Number.isInteger(m.mode) && MODES[m.mode] ? m.mode : 0; lobbyInfo = Array.isArray(m.players) ? m.players.filter(Array.isArray).slice(0, 8) : []; lobbyChat = Array.isArray(m.chat) ? m.chat.filter(c => Array.isArray(c) && typeof c[1] === "string" && typeof c[2] === "string").slice(-12) : []; lobbyGame = m.game || ""; lobbyAim = ["full", "semi", "off"].includes(m.aim) ? m.aim : "semi"; lobbyFF = m.ff === true; lobbyNPC = m.npc !== false; if (typeof m.pub === "boolean") net.pub = m.pub; lobbyLives = m.lives || 1; lobbyBestOf = m.bo || 3; lobbyDiff = [0, 1, 2].includes(m.diff) ? m.diff : 1; lobbyRes = [0, 1, 2].includes(m.res) ? m.res : 1;
+    const mine = lobbyInfo.find(p => p[0] === net.id); if (mine) me.ready = !!mine[4];
     if (state !== ST.LOBBY && state !== ST.OPTIONS) state = ST.LOBBY;
   } else if (m.t === "snap") clientSnapshot(m);
 }

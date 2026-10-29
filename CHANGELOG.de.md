@@ -2,6 +2,14 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.38.1 – Sicherheitskorrekturen für LAN-Spiele (28.10.2026)
+
+- **Desktop-App und PC-Server:** Der eingebaute Spiel-Server sammelte die Teilstücke (Fragmente) einer WebSocket-Nachricht ohne Obergrenze. Ein Gerät im selben Netz hätte so den Speicher füllen und die App zum Absturz bringen können. Eine Nachricht darf jetzt insgesamt höchstens 64 KiB groß sein (die größten Spielnachrichten liegen unter 6 KB); die Prüfung erfolgt, bevor Daten gelesen werden. Fehlerhafte oder übergroße Steuer-Frames beenden die Verbindung.
+- **HTTP-Anfragen:** höchstens 8 KiB pro Zeile, 64 Header und 10 Sekunden für Anfragezeile und Header.
+- **Mitspieler, die nichts mehr annehmen:** Nach 5 Sekunden wird ihre Verbindung beendet, statt das Weiterleiten für alle aufzuhalten.
+- **LAN-Spielesuche:** höchstens 64 gemerkte Spiele, ungültige Ports werden ignoriert; im PC-Server beendet ein fehlerhaftes Paket die Suche nicht mehr.
+- **Spiel:** Fehlerhafte Nachrichten vom Server oder Host werden verworfen, statt das Spiel aus dem Tritt zu bringen; ein Online-Raum mit unbekanntem Modus legt die Raumliste nicht mehr lahm.
+
 ## Version 3.38.0 – Ressourcen als Match-Einstellung, überarbeitete Texte (22.10.2026)
 
 - **Multiplayer – Ressourcen:** In den Match-Einstellungen lässt sich mit [C] die Menge an Cash und Depot wählen. **Normal** bleibt wie bisher. **Viel** bringt 2,5-mal so viel Cash und Depot auf die Karte, als Beute und als Nachschub, der zudem in 40 % kürzeren Abständen kommt. **Wenig** entspricht den Werten von Day-Trader im Solospiel: 40 % weniger Beute, Cash +7 statt +10, Depot +15 % statt +20 %, ein kleinerer Liquiditätsschub, seltener verstreutes Bargeld und seltenere Pakete. Im Solospiel ändert sich nichts. Die NPC-Stärke wirkt im Multiplayer nur noch auf die NPCs selbst.

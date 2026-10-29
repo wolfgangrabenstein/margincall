@@ -2,6 +2,14 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.38.1 – Security fixes for LAN games (28.10.2026)
+
+- **Desktop app and PC server:** The built-in game server collected the parts (fragments) of a WebSocket message without an upper limit. A device on the same network could have filled the memory and crashed the app. A message may now be at most 64 KiB in total (the largest game messages are below 6 KB); the check happens before any data is read. Malformed or oversized control frames close the connection.
+- **HTTP requests:** at most 8 KiB per line, 64 headers and 10 seconds for the request line and headers.
+- **Players who stop receiving:** their connection is closed after 5 seconds instead of holding up the relay for everyone.
+- **LAN game search:** at most 64 remembered games, invalid ports are ignored; in the PC server a malformed packet no longer ends the search.
+- **Game:** malformed messages from the server or host are discarded instead of throwing the game off; an online room with an unknown mode no longer breaks the room list.
+
 ## Version 3.38.0 – Resources as a match setting, revised texts (22.10.2026)
 
 - **Multiplayer – resources:** In the match settings [C] picks the amount of cash and depot. **Normal** stays as before. **Plenty** puts 2.5 times as much cash and depot on the map, as loot and as new supplies, which also arrive 40 % more often. **Few** matches the day trader values of the solo game: 40 % less loot, cash +7 instead of +10, depot +15 % instead of +20 %, a smaller liquidity boost, stray cash less often and rarer packages. Nothing changes in the solo game. In multiplayer the NPC strength now only affects the NPCs themselves.

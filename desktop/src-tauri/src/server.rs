@@ -14,6 +14,13 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 const GAME_HTML: &str = include_str!("../../../pc/game.html");
 const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_PLAYERS: u32 = 4;
+// Grenzen gegen unbegrenzten Speicherverbrauch durch fehlerhafte oder boeswillige Clients im LAN
+const HTTP_MAX_LINE: u64 = 8 * 1024;      // laengste Anfrage- bzw. Header-Zeile
+const HTTP_MAX_HEADERS: usize = 64;       // hoechstens so viele Header je Anfrage
+const HTTP_TIMEOUT: Duration = Duration::from_secs(10);   // Zeit fuer Anfragezeile und Header
+const WS_MAX_MSG: usize = 64 * 1024;      // groesste WebSocket-Nachricht, alle Fragmente zusammen (Spiel: unter 16 KiB, Online-Server: 32 KiB)
+const MAX_GAMES: usize = 64;              // hoechstens so viele gefundene LAN-Spiele merken
+const WS_WRITE_TIMEOUT: Duration = Duration::from_secs(5);   // so lange darf das Senden an einen Mitspieler hoechstens haengen
 const CACHE_SECONDS: u64 = 60;
 const SYMBOLS: [(&str, &str); 4] = [("%5EDJI", "5m"), ("%5EGSPC", "5m"), ("%5ENDX", "5m"), ("CL%3DF", "15m")];
 // Einzelwerte fuer den Ticker (nur Anzeige); gleiche Liste wie STOCKS in pc/game.html
@@ -77,7 +84,7 @@ fn discovery_start(port: u16) {
             if v["game"] != "margincall" {
                 continue;
             }
-            let Some(p) = v["port"].as_u64() else { continue };
+            let Some(p) = v["port"].as_u64().filter(|p| (1..=65535).contains(p)) else { continue };
             // Ein Spiel kann ueber mehrere Netzwerkadapter ankommen: per Kennung zusammenfassen,
             // Adresse = die vom Host selbst gemeldete LAN-Adresse
             let reported = clean(&v["ip"], 40);
@@ -92,7 +99,14 @@ fn discovery_start(port: u16) {
                 "players": v["players"].as_u64().unwrap_or(1).min(4),
                 "version": clean(&v["version"], 12),
             });
-            games().lock().unwrap().insert(key, (Instant::now(), entry));
+            let mut g = games().lock().unwrap();
+            if g.len() >= MAX_GAMES && !g.contains_key(&key) {   // Liste klein halten: Abgelaufene entfernen, sonst Neues ignorieren
+                g.retain(|_, (t, _)| t.elapsed() < Duration::from_secs(5));
+                if g.len() >= MAX_GAMES {
+                    continue;
+                }
+            }
+            g.insert(key, (Instant::now(), entry));
         }
     });
     // Ankuendigen, solange das Spiel in der Lobby hostet
@@ -146,27 +160,47 @@ fn games_json() -> String {
 }
 
 // ------------------------------------------------------------------ HTTP
-fn handle(stream: TcpStream) -> io::Result<()> {
-    stream.set_nodelay(true).ok();
-    let mut reader = BufReader::new(stream.try_clone()?);
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
-    let method = line.split_whitespace().next().unwrap_or("GET").to_string();
-    let path = line.split_whitespace().nth(1).unwrap_or("/").split('?').next().unwrap_or("/").to_string();
+/// Liest eine HTTP-Zeile mit Laengengrenze: None bei Verbindungsende, Fehler bei ueberlanger Zeile.
+fn http_line<R: BufRead>(reader: &mut R) -> io::Result<Option<String>> {
+    let mut s = String::new();
+    let n = reader.by_ref().take(HTTP_MAX_LINE).read_line(&mut s)?;
+    if n == 0 {
+        return Ok(None);
+    }
+    if !s.ends_with('\n') && n as u64 >= HTTP_MAX_LINE {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "HTTP-Zeile zu lang"));
+    }
+    Ok(Some(s))
+}
+
+/// Anfragezeile und Header einer HTTP-Anfrage; None bei leerer Verbindung, Fehler bei zu vielen Headern.
+fn http_head<R: BufRead>(reader: &mut R) -> io::Result<Option<(String, BTreeMap<String, String>)>> {
+    let Some(line) = http_line(reader)? else { return Ok(None) };
     let mut headers = BTreeMap::new();
-    loop {
-        let mut h = String::new();
-        if reader.read_line(&mut h)? == 0 {
-            break;
-        }
+    let mut count = 0;   // Zeilen zaehlen, nicht Eintraege (doppelte Namen und Zeilen ohne : zaehlen mit)
+    while let Some(h) = http_line(reader)? {
         let h = h.trim_end();
         if h.is_empty() {
             break;
+        }
+        count += 1;
+        if count > HTTP_MAX_HEADERS {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "zu viele HTTP-Header"));
         }
         if let Some((k, v)) = h.split_once(':') {
             headers.insert(k.trim().to_ascii_lowercase(), v.trim().to_string());
         }
     }
+    Ok(Some((line, headers)))
+}
+
+fn handle(stream: TcpStream) -> io::Result<()> {
+    stream.set_nodelay(true).ok();
+    let mut reader = BufReader::new(stream.try_clone()?);
+    reader.get_ref().set_read_timeout(Some(HTTP_TIMEOUT)).ok();   // wer Anfrage und Header nicht zuegig schickt, fliegt raus
+    let Some((line, headers)) = http_head(&mut reader)? else { return Ok(()) };
+    let method = line.split_whitespace().next().unwrap_or("GET").to_string();
+    let path = line.split_whitespace().nth(1).unwrap_or("/").split('?').next().unwrap_or("/").to_string();
     let mut out = stream;
     let is_ws = headers.get("upgrade").map(|v| v.eq_ignore_ascii_case("websocket")).unwrap_or(false);
     match path.as_str() {
@@ -402,12 +436,15 @@ fn ws_frame(op: u8, data: &[u8]) -> Vec<u8> {
 fn ws_send(c: &Client, text: &str) {
     let frame = ws_frame(0x1, text.as_bytes());
     if let Ok(mut s) = c.stream.lock() {
-        let _ = s.write_all(&frame);
-        let _ = s.flush();
+        // Nimmt ein Mitspieler nichts mehr an (Schreib-Timeout), Verbindung schliessen: sonst haengt das Weiterleiten fuer alle
+        if s.write_all(&frame).and_then(|_| s.flush()).is_err() {
+            let _ = s.shutdown(Shutdown::Both);
+        }
     }
 }
 
-/// Liest den naechsten Text-Frame; None bei Verbindungsende.
+/// Liest den naechsten Text-Frame; None bei Verbindungsende oder Protokollverstoss (Nachricht ueber WS_MAX_MSG,
+/// Control-Frame ueber 125 Byte oder fragmentiert, Fortsetzung ohne Anfang, neuer Anfang mitten in einer Nachricht).
 fn ws_recv<R: Read>(r: &mut R, c: &Client) -> io::Result<Option<String>> {
     let mut msg = Vec::new();
     loop {
@@ -426,7 +463,12 @@ fn ws_recv<R: Read>(r: &mut R, c: &Client) -> io::Result<Option<String>> {
             r.read_exact(&mut b)?;
             n = u64::from_be_bytes(b);
         }
-        if n > 16 * 1024 * 1024 {
+        // Grenzen vor jedem Lesen und Reservieren: Control-Frames hoechstens 125 Byte und nie fragmentiert,
+        // Daten-Frames hoechstens WS_MAX_MSG fuer die ganze Nachricht (alle Fragmente zusammen)
+        if op >= 0x8 && (n > 125 || !fin) {
+            return Ok(None);
+        }
+        if n > WS_MAX_MSG as u64 || msg.len() as u64 + n > WS_MAX_MSG as u64 {
             return Ok(None);
         }
         let mut mask = [0u8; 4];
@@ -444,16 +486,23 @@ fn ws_recv<R: Read>(r: &mut R, c: &Client) -> io::Result<Option<String>> {
             0x8 => return Ok(None),
             0x9 => {
                 if let Ok(mut s) = c.stream.lock() {
-                    let _ = s.write_all(&ws_frame(0xA, &payload));
+                    if s.write_all(&ws_frame(0xA, &payload)).is_err() {   // Gegenseite nimmt nichts an: Verbindung beenden
+                        let _ = s.shutdown(Shutdown::Both);
+                        return Ok(None);
+                    }
                 }
             }
+            0xA => {}
             0x0 | 0x1 | 0x2 => {
+                if (op == 0x0) == msg.is_empty() {   // Fortsetzung ohne Anfang bzw. neuer Anfang mitten in einer Nachricht
+                    return Ok(None);
+                }
                 msg.extend_from_slice(&payload);
                 if fin {
                     return Ok(Some(String::from_utf8_lossy(&msg).into_owned()));
                 }
             }
-            _ => {}
+            _ => return Ok(None),   // reservierter Opcode
         }
     }
 }
@@ -472,6 +521,9 @@ fn broadcast_peers() {
 
 fn route(cid: u32, text: &str) {
     let Ok(mut msg) = serde_json::from_str::<Value>(text) else { return };
+    if !msg.is_object() {
+        return;   // das Spiel schickt nur JSON-Objekte
+    }
     let clients = relay().lock().unwrap().clone();
     let host = clients.keys().next().copied().unwrap_or(0);
     if cid == host {
@@ -497,6 +549,7 @@ fn route(cid: u32, text: &str) {
 }
 
 fn websocket(mut stream: TcpStream, mut reader: BufReader<TcpStream>, headers: &BTreeMap<String, String>) -> io::Result<()> {
+    reader.get_ref().set_read_timeout(None).ok();   // im Spiel darf eine Verbindung beliebig lange still sein
     let key = headers.get("sec-websocket-key").cloned().unwrap_or_default();
     let mut sha = Sha1::new();
     sha.update(key.as_bytes());
@@ -506,6 +559,7 @@ fn websocket(mut stream: TcpStream, mut reader: BufReader<TcpStream>, headers: &
     stream.write_all(head.as_bytes())?;
     stream.flush()?;
 
+    stream.set_write_timeout(Some(WS_WRITE_TIMEOUT)).ok();
     let client = Arc::new(Client { stream: Mutex::new(stream) });
     let cid = {
         let mut m = relay().lock().unwrap();
@@ -535,4 +589,113 @@ fn websocket(mut stream: TcpStream, mut reader: BufReader<TcpStream>, headers: &
         let _ = s.shutdown(Shutdown::Both);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+    use std::net::TcpListener;
+
+    /// Client-Attrappe mit echter, sonst unbenutzter Verbindung (Gegenseite liest die Antworten)
+    fn client() -> (Client, TcpStream) {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let s = TcpStream::connect(l.local_addr().unwrap()).unwrap();
+        let (peer, _) = l.accept().unwrap();
+        (Client { stream: Mutex::new(s) }, peer)
+    }
+
+    /// WebSocket-Frame, wie ihn ein Browser schickt (maskiert)
+    fn frame(fin: bool, op: u8, data: &[u8]) -> Vec<u8> {
+        let mut f = vec![(if fin { 0x80 } else { 0 }) | op];
+        let n = data.len();
+        if n < 126 {
+            f.push(0x80 | n as u8);
+        } else if n < 65536 {
+            f.push(0x80 | 126);
+            f.extend_from_slice(&(n as u16).to_be_bytes());
+        } else {
+            f.push(0x80 | 127);
+            f.extend_from_slice(&(n as u64).to_be_bytes());
+        }
+        let mask = [1, 2, 3, 4];
+        f.extend_from_slice(&mask);
+        f.extend(data.iter().enumerate().map(|(i, b)| b ^ mask[i & 3]));
+        f
+    }
+
+    fn recv(bytes: Vec<u8>) -> io::Result<Option<String>> {
+        let (c, _peer) = client();
+        ws_recv(&mut Cursor::new(bytes), &c)
+    }
+
+    #[test]
+    fn ws_nachricht_und_fragmente() {
+        assert_eq!(recv(frame(true, 0x1, b"hallo")).unwrap(), Some("hallo".into()));
+        let mut b = frame(false, 0x1, b"ab");
+        b.extend(frame(false, 0x0, b"c"));
+        b.extend(frame(true, 0x0, b"d"));
+        assert_eq!(recv(b).unwrap(), Some("abcd".into()));
+    }
+
+    #[test]
+    fn ws_groesse_begrenzt() {
+        assert!(recv(frame(true, 0x1, &vec![b'x'; WS_MAX_MSG])).unwrap().is_some());   // genau an der Grenze
+        assert_eq!(recv(frame(true, 0x1, &vec![b'x'; WS_MAX_MSG + 1])).unwrap(), None);
+        let mut b = vec![0x81, 0x80 | 127];   // angekuendigte Riesenlaenge: abgelehnt, bevor etwas gelesen oder reserviert wird
+        b.extend_from_slice(&(u64::MAX / 2).to_be_bytes());
+        assert_eq!(recv(b).unwrap(), None);
+        let mut b = frame(false, 0x1, &vec![b'x'; WS_MAX_MSG]);   // Fragmente zusammen ueber der Grenze
+        b.extend(frame(true, 0x0, b"y"));
+        assert_eq!(recv(b).unwrap(), None);
+    }
+
+    #[test]
+    fn ws_protokollfehler() {
+        assert_eq!(recv(frame(true, 0x9, &[0u8; 126])).unwrap(), None);   // Ping ueber 125 Byte
+        assert_eq!(recv(frame(false, 0x9, b"x")).unwrap(), None);         // fragmentierter Ping
+        assert_eq!(recv(frame(true, 0x0, b"x")).unwrap(), None);          // Fortsetzung ohne Anfang
+        let mut b = frame(false, 0x1, b"a");
+        b.extend(frame(true, 0x1, b"b"));
+        assert_eq!(recv(b).unwrap(), None);   // neuer Anfang mitten in einer Nachricht
+        assert_eq!(recv(frame(true, 0x3, b"x")).unwrap(), None);   // reservierter Opcode
+        assert_eq!(recv(frame(true, 0x8, b"")).unwrap(), None);    // Close
+    }
+
+    #[test]
+    fn ws_ping_wird_beantwortet() {
+        let (c, mut peer) = client();
+        let mut b = frame(true, 0x9, b"hi");
+        b.extend(frame(true, 0xA, b"pong"));   // Pong des Clients wird ignoriert
+        b.extend(frame(true, 0x1, b"ok"));
+        assert_eq!(ws_recv(&mut Cursor::new(b), &c).unwrap(), Some("ok".into()));
+        let mut pong = [0u8; 4];
+        peer.read_exact(&mut pong).unwrap();
+        assert_eq!(pong, [0x8A, 2, b'h', b'i']);
+    }
+
+    #[test]
+    fn http_zeilen_und_header_begrenzt() {
+        let (line, h) = http_head(&mut Cursor::new(b"GET /api/ping HTTP/1.1\r\nHost: x\r\nUpgrade: WebSocket\r\n\r\n".to_vec())).unwrap().unwrap();
+        assert!(line.starts_with("GET /api/ping"));
+        assert_eq!(h.get("host").map(String::as_str), Some("x"));
+        assert_eq!(h.get("upgrade").map(String::as_str), Some("WebSocket"));
+        assert!(http_head(&mut Cursor::new(vec![b'a'; HTTP_MAX_LINE as usize + 1])).is_err());   // Zeile ohne Ende
+        let mut many = b"GET / HTTP/1.1\r\n".to_vec();
+        for i in 0..=HTTP_MAX_HEADERS {
+            many.extend(format!("h{i}: v\r\n").as_bytes());
+        }
+        many.extend(b"\r\n");
+        assert!(http_head(&mut Cursor::new(many)).is_err());   // zu viele Header
+        let mut same = b"GET / HTTP/1.1
+".to_vec();
+        for _ in 0..=HTTP_MAX_HEADERS {
+            same.extend(b"a: b
+");
+        }
+        same.extend(b"
+");
+        assert!(http_head(&mut Cursor::new(same)).is_err());   // gleicher Name immer wieder
+        assert!(http_head(&mut Cursor::new(Vec::new())).unwrap().is_none());   // leere Verbindung
+    }
 }

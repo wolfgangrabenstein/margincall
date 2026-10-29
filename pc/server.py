@@ -24,6 +24,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PORT = int(os.environ.get("MARGINCALL_PORT", "8080"))
 CACHE_SECONDS = 60
 MAX_PLAYERS = 4
+# Grenzen gegen unbegrenzten Speicherverbrauch durch fehlerhafte oder boeswillige Clients im LAN
+WS_MAX_MSG = 64 * 1024   # groesste WebSocket-Nachricht, alle Fragmente zusammen (Spiel: unter 16 KiB, Online-Server: 32 KiB)
+MAX_GAMES = 64           # hoechstens so viele gefundene LAN-Spiele merken
 SYMBOLS = [("DOW", "%5EDJI", "5m"), ("S&P", "%5EGSPC", "5m"), ("NDX", "%5ENDX", "5m"), ("OEL", "CL%3DF", "15m")]
 # Einzelwerte fuer den Ticker (nur Anzeige); gleiche Liste wie STOCKS in game.html
 STOCKS = "GS,CAT,HD,JPM,BA,KO,AAPL,AMZN,GOOGL,META,LLY,BRK-B,NVDA,MSFT,AVGO,TSLA,NFLX,AMD,XOM,CVX"
@@ -158,20 +161,25 @@ def discovery_listen():
         return
     while True:
         data, (ip, _) = s.recvfrom(1024)
-        try:
+        try:   # fehlerhafte Pakete ueberspringen (sonst endete die Spielesuche)
             v = json.loads(data)
-        except ValueError:
+            if not isinstance(v, dict) or v.get("game") != "margincall" or not isinstance(v.get("port"), int) or not 0 < v["port"] < 65536:
+                continue
+            # Ein Spiel kann ueber mehrere Netzwerkadapter ankommen: per Kennung zusammenfassen,
+            # Adresse = die vom Host selbst gemeldete LAN-Adresse
+            host_ip = _clean(v.get("ip"), 40) or ip
+            key = _clean(v.get("id"), 40) or f"{host_ip}:{v['port']}"
+            entry = {"addr": f"{host_ip}:{v['port']}", "name": _clean(v.get("name"), 24), "host": _clean(v.get("host"), 24),
+                     "mode": _clean(v.get("mode"), 32),
+                     "players": max(1, min(4, int(v.get("players", 1)))), "version": _clean(v.get("version"), 12)}
+        except (ValueError, TypeError, OverflowError):
             continue
-        if v.get("game") != "margincall" or not isinstance(v.get("port"), int):
-            continue
-        # Ein Spiel kann ueber mehrere Netzwerkadapter ankommen: per Kennung zusammenfassen,
-        # Adresse = die vom Host selbst gemeldete LAN-Adresse
-        host_ip = _clean(v.get("ip"), 40) or ip
-        key = _clean(v.get("id"), 40) or f"{host_ip}:{v['port']}"
-        entry = {"addr": f"{host_ip}:{v['port']}", "name": _clean(v.get("name"), 24), "host": _clean(v.get("host"), 24),
-                 "mode": _clean(v.get("mode"), 32),
-                 "players": min(4, int(v.get("players", 1))), "version": _clean(v.get("version"), 12)}
         with _games_lock:
+            if len(_games) >= MAX_GAMES and key not in _games:   # Liste klein halten: Abgelaufene entfernen, sonst Neues ignorieren
+                for k in [k for k, (t, _) in _games.items() if time.time() - t > 5]:
+                    del _games[k]
+                if len(_games) >= MAX_GAMES:
+                    continue
             _games[key] = (time.time(), entry)
 
 
@@ -235,7 +243,8 @@ class WSConn:
         return buf
 
     def recv(self):
-        """Liefert den naechsten Text-Frame oder None bei Verbindungsende."""
+        """Liefert den naechsten Text-Frame oder None bei Verbindungsende bzw. Protokollverstoss (Nachricht ueber WS_MAX_MSG,
+        Control-Frame ueber 125 Byte oder fragmentiert, Fortsetzung ohne Anfang, neuer Anfang mitten in einer Nachricht)."""
         message = b""
         while True:
             b1, b2 = self._read(2)
@@ -245,6 +254,12 @@ class WSConn:
                 n = struct.unpack(">H", self._read(2))[0]
             elif n == 127:
                 n = struct.unpack(">Q", self._read(8))[0]
+            # Grenzen vor dem Lesen der Nutzdaten: Control-Frames hoechstens 125 Byte und nie fragmentiert,
+            # Daten-Frames hoechstens WS_MAX_MSG fuer die ganze Nachricht (alle Fragmente zusammen)
+            if op >= 8 and (n > 125 or not fin):
+                return None
+            if n > WS_MAX_MSG or len(message) + n > WS_MAX_MSG:
+                return None
             mask = self._read(4) if b2 & 0x80 else b"\0\0\0\0"
             payload = bytes(c ^ mask[i & 3] for i, c in enumerate(self._read(n)))
             if op == 8:
@@ -253,10 +268,13 @@ class WSConn:
                 with self.wlock:
                     self.h.wfile.write(bytes([0x8A, len(payload)]) + payload)
                 continue
-            if op in (0, 1, 2):
-                message += payload
-                if fin:
-                    return message.decode("utf-8", "replace")
+            if op == 10:   # Pong des Clients
+                continue
+            if op not in (0, 1, 2) or (op == 0) == (not message):   # reservierter Opcode, Fortsetzung ohne Anfang, neuer Anfang mitten in einer Nachricht
+                return None
+            message += payload
+            if fin:
+                return message.decode("utf-8", "replace")
 
 
 class Relay:
@@ -295,6 +313,8 @@ class Relay:
             msg = json.loads(text)
         except ValueError:
             return
+        if not isinstance(msg, dict):   # das Spiel schickt nur JSON-Objekte
+            return
         with self.lock:
             host = self.host()
             clients = dict(self.clients)
@@ -318,6 +338,7 @@ relay = Relay()
 # ------------------------------------------------------------------ HTTP
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+    timeout = 10   # Zeit fuer Anfragezeile und Header (Zeilen und Header begrenzt die Standardbibliothek selbst); im Spiel aufgehoben
 
     def _send(self, code, body, ctype):
         self.send_response(code)
@@ -382,6 +403,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.flush()
         self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.connection.settimeout(None)   # im Spiel darf eine Verbindung beliebig lange still sein
         conn = WSConn(self)
         cid = relay.join(conn)
         if not cid:
