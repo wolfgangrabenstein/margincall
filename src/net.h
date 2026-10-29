@@ -42,6 +42,13 @@ int  netScan(char names[][33], int8_t* rssi, bool* secured, int maxCount);   // 
 bool netConnect(const char* ssid, const char* pass, uint32_t timeoutMs);      // blockierend, speichert bei Erfolg
 void netForget();
 
+// ---------------------------------------------------------------- Updates
+// Neueste Firmware bei GitHub; Download nur auf Wunsch, mit gepruefter TLS-Verbindung, Groesse und SHA-256
+struct FwUpdate { char version[16]; char name[48]; char url[200]; uint32_t size; char sha256[65]; };
+bool updateCheck(const char* current, FwUpdate& out);   // blockierend; true = neuere Version gefunden
+// blockierend; schreibt auf die SD-Karte (Datei out.name im Hauptordner); 0 = ok, sonst Fehlercode
+int  updateDownload(const FwUpdate& u, void (*progress)(uint32_t got, uint32_t total));
+
 // ---------------------------------------------------------------- Stream
 // Browser im selben Netz: http://margincall.local  bzw.  http://<IP>
 void streamPause(bool pause);           // waehrend TLS-Abruf Puffer freigeben

@@ -2,6 +2,13 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.40.0 – Automatic updates (29.10.2026)
+
+- **Desktop app:** The app can check at startup whether a new version is available. On first start it asks for permission once (changeable under *Options → Check for updates*). If there is a new version, the main menu shows “UPDATE x AVAILABLE – [U] INSTALL NOW”. [U] downloads the matching file from GitHub, verifies its size and SHA-256 checksum and replaces the program. Another [U] starts the new version – on the same port, so settings and leaderboards are kept. Windows and Linux replace themselves; on macOS the new disk image is opened and MARGIN CALL is dragged into “Applications”.
+- **Browser version:** If a newer version has been published on the page, the main menu offers “[U] RELOAD”.
+- **Cardputer:** After WLAN has been set up, the firmware asks GitHub once per start. If there is a new version, [U] saves it to the SD card – over a connection verified with fixed root certificates and with a SHA-256 check. It is then installed in the M5Launcher.
+- **Privacy:** The update check is described in the privacy policy.
+
 ## Version 3.39.0 – YOLO (29.10.2026)
 
 - **New buff YOLO:** A colourful cocktail with a straw that is dropped extremely rarely by defeated enemies (at most one per level; small investor 0.4 %, speculator 0.3 %, day trader 0.2 % per kill). Drinking it makes you invulnerable for a while – small investor 15, speculator 12, day trader 10 seconds – and you simply run enemies over. Bosses only lose 6–10 % of their health per touch and only again after 4 seconds. While YOLO is active, its own party music plays and the screen border glows in moving rainbow colours; in the last 2 seconds it flashes and a warning beep sounds. Solo and co-op, also on the Cardputer.

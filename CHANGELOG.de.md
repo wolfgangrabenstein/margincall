@@ -2,6 +2,13 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.40.0 – Automatische Updates (29.10.2026)
+
+- **Desktop-App:** Die App kann beim Start nachsehen, ob es eine neue Version gibt. Beim ersten Start fragt sie einmal um Erlaubnis (änderbar unter *Optionen → Update-Suche*). Gibt es eine neue Version, erscheint im Hauptmenü „UPDATE x VERFÜGBAR – [U] JETZT INSTALLIEREN“. Mit [U] wird die passende Datei von GitHub geladen, Größe und SHA-256-Prüfsumme werden kontrolliert, dann ersetzt sie das Programm. Ein weiteres [U] startet die neue Version – auf demselben Port, Einstellungen und Bestenlisten bleiben also erhalten. Windows und Linux tauschen sich selbst aus; auf macOS wird das neue Disk-Image geöffnet und MARGIN CALL in „Programme“ gezogen.
+- **Browser-Version:** Ist auf der Seite eine neuere Version erschienen, bietet das Hauptmenü „[U] NEU LADEN“ an.
+- **Cardputer:** Nach der WLAN-Einrichtung fragt die Firmware einmal pro Start bei GitHub nach. Gibt es eine neue Version, lädt [U] sie auf die SD-Karte – über eine mit festen Stammzertifikaten geprüfte Verbindung und mit SHA-256-Prüfung. Installiert wird sie danach im M5Launcher.
+- **Datenschutz:** Die Update-Suche ist in der Datenschutzerklärung beschrieben.
+
 ## Version 3.39.0 – YOLO (29.10.2026)
 
 - **Neuer Buff YOLO:** Ein bunter Cocktail mit Strohhalm, der äußerst selten von besiegten Gegnern fallen gelassen wird (höchstens einer pro Level; Kleinanleger 0,4 %, Spekulant 0,3 %, Day-Trader 0,2 % pro Abschuss). Wer ihn trinkt, ist eine Weile unverwundbar – Kleinanleger 15, Spekulant 12, Day-Trader 10 Sekunden – und rennt Gegner einfach um. Bosse verlieren pro Berührung nur 6–10 % ihrer Energie und erst nach 4 Sekunden wieder etwas. Solange YOLO wirkt, läuft eine eigene Partymusik und der Bildschirmrand leuchtet in wandernden Regenbogenfarben; in den letzten 2 Sekunden blinkt er und ein Warnton piept. Solo und Koop, auch auf dem Cardputer.

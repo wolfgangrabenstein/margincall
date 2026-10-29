@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.39.0"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.40.0"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -2881,6 +2881,10 @@ static void centerText(const char* s, int y, int size, uint16_t col) {
   canvas.setTextDatum(top_left);
 }
 
+// Firmware-Update (Suche und Download siehe unten bei "Updates")
+static FwUpdate fwUpd;
+static bool fwUpdFound = false, fwUpdChecked = false;
+static int fwUpdResult = -1;   // -1 noch nichts, 0 auf SD-Karte, sonst Fehlercode
 static void renderTitle() {
   drawChartBackground(c565(20, 90, 45), c565(100, 25, 25));
   canvas.fillRect(0, 3, SW, 30, c565(0, 0, 0));
@@ -2908,7 +2912,11 @@ static void renderTitle() {
     canvas.drawString(L("[W] SET UP WIFI", "[W] WLAN EINRICHTEN"), 14, 98);
   }
   canvas.setTextColor(c565(160, 160, 180));
-  canvas.drawString(L("E/S A/D W/R SPACE  P PAUSE  M MUSIC", "E/S A/D W/R SPACE  P PAUSE  M MUSIK"), 14, 109);
+  if (fwUpdFound) {   // neue Firmware: statt der Steuerungszeile
+    canvas.setTextColor((int)(gameTime * 2) % 2 ? c565(255, 210, 50) : c565(255, 255, 255));
+    snprintf(b, sizeof(b), L("UPDATE %s: [U] SAVE TO SD CARD", "UPDATE %s: [U] AUF SD-KARTE LADEN"), fwUpd.version);
+    canvas.drawString(b, 14, 109);
+  } else canvas.drawString(L("E/S A/D W/R SPACE  P PAUSE  M MUSIC", "E/S A/D W/R SPACE  P PAUSE  M MUSIK"), 14, 109);
   int phase = ((int)(gameTime * 2)) % 4;
   if (phase == 1) centerText(L("[E] SMALL INVESTOR [ENTER] SPECULATOR", "[E] KLEINANLEGER [ENTER] SPEKULANT"), 121, 1, c565(255, 255, 255));
   else if (phase == 3) centerText(L("[X] DAY TRADER", "[X] DAY-TRADER"), 121, 1, c565(255, 120, 120));
@@ -2957,6 +2965,49 @@ static void fetchMarketsNow() {
   marketsFetch(fetchProgress);
   delay(300);
   allocCanvas();
+}
+
+// ---------------------------------------------------------------- Updates
+// Nach dem ersten Kursabruf einmal bei GitHub nachsehen; [U] laedt die neue Firmware geprueft auf die SD-Karte
+static void updProgress(uint32_t got, uint32_t total) {
+  static uint32_t lastDraw = 0;
+  if (millis() - lastDraw < 150 && got < total) return;
+  lastDraw = millis();
+  auto& d = M5Cardputer.Display;
+  int w = (int)((SW - 40) * (float)got / max(1u, total));
+  d.fillRect(20, 70, SW - 40, 8, c565(30, 40, 70)); d.fillRect(20, 70, w, 8, c565(80, 255, 130));
+  char b[32]; snprintf(b, sizeof(b), "%u %%", (unsigned)(got * 100ull / max(1u, total)));
+  d.fillRect(0, 84, SW, 10, c565(0, 0, 0)); d.setTextDatum(top_center); d.setTextColor(c565(200, 200, 215)); d.drawString(b, SW / 2, 84);
+}
+static void updDownloadNow() {
+  canvas.deleteSprite(); fb = nullptr;
+  auto& d = M5Cardputer.Display;
+  d.fillScreen(c565(0, 0, 0));
+  d.setTextDatum(top_center); d.setTextSize(1); d.setTextColor(c565(255, 210, 50));
+  char b[48]; snprintf(b, sizeof(b), L("DOWNLOADING VERSION %s ...", "LADE VERSION %s ..."), fwUpd.version);
+  d.drawString(b, SW / 2, 40);
+  musicSetPaused(true);
+  fwUpdResult = updateDownload(fwUpd, updProgress);
+  musicSetPaused(false);
+  sfxPlay(fwUpdResult == 0 ? SFX_ID_KACHING : SFX_ID_DECLINED);
+  allocCanvas();
+}
+static void renderUpdResult() {   // Ergebnis anzeigen, bis eine Taste gedrueckt wird
+  canvas.fillScreen(c565(0, 0, 0));
+  char b[64];
+  if (fwUpdResult == 0) {
+    centerText(L("UPDATE SAVED ON SD CARD", "UPDATE AUF SD-KARTE GESPEICHERT"), 20, 1, c565(80, 255, 130));
+    centerText(fwUpd.name, 40, 1, c565(255, 210, 50));
+    centerText(L("CHECKSUM VERIFIED", "PRUEFSUMME KONTROLLIERT"), 54, 1, c565(160, 160, 180));
+    centerText(L("RESTART THE CARDPUTER, OPEN THE", "CARDPUTER NEU STARTEN, IM M5LAUNCHER"), 76, 1, c565(220, 220, 230));
+    centerText(L("M5LAUNCHER AND INSTALL THE FILE", "DIE DATEI VON DER SD-KARTE"), 88, 1, c565(220, 220, 230));
+    centerText(L("FROM THE SD CARD.", "INSTALLIEREN."), 100, 1, c565(220, 220, 230));
+  } else {
+    centerText(L("UPDATE FAILED", "UPDATE FEHLGESCHLAGEN"), 30, 1, c565(255, 80, 80));
+    snprintf(b, sizeof(b), "%s %d", L("ERROR", "FEHLER"), fwUpdResult); centerText(b, 46, 1, c565(160, 160, 180));
+    centerText(fwUpdResult == 2 ? L("NO SD CARD FOUND", "KEINE SD-KARTE GEFUNDEN") : fwUpdResult == 6 ? L("CHECKSUM WRONG - FILE DELETED", "PRUEFSUMME FALSCH - DATEI GELOESCHT") : L("PLEASE TRY AGAIN LATER", "BITTE SPAETER NOCHMAL VERSUCHEN"), 62, 1, c565(220, 220, 230));
+  }
+  centerText(L("[ENTER] OK", "[ENTER] OK"), 120, 1, c565(255, 255, 255));
 }
 
 // ---------------------------------------------------------------- WLAN-Menue
@@ -3072,6 +3123,8 @@ void loop() {
     case ST_TITLE:
       gameTime += dt;
       if (!fetchedAtBoot && netConnected()) { fetchedAtBoot = true; fetchMarketsNow(); buildTicker(); }
+      else if (fetchedAtBoot && !fwUpdChecked && netConnected()) { fwUpdChecked = true; fwUpdFound = updateCheck(FW_VERSION, fwUpd); }
+      if (fwUpdResult >= 0) { renderUpdResult(); if (enterHit || hit('u')) { if (fwUpdResult == 0) fwUpdFound = false; fwUpdResult = -1; } break; }
       renderTitle();
       if (enterHit || hit('x') || hit('e')) {   // E = Kleinanleger, Enter = Spekulant, X = Day-Trader
         hardcore = !enterHit && hit('x'); easy = !enterHit && !hardcore; newGame(); state = ST_PLAY; fireCd = 0.4f; sfxPlay(SFX_ID_KACHING);
@@ -3080,6 +3133,7 @@ void loop() {
         else say(L("SMALL INVESTOR: UNLIMITED LIVES", "KLEINANLEGER: UNBEGRENZT LEBEN"), 2.5f);
       }
       else if (hit('w')) startWifiScan();
+      else if (hit('u') && fwUpdFound) updDownloadNow();
       else if (hit('l')) {   // Sprache umschalten und merken
         langDe = !langDe; applyLang(); buildTicker(); sfxPlay(SFX_ID_HIT);
         Preferences lp; if (lp.begin("mcgame", false)) { lp.putBool("de", langDe); lp.end(); }

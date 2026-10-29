@@ -31,9 +31,19 @@ static CACHE: OnceLock<Mutex<Option<(Instant, String)>>> = OnceLock::new();
 static RELAY: OnceLock<Mutex<BTreeMap<u32, Arc<Client>>>> = OnceLock::new();
 
 /// Startet den Server auf dem ersten freien Port ab 8080 und liefert den Port.
+/// Nach einem Update (Argument --port=N) wird derselbe Port wie vorher genommen, sobald die alte Version ihn freigibt:
+/// Einstellungen und Bestenlisten der Spielansicht haengen an der Adresse samt Port.
 pub fn start() -> u16 {
-    let (listener, port) = (8080..8100)
-        .find_map(|p| TcpListener::bind(("0.0.0.0", p)).ok().map(|l| (l, p)))
+    update_cleanup();
+    let want: Option<u16> = std::env::args().find_map(|a| a.strip_prefix("--port=").and_then(|p| p.parse().ok()));
+    let again = want.and_then(|p| {
+        (0..50).find_map(|_| TcpListener::bind(("0.0.0.0", p)).ok().map(|l| (l, p)).or_else(|| {
+            std::thread::sleep(Duration::from_millis(100));
+            None
+        }))
+    });
+    let (listener, port) = again
+        .or_else(|| (8080..8100).find_map(|p| TcpListener::bind(("0.0.0.0", p)).ok().map(|l| (l, p))))
         .expect("kein freier Port zwischen 8080 und 8099");
     let _ = PORT.set(port);
     std::thread::spawn(move || {
@@ -211,6 +221,19 @@ fn handle(stream: TcpStream) -> io::Result<()> {
             respond(&mut out, 200, "application/json", body.as_bytes())
         }
         "/api/market" => respond(&mut out, 200, "application/json", markets_json().as_bytes()),
+        // Updates: nur vom eigenen Rechner (die Spielansicht der App), nie von Mitspielern im WLAN
+        "/api/update" | "/api/update/install" | "/api/update/restart" if !out.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false) => {
+            respond(&mut out, 403, "text/plain", b"forbidden")
+        }
+        "/api/update" => respond(&mut out, 200, "application/json", update_status().as_bytes()),
+        "/api/update/install" if method == "POST" => {
+            update_install();
+            respond(&mut out, 200, "application/json", update_status().as_bytes())
+        }
+        "/api/update/restart" if method == "POST" => {
+            let ok = update_restart();
+            respond(&mut out, if ok { 200 } else { 403 }, "text/plain", if ok { b"ok" } else { b"not ready" })
+        }
         "/api/highscores" | "/api/highscores-hc" | "/api/highscores-easy" if method == "POST" => {
             // Nur vom eigenen Rechner: Mitspieler im WLAN duerfen die Liste nicht veraendern
             let local = out.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
@@ -405,6 +428,165 @@ fn markets_json() -> String {
         *cache.lock().unwrap() = Some((Instant::now(), out.clone()));
     }
     out
+}
+
+// ------------------------------------------------------------------ Updates
+// Die App fragt (nur mit Zustimmung des Spielers, die Spielansicht entscheidet das) bei GitHub nach der neuesten Version.
+// Heruntergeladen wird nur die Datei fuer das eigene System; sie muss Groesse und SHA-256 aus der GitHub-Antwort erfuellen.
+// Windows und Linux tauschen die Programmdatei aus und starten neu; auf macOS wird das Disk-Image geoeffnet.
+const UPDATE_API: &str = "https://api.github.com/repos/wolfgangrabenstein/margincall/releases/latest";
+const UPDATE_MAX_BYTES: u64 = 300 * 1024 * 1024;
+
+#[derive(Clone, Default)]
+struct UpdateInfo { version: String, name: String, url: String, size: u64, sha256: String }
+struct UpdateState { checked: Option<Instant>, info: Option<UpdateInfo>, phase: &'static str, got: u64, error: String, target: Option<std::path::PathBuf> }
+static UPDATE: Mutex<UpdateState> = Mutex::new(UpdateState { checked: None, info: None, phase: "idle", got: 0, error: String::new(), target: None });
+
+/// Dateiendung der Release-Datei fuer dieses System
+fn update_suffix() -> Option<&'static str> {
+    if cfg!(windows) { Some("-Windows.exe") } else if cfg!(target_os = "macos") { Some("-macOS.dmg") } else if cfg!(target_os = "linux") { Some("-Linux.AppImage") } else { None }
+}
+
+/// "3.40.1" > "3.39.0"?
+fn version_newer(a: &str, b: &str) -> bool {
+    let p = |v: &str| v.trim_start_matches('v').split('.').map(|x| x.parse::<u32>().unwrap_or(0)).collect::<Vec<_>>();
+    p(a) > p(b)
+}
+
+fn update_fetch() -> Result<Option<UpdateInfo>, String> {
+    let suffix = update_suffix().ok_or("system")?;
+    let v: Value = ureq::get(UPDATE_API)
+        .set("User-Agent", concat!("MarginCall/", env!("CARGO_PKG_VERSION")))
+        .set("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
+        .call()
+        .map_err(|e| e.to_string())?
+        .into_json()
+        .map_err(|e| e.to_string())?;
+    let version = v["tag_name"].as_str().unwrap_or("").trim_start_matches('v').to_string();
+    if version.is_empty() || !version_newer(&version, env!("CARGO_PKG_VERSION")) {
+        return Ok(None);
+    }
+    let asset = v["assets"].as_array().and_then(|a| a.iter().find(|x| x["name"].as_str().map(|n| n.ends_with(suffix)).unwrap_or(false)));
+    let Some(a) = asset else { return Ok(None) };   // Datei fuer dieses System (noch) nicht da
+    let sha256 = a["digest"].as_str().and_then(|d| d.strip_prefix("sha256:")).unwrap_or("").to_ascii_lowercase();
+    let size = a["size"].as_u64().unwrap_or(0);
+    let url = a["browser_download_url"].as_str().unwrap_or("").to_string();
+    if sha256.len() != 64 || size == 0 || size > UPDATE_MAX_BYTES || !url.starts_with("https://github.com/wolfgangrabenstein/margincall/releases/download/") {
+        return Err("asset".into());
+    }
+    Ok(Some(UpdateInfo { version, name: clean(&a["name"], 80), url, size, sha256 }))
+}
+
+/// Stand fuer die Spielansicht; fragt GitHub hoechstens alle 30 Minuten
+fn update_status() -> String {
+    let due = { let u = UPDATE.lock().unwrap(); u.phase == "idle" && u.checked.map(|t| t.elapsed() > Duration::from_secs(1800)).unwrap_or(true) };
+    if due {
+        let r = update_fetch();
+        let mut u = UPDATE.lock().unwrap();
+        u.checked = Some(Instant::now());
+        match r { Ok(i) => { u.info = i; u.error.clear(); } Err(e) => u.error = e }
+    }
+    let u = UPDATE.lock().unwrap();
+    let i = u.info.clone().unwrap_or_default();
+    json!({
+        "current": env!("CARGO_PKG_VERSION"), "latest": i.version, "available": u.info.is_some(),
+        "phase": u.phase, "got": u.got, "size": i.size, "error": u.error,
+        "restart": !cfg!(target_os = "macos"),
+    }).to_string()
+}
+
+/// Herunterladen, pruefen und einsetzen (im Hintergrund; der Stand ist ueber /api/update abrufbar)
+fn update_install() {
+    let info = {
+        let mut u = UPDATE.lock().unwrap();
+        if u.phase != "idle" && u.phase != "error" { return; }
+        let Some(i) = u.info.clone() else { return };
+        u.phase = "download"; u.got = 0; u.error.clear();
+        i
+    };
+    std::thread::spawn(move || {
+        let r = update_download(&info).and_then(|data| update_apply(&info, &data));
+        let mut u = UPDATE.lock().unwrap();
+        match r { Ok(p) => { u.phase = if cfg!(target_os = "macos") { "opened" } else { "ready" }; u.target = Some(p); } Err(e) => { u.phase = "error"; u.error = e; } }
+    });
+}
+
+fn update_download(i: &UpdateInfo) -> Result<Vec<u8>, String> {
+    use sha2::{Digest, Sha256};
+    let resp = ureq::get(&i.url).set("User-Agent", concat!("MarginCall/", env!("CARGO_PKG_VERSION"))).timeout(Duration::from_secs(600)).call().map_err(|e| e.to_string())?;
+    let mut r = resp.into_reader().take(i.size + 1);
+    let mut data = Vec::with_capacity(i.size as usize);
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = r.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 { break; }
+        data.extend_from_slice(&buf[..n]);
+        UPDATE.lock().unwrap().got = data.len() as u64;
+    }
+    if data.len() as u64 != i.size { return Err("size".into()); }
+    let hash: String = Sha256::digest(&data).iter().map(|b| format!("{b:02x}")).collect();
+    if hash != i.sha256 { return Err("checksum".into()); }
+    Ok(data)
+}
+
+/// Neue Datei an ihren Platz bringen; liefert das Programm, das danach gestartet wird (macOS: das geoeffnete Disk-Image)
+fn update_apply(i: &UpdateInfo, data: &[u8]) -> Result<std::path::PathBuf, String> {
+    if cfg!(target_os = "macos") {
+        let dir = std::env::var("HOME").map(|h| std::path::PathBuf::from(h).join("Downloads")).map_err(|_| "home".to_string())?;
+        let file = dir.join(&i.name);
+        std::fs::write(&file, data).map_err(|e| e.to_string())?;
+        std::process::Command::new("open").arg(&file).spawn().map_err(|e| e.to_string())?;
+        return Ok(file);
+    }
+    // Linux: die AppImage-Datei selbst (das laufende Programm liegt in einem eingehaengten Abbild); Windows: die EXE
+    let exe = if cfg!(target_os = "linux") { std::env::var_os("APPIMAGE").map(std::path::PathBuf::from).ok_or("appimage")? } else { std::env::current_exe().map_err(|e| e.to_string())? };
+    swap_exe(&exe, data)?;
+    Ok(exe)
+}
+
+/// Programmdatei ersetzen, auch waehrend sie laeuft
+fn swap_exe(exe: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    let new = exe.with_extension("update");
+    std::fs::write(&new, data).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&new, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
+    }
+    if cfg!(windows) {
+        // Eine laufende EXE darf umbenannt, aber nicht ueberschrieben werden; die alte wird beim naechsten Start geloescht
+        let old = exe.with_extension("old");
+        let _ = std::fs::remove_file(&old);
+        std::fs::rename(&exe, &old).map_err(|e| { let _ = std::fs::remove_file(&new); e.to_string() })?;
+        if let Err(e) = std::fs::rename(&new, &exe) { let _ = std::fs::rename(&old, &exe); return Err(e.to_string()); }
+    } else {
+        std::fs::rename(&new, &exe).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Neue Version auf demselben Port starten und diese beenden
+fn update_restart() -> bool {
+    let target = { let u = UPDATE.lock().unwrap(); if u.phase != "ready" { return false; } u.target.clone() };
+    let (Some(exe), Some(port)) = (target, PORT.get().copied()) else { return false };
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));   // Antwort an die Spielansicht geht noch raus
+        if std::process::Command::new(&exe).arg(format!("--port={port}")).spawn().is_ok() {
+            std::process::exit(0);
+        }
+        let mut u = UPDATE.lock().unwrap();
+        u.phase = "error"; u.error = "start".into();
+    });
+    true
+}
+
+/// Reste eines Updates aufraeumen (Windows: die umbenannte alte EXE)
+fn update_cleanup() {
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::fs::remove_file(exe.with_extension("old"));
+        let _ = std::fs::remove_file(exe.with_extension("update"));
+    }
 }
 
 // ------------------------------------------------------------------ Multiplayer-Relay
@@ -672,6 +854,32 @@ mod tests {
         let mut pong = [0u8; 4];
         peer.read_exact(&mut pong).unwrap();
         assert_eq!(pong, [0x8A, 2, b'h', b'i']);
+    }
+
+    #[test]
+    fn laufende_exe_ersetzen() {
+        // Kopie eines Windows-Programms starten und waehrend der Laufzeit ersetzen
+        let dir = std::env::temp_dir().join("mc-swap-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("prog.exe");
+        let src = if cfg!(windows) { std::path::PathBuf::from(std::env::var("SystemRoot").unwrap()).join("System32").join("PING.EXE") } else { std::path::PathBuf::from("/bin/sleep") };
+        std::fs::copy(&src, &exe).unwrap();
+        let mut child = std::process::Command::new(&exe).args(if cfg!(windows) { vec!["-n", "5", "127.0.0.1"] } else { vec!["3"] }).stdout(std::process::Stdio::null()).spawn().unwrap();
+        swap_exe(&exe, b"neue Version").unwrap();
+        assert_eq!(std::fs::read(&exe).unwrap(), b"neue Version");
+        assert!(!exe.with_extension("update").exists());
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn versionen_vergleichen() {
+        assert!(version_newer("3.40.0", "3.39.9"));
+        assert!(version_newer("v3.39.10", "3.39.9"));
+        assert!(!version_newer("3.39.0", "3.39.0"));
+        assert!(!version_newer("3.38.1", "3.39.0"));
     }
 
     #[test]

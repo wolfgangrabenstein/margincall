@@ -6,6 +6,9 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
+#include <SD.h>
+#include <SPI.h>
+#include <mbedtls/sha256.h>
 
 // ================================================================ Maerkte
 Market markets[M_COUNT] = {
@@ -200,6 +203,175 @@ int marketsFetch(void (*progress)(int, bool)) {
   marketsSimulate();   // fehlende Maerkte simulieren
   streamPause(false);
   return ok;
+}
+
+// ================================================================ Updates
+// Stammzertifikate fuer api.github.com/github.com (Sectigo -> USERTrust ECC) und die Download-Server (Let's Encrypt -> ISRG)
+static const char GITHUB_ROOTS[] PROGMEM =
+"-----BEGIN CERTIFICATE-----\n"
+"MIICjzCCAhWgAwIBAgIQXIuZxVqUxdJxVt7NiYDMJjAKBggqhkjOPQQDAzCBiDEL\n"
+"MAkGA1UEBhMCVVMxEzARBgNVBAgTCk5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNl\n"
+"eSBDaXR5MR4wHAYDVQQKExVUaGUgVVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMT\n"
+"JVVTRVJUcnVzdCBFQ0MgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTAwMjAx\n"
+"MDAwMDAwWhcNMzgwMTE4MjM1OTU5WjCBiDELMAkGA1UEBhMCVVMxEzARBgNVBAgT\n"
+"Ck5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNleSBDaXR5MR4wHAYDVQQKExVUaGUg\n"
+"VVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMTJVVTRVJUcnVzdCBFQ0MgQ2VydGlm\n"
+"aWNhdGlvbiBBdXRob3JpdHkwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAAQarFRaqflo\n"
+"I+d61SRvU8Za2EurxtW20eZzca7dnNYMYf3boIkDuAUU7FfO7l0/4iGzzvfUinng\n"
+"o4N+LZfQYcTxmdwlkWOrfzCjtHDix6EznPO/LlxTsV+zfTJ/ijTjeXmjQjBAMB0G\n"
+"A1UdDgQWBBQ64QmG1M8ZwpZ2dEl23OA1xmNjmjAOBgNVHQ8BAf8EBAMCAQYwDwYD\n"
+"VR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAwNoADBlAjA2Z6EWCNzklwBBHU6+4WMB\n"
+"zzuqQhFkoJ2UOQIReVx7Hfpkue4WQrO/isIJxOzksU0CMQDpKmFHjFJKS04YcPbW\n"
+"RNZu9YO6bVi9JNlWSOrvxKJGgYhqOkbRqZtNyWHa0V1Xahg=\n"
+"-----END CERTIFICATE-----\n"
+"-----BEGIN CERTIFICATE-----\n"
+"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\n"
+"-----END CERTIFICATE-----\n"
+"-----BEGIN CERTIFICATE-----\n"
+"MIICGzCCAaGgAwIBAgIQQdKd0XLq7qeAwSxs6S+HUjAKBggqhkjOPQQDAzBPMQsw\n"
+"CQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2gg\n"
+"R3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMjAeFw0yMDA5MDQwMDAwMDBaFw00\n"
+"MDA5MTcxNjAwMDBaME8xCzAJBgNVBAYTAlVTMSkwJwYDVQQKEyBJbnRlcm5ldCBT\n"
+"ZWN1cml0eSBSZXNlYXJjaCBHcm91cDEVMBMGA1UEAxMMSVNSRyBSb290IFgyMHYw\n"
+"EAYHKoZIzj0CAQYFK4EEACIDYgAEzZvVn4CDCuwJSvMWSj5cz3es3mcFDR0HttwW\n"
+"+1qLFNvicWDEukWVEYmO6gbf9yoWHKS5xcUy4APgHoIYOIvXRdgKam7mAHf7AlF9\n"
+"ItgKbppbd9/w+kHsOdx1ymgHDB/qo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0T\n"
+"AQH/BAUwAwEB/zAdBgNVHQ4EFgQUfEKWrt5LSDv6kviejM9ti6lyN5UwCgYIKoZI\n"
+"zj0EAwMDaAAwZQIwe3lORlCEwkSHRhtFcP9Ymd70/aTSVaYgLXTWNLxBo1BfASdW\n"
+"tL4ndQavEi51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1\n"
+"/q4AaOeMSQ+2b1tbFfLn\n"
+"-----END CERTIFICATE-----\n";
+static const char* const UPDATE_API = "https://api.github.com/repos/wolfgangrabenstein/margincall/releases/latest";
+static const char* const UPDATE_PREFIX = "https://github.com/wolfgangrabenstein/margincall/releases/download/";
+
+static bool versionNewer(const char* a, const char* b) {
+  int x[3] = {0, 0, 0}, y[3] = {0, 0, 0};
+  sscanf(a, "%d.%d.%d", &x[0], &x[1], &x[2]); sscanf(b, "%d.%d.%d", &y[0], &y[1], &y[2]);
+  for (int i = 0; i < 3; i++) if (x[i] != y[i]) return x[i] > y[i];
+  return false;
+}
+// Text eines JSON-Feldes ab Position from (einfache Zeichenketten ohne Escapes)
+static bool jsonStr(const String& s, int from, const char* key, char* out, size_t n, int* at = nullptr) {
+  int k = s.indexOf(key, from); if (k < 0) return false;
+  k += strlen(key); int e = s.indexOf('"', k); if (e < 0 || e - k >= (int)n) return false;
+  s.substring(k, e).toCharArray(out, n); if (at) *at = e; return true;
+}
+
+bool updateCheck(const char* current, FwUpdate& u) {
+  if (WiFi.status() != WL_CONNECTED) return false;
+  streamPause(true);
+  String body;
+  {
+    WiFiClientSecure client;
+    client.setCACert(GITHUB_ROOTS);
+    client.setTimeout(10);
+    HTTPClient http;
+    http.setTimeout(10000);
+    http.setUserAgent(String("MarginCall-Cardputer/") + current);
+    if (http.begin(client, UPDATE_API)) {
+      http.addHeader("Accept", "application/vnd.github+json");
+      if (http.GET() == 200 && http.getSize() < 64 * 1024) body = http.getString();
+      http.end();
+    }
+  }
+  streamPause(false);
+  if (!body.length()) return false;
+  memset(&u, 0, sizeof(u));
+  char tag[20];
+  if (!jsonStr(body, 0, "\"tag_name\":\"", tag, sizeof(tag))) return false;
+  strncpy(u.version, tag[0] == 'v' ? tag + 1 : tag, sizeof(u.version) - 1);
+  if (!versionNewer(u.version, current)) return false;
+  snprintf(u.name, sizeof(u.name), "MarginCall-%s-Cardputer.bin", u.version);
+  int at = body.indexOf(String("\"name\":\"") + u.name + "\"");
+  if (at < 0) return false;   // Firmware dieser Version (noch) nicht da
+  int sz = body.indexOf("\"size\":", at);
+  if (sz < 0) return false;
+  u.size = (uint32_t)body.substring(sz + 7, sz + 20).toInt();
+  if (!jsonStr(body, at, "\"digest\":\"sha256:", u.sha256, sizeof(u.sha256))) return false;
+  if (!jsonStr(body, at, "\"browser_download_url\":\"", u.url, sizeof(u.url))) return false;
+  if (strlen(u.sha256) != 64 || u.size < 100000 || u.size > 6 * 1024 * 1024 || strncmp(u.url, UPDATE_PREFIX, strlen(UPDATE_PREFIX)) != 0) return false;
+  return true;
+}
+
+int updateDownload(const FwUpdate& u, void (*progress)(uint32_t, uint32_t)) {
+  if (WiFi.status() != WL_CONNECTED) return 1;
+  static SPIClass sdSpi(HSPI);
+  sdSpi.begin(40, 39, 14, 12);   // SD-Karte des Cardputer: SCK, MISO, MOSI, CS
+  if (!SD.begin(12, sdSpi, 25000000)) return 2;
+  String path = String("/") + u.name, tmp = path + ".part";
+  SD.remove(tmp);
+  File f = SD.open(tmp, FILE_WRITE);
+  if (!f) { SD.end(); return 3; }
+  streamPause(true);
+  int err = 4;
+  uint32_t got = 0;
+  uint8_t hash[32];
+  {
+    WiFiClientSecure client;
+    client.setCACert(GITHUB_ROOTS);
+    client.setTimeout(15);
+    HTTPClient http;
+    http.setTimeout(15000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);   // GitHub leitet zum Download-Server weiter
+    http.setUserAgent("MarginCall-Cardputer");
+    if (http.begin(client, u.url) && http.GET() == 200) {
+      mbedtls_sha256_context sha; mbedtls_sha256_init(&sha); mbedtls_sha256_starts(&sha, 0);
+      WiFiClient* st = http.getStreamPtr();
+      static uint8_t buf[2048];
+      uint32_t last = millis();
+      while (got < u.size && millis() - last < 15000) {
+        int a = st->available();
+        if (a <= 0) { if (!http.connected()) break; delay(2); continue; }
+        int n = st->readBytes(buf, min((uint32_t)sizeof(buf), min((uint32_t)a, u.size - got)));
+        if (n <= 0) continue;
+        if (f.write(buf, n) != (size_t)n) { err = 5; break; }
+        mbedtls_sha256_update(&sha, buf, n);
+        got += n; last = millis();
+        if (progress) progress(got, u.size);
+      }
+      mbedtls_sha256_finish(&sha, hash); mbedtls_sha256_free(&sha);
+      if (got == u.size && err == 4) err = 0;
+    }
+    http.end();
+  }
+  streamPause(false);
+  f.close();
+  if (!err) {   // Pruefsumme vergleichen
+    char hex[65]; for (int i = 0; i < 32; i++) sprintf(hex + i * 2, "%02x", hash[i]);
+    if (strcmp(hex, u.sha256) != 0) err = 6;
+  }
+  if (!err) { SD.remove(path); if (!SD.rename(tmp, path)) err = 7; }
+  if (err) SD.remove(tmp);
+  SD.end();
+  return err;
 }
 
 // ================================================================ WLAN

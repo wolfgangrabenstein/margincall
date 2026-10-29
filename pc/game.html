@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.39.0";
+const APP_VERSION = "3.40.0";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -634,7 +634,7 @@ const TYPES = [
 const hostile = (a, b) => (a === F.BULL && b === F.BEAR) || (a === F.BEAR && b === F.BULL);
 
 // ---------------------------------------------------------------- Spielzustand
-const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15, ONLINE: 16, ONLINEASK: 17, BYE: 18, TOUCHHELP: 19 };
+const ST = { TITLE: 0, PLAY: 1, PAUSE: 2, LEVELDONE: 3, DEAD: 4, WIN: 5, OPTIONS: 6, LOBBY: 7, ROUNDEND: 8, MPMENU: 9, JOIN: 10, PRIVACY: 11, NAMEENTRY: 12, HIGHSCORES: 13, CREDITS: 14, OUTRO: 15, ONLINE: 16, ONLINEASK: 17, BYE: 18, TOUCHHELP: 19, UPDASK: 20 };
 // Browser-Version (GitHub Pages, https): ohne eigenen Server, Kurse und Multiplayer laufen ueber den MARGIN-CALL-Server bei Cloudflare
 const WEB_BUILD = location.protocol === "https:";
 let state = ST.TITLE;
@@ -2163,6 +2163,7 @@ const OPT_MAIN = COARSE ? [   // Handy/Tablet: keine Tasten, dafuer Drehempfindl
   optRow("fullscreen", "Fullscreen (F4)", "Vollbild (F4)"), optRow("shake", "Screen shake", "Bildschirmwackeln"), optRow("hitDir", "Hit direction", "Trefferrichtung"), optRow("soundViz", "Show sounds", "Geräusche anzeigen"), optRow("musicVol", "Music volume", "Musik-Lautstärke"), optRow("sfxVol", "Sound volume", "Sound-Lautstärke"), optRow("live", "Live quotes (Yahoo Finance)", "Live-Kurse (Yahoo Finance)"),
   ...(ONLINE_HS_URL ? [optRow("online", "Online leaderboard (name + score)", "Online-Rangliste (Name + Punkte)")] : []),
   optRow("onlineMP", "Online multiplayer (Cloudflare)", "Online-Multiplayer (Cloudflare)"),
+  ...(IN_APP ? [optRow("updates", "Check for updates (GitHub)", "Update-Suche (GitHub)")] : []),
   optRow("lang", "Language", "Sprache"),
   optRow("reset", "Restore defaults", "Standard wiederherstellen"), optRow("back", "◀  Back", "◀  Zurück")];
 // Unterseite "Steuerung" (nur PC): Tastenbelegung und Maus
@@ -2194,6 +2195,7 @@ function optActivate() {
     case "live": settings.liveData = settings.liveData !== true; saveSettings(); marketsFetch(); break;
     case "online": settings.onlineScores = !onlineOn(); saveSettings(); break;
     case "onlineMP": settings.onlineMP = settings.onlineMP !== true; saveSettings(); break;
+    case "updates": settings.updCheck = settings.updCheck !== true; saveSettings(); upd.info = null; updPoll(); break;
     case "lang": settings.lang = settings.lang === "de" ? "en" : "de"; saveSettings(); updateHint(); buildTicker(); break;
     case "invert": settings.invert = !settings.invert; saveSettings(); break;
     case "shake": settings.shake = settings.shake === false; saveSettings(); break;
@@ -2229,7 +2231,7 @@ function optKey(k) {
     else if (row.kind === "sens") { settings.sens = clamp(settings.sens + d, 1, 10); saveSettings(); }
     else if (row.kind === "touchSens") { settings.touchSens = clamp((settings.touchSens || 6) + d, 1, 10); saveSettings(); }
     else if (row.kind === "musicVol" || row.kind === "sfxVol") setVolume(row.kind, clamp(settings[row.kind] + d, 0, 10));
-    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "hitDir" || row.kind === "soundViz" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "fullscreen") optActivate();
+    else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "hitDir" || row.kind === "soundViz" || row.kind === "live" || row.kind === "onlineMP" || row.kind === "updates" || row.kind === "fullscreen") optActivate();
     else if (row.kind === "aimMode") { const m = ["off", "semi", "full"]; settings.aimMode = m[(m.indexOf(aimModeSet()) + (d > 0 ? 1 : 2)) % 3]; settings.aimTouched = true; saveSettings(); }
   }
   else if (k === "enter" || k === " ") optActivate();
@@ -2271,8 +2273,8 @@ function renderOptions() {
         if (active) { g.fillStyle = optWaiting ? "#ffd232" : "#28c86e"; g.fillRect(x - 6, y - 3, 200, OPT_DY - 4); }
         text(active && optWaiting ? L("PRESS A KEY…", "TASTE DRÜCKEN…") : bindLabel(settings.binds[row.id][c]), x, y, active ? "#04140a" : "#e6e6f0", 17);
       }
-    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "hitDir" || row.kind === "soundViz" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "fullscreen") {
-      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "shake" ? settings.shake !== false : row.kind === "hitDir" ? settings.hitDir !== false : row.kind === "soundViz" ? settings.soundViz !== false : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
+    } else if (row.kind === "mouseLook" || row.kind === "invert" || row.kind === "shake" || row.kind === "hitDir" || row.kind === "soundViz" || row.kind === "live" || row.kind === "online" || row.kind === "onlineMP" || row.kind === "updates" || row.kind === "fullscreen") {
+      const on = row.kind === "mouseLook" ? settings.mouseLook : row.kind === "shake" ? settings.shake !== false : row.kind === "hitDir" ? settings.hitDir !== false : row.kind === "soundViz" ? settings.soundViz !== false : row.kind === "live" ? settings.liveData === true : row.kind === "online" ? onlineOn() : row.kind === "onlineMP" ? settings.onlineMP === true : row.kind === "updates" ? settings.updCheck === true : row.kind === "fullscreen" ? (COARSE ? !!document.fullscreenElement : fsOn) : settings.invert;
       text(on ? L("ON", "AN") : L("OFF", "AUS"), 530, y, on ? "#50ff82" : "#ff7050", 17);
     } else if (row.kind === "aimMode") {
       const m = aimModeSet() || "off";
@@ -2329,7 +2331,7 @@ screen.addEventListener("mousedown", e => {
       const b = TITLE_BTNS.find(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
       if (b) { onKeyPress(b.key); return; }
     }
-    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN, ST.CREDITS, ST.OUTRO, ST.ONLINE, ST.ONLINEASK, ST.BYE].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
+    if ([ST.TITLE, ST.LOBBY, ST.MPMENU, ST.JOIN, ST.PRIVACY, ST.PAUSE, ST.NAMEENTRY, ST.HIGHSCORES, ST.DEAD, ST.WIN, ST.CREDITS, ST.OUTRO, ST.ONLINE, ST.ONLINEASK, ST.BYE, ST.UPDASK].includes(state) || (state === ST.PLAY && mpMenu) || serverGone) return;
   }
   if (state === ST.PLAY && !COARSE && settings.mouseLook && document.pointerLockElement !== screen) { screen.requestPointerLock?.(); return; }
   keys.add(mk);
@@ -2502,8 +2504,12 @@ function onKeyPress(k) {
   if (isBound("music", k)) { musicToggle(); say(musicOn ? L("MUSIC ON", "MUSIK AN") : L("MUSIC OFF", "MUSIK AUS"), 1); return; }
   switch (state) {
     case ST.PRIVACY:
-      if (k === "enter" || k === "j") { settings.liveData = true; saveSettings(); state = ST.TITLE; marketsFetch(); }
-      else if (k === "n") { settings.liveData = false; saveSettings(); state = ST.TITLE; marketsFetch(); }
+      if (k === "enter" || k === "j") { settings.liveData = true; saveSettings(); state = updAskDue() ? ST.UPDASK : ST.TITLE; marketsFetch(); }
+      else if (k === "n") { settings.liveData = false; saveSettings(); state = updAskDue() ? ST.UPDASK : ST.TITLE; marketsFetch(); }
+      break;
+    case ST.UPDASK:
+      if (k === "enter" || k === "j") { settings.updCheck = true; saveSettings(); state = ST.TITLE; updPoll(); }
+      else if (k === "n") { settings.updCheck = false; saveSettings(); state = ST.TITLE; }
       break;
     case ST.TITLE:
       if (k === "o") openOptions();
@@ -2514,6 +2520,7 @@ function onKeyPress(k) {
       else if (k === "n") { if (WEB_BUILD) openOnline(); else if (IN_APP && isLocalOrigin()) state = ST.MPMENU; else enterLobby(); }
       else if (k === "enter") soloAsk = true;   // Auswahl Normal / Hardcore
       else if (k === "x") startSolo("hard");
+      else if (k === "u") updAction();
       break;
     case ST.LOBBY:
       if (matchSetOpen) {
@@ -3716,7 +3723,7 @@ function renderTitle() {
     text(m.live ? "LIVE" : "SIM", 800, y + 3, m.live ? "#ff3c3c" : "#7878a0", 16, "right");
   });
   const when = marketTime ? new Date(marketTime).toLocaleString(LOC(), { dateStyle: "short", timeStyle: "short" }) : "–";
-  text(`${L("Quotes as of:", "Kurse vom")} ${when}  ·  ${mStat()}`, DW / 2, 312, "#8290b0", 15, "center");
+  if (!renderUpdBanner()) text(`${L("Quotes as of:", "Kurse vom")} ${when}  ·  ${mStat()}`, DW / 2, 312, "#8290b0", 15, "center");
   // Hauptknopf: Einzelspieler starten (pulsiert leicht)
   const pulse = .5 + .5 * Math.sin(gameTime * 4);
   g.fillStyle = `rgba(255,210,50,${(.08 + .1 * pulse).toFixed(2)})`; g.fillRect(280, 352, 400, 60);
@@ -4290,6 +4297,65 @@ setInterval(async () => {
     if (++pingFails >= 2 && !serverGone) { serverGone = true; musicKill(); if (actx) actx.suspend(); document.exitPointerLock?.(); }
   }
 }, 3000);
+
+// ---------------------------------------------------------------- Updates
+// App: der eingebaute Server fragt (nur mit Zustimmung) bei GitHub nach, laedt auf Wunsch mit Pruefsumme und startet neu.
+// Browser-Version: die Seite selbst wird alle 10 Minuten auf eine neuere Version geprueft, ein Neuladen genuegt.
+const appUpd = () => IN_APP && isLocalOrigin();
+const updAskDue = () => appUpd() && settings.updCheck === undefined;
+const upd = { info: null, web: "", webT: 0, restarting: false };
+const verNewer = (a, b) => { const p = v => String(v).split(".").map(x => parseInt(x, 10) || 0); const x = p(a), y = p(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return (x[i] || 0) > (y[i] || 0); return false; };
+function updPoll() {
+  if (upd.restarting || (state !== ST.TITLE && !(upd.info && upd.info.phase === "download"))) return;
+  if (appUpd() && settings.updCheck === true) {
+    fetch("/api/update", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => { if (j) upd.info = j; }).catch(() => { });
+  } else if (WEB_BUILD && performance.now() > upd.webT) {
+    upd.webT = performance.now() + 600000;
+    fetch(location.pathname, { cache: "no-store" }).then(r => r.text()).then(t => {
+      const m = t.match(/const APP_VERSION = "([\d.]+)"/); if (m && verNewer(m[1], APP_VERSION)) upd.web = m[1];
+    }).catch(() => { });
+  }
+}
+function updAction() {
+  if (upd.web) { location.reload(); return; }
+  const i = upd.info; if (!i || !i.available || upd.restarting) return;
+  if (i.phase === "idle" || i.phase === "error") { i.phase = "download"; i.got = 0; fetch("/api/update/install", { method: "POST" }).then(r => r.json()).then(j => { upd.info = j; }).catch(() => { }); sfx("HIT"); }
+  else if (i.phase === "ready") { upd.restarting = true; fetch("/api/update/restart", { method: "POST" }).catch(() => { }); sfx("KACHING"); }
+}
+// Zeile im Hauptmenue (statt "Kurse vom ...")
+function renderUpdBanner() {
+  const i = upd.info, x = 200, w = DW - 400, y = 304;
+  if (upd.web) { zoneButton(x, y, w, 30, L(`⬆ NEW VERSION ${upd.web} – [U] RELOAD`, `⬆ NEUE VERSION ${upd.web} – [U] NEU LADEN`), "#50ff82", "u", 15); return true; }
+  if (!i || !i.available) return false;
+  if (upd.restarting) { text(L(`RESTARTING WITH VERSION ${i.latest} …`, `STARTE NEU MIT VERSION ${i.latest} …`), DW / 2, y + 7, "#50ff82", 15, "center"); return true; }
+  if (i.phase === "download") {
+    const k = i.size ? Math.min(1, i.got / i.size) : 0;
+    g.fillStyle = "#1e2846"; g.fillRect(x, y + 22, w, 6); g.fillStyle = "#50ff82"; g.fillRect(x, y + 22, w * k, 6);
+    text(L(`DOWNLOADING VERSION ${i.latest} … ${Math.round(k * 100)} %`, `LADE VERSION ${i.latest} … ${Math.round(k * 100)} %`), DW / 2, y + 2, "#c8c8d7", 15, "center"); return true;
+  }
+  if (i.phase === "ready") { zoneButton(x, y, w, 30, L(`✔ VERSION ${i.latest} READY – [U] RESTART NOW`, `✔ VERSION ${i.latest} BEREIT – [U] JETZT NEU STARTEN`), "#50ff82", "u", 15); return true; }
+  if (i.phase === "opened") { text(L(`Version ${i.latest} was opened: drag MARGIN CALL into “Applications”, then restart.`, `Version ${i.latest} wurde geöffnet: MARGIN CALL in „Programme“ ziehen und neu starten.`), DW / 2, y + 7, "#50ff82", 14, "center"); return true; }
+  if (i.phase === "error") { zoneButton(x, y, w, 30, L("UPDATE FAILED – [U] TRY AGAIN", "UPDATE FEHLGESCHLAGEN – [U] NOCHMAL VERSUCHEN"), "#ff7050", "u", 15); return true; }
+  zoneButton(x, y, w, 30, L(`⬆ UPDATE ${i.latest} AVAILABLE – [U] INSTALL NOW`, `⬆ UPDATE ${i.latest} VERFÜGBAR – [U] JETZT INSTALLIEREN`), "#ffd232", "u", 15);
+  return true;
+}
+function renderUpdAsk() {
+  chartBackground("#123a26", "#3a1414");
+  g.fillStyle = "rgba(0,0,0,.9)"; g.fillRect(90, 60, DW - 180, 420);
+  text(L("UPDATES & PRIVACY", "UPDATES & DATENSCHUTZ"), DW / 2, 80, "#ffd232", 32, "center");
+  [
+    L("MARGIN CALL can check at startup whether a new version is available.", "MARGIN CALL kann beim Start nachsehen, ob es eine neue Version gibt."),
+    L("It asks GitHub (api.github.com) for the latest version; GitHub sees your IP address.", "Dazu fragt es bei GitHub (api.github.com) nach; GitHub sieht dabei deine IP-Adresse."),
+    L("No game data, names or other data are sent.", "Es werden keine Spielstände, Namen oder sonstigen Daten übertragen."),
+    "",
+    L("A new version is only downloaded when you confirm it in the main menu with [U].", "Eine neue Version wird nur geladen, wenn du sie im Hauptmenü mit [U] bestätigst."),
+    L("Its checksum is verified before it replaces this version.", "Vor dem Einsetzen wird ihre Prüfsumme kontrolliert."),
+    L("You can change this anytime under [O] OPTIONS → “Check for updates”.", "Du kannst das jederzeit unter [O] OPTIONEN → „Update-Suche“ ändern."),
+  ].forEach((l, i) => text(l, DW / 2, 140 + i * 26, i < 3 ? "#dcdce6" : "#a0a0b4", 16, "center"));
+  zoneButton(160, 372, 310, 44, L("[ENTER] CHECK FOR UPDATES", "[ENTER] NACH UPDATES SUCHEN"), "#50ff82", "enter");
+  zoneButton(490, 372, 310, 44, L("[N] NO UPDATE CHECK", "[N] OHNE UPDATE-SUCHE"), "#a0a0b4", "n");
+  text(L("GitHub privacy statement: docs.github.com/site-policy", "Datenschutzhinweise von GitHub: docs.github.com/site-policy"), DW / 2, 450, "#6b7896", 13, "center");
+}
 
 // ---------------------------------------------------------------- Datenschutz-Hinweis beim ersten Start
 function renderPrivacy() {
@@ -4941,6 +5007,7 @@ function frame(now) {
       if (soloAsk) { clickZones = []; renderSoloAsk(); } else if (quitAsk) { clickZones = []; renderQuitAsk(); }   // Dialog: nur seine eigenen Knoepfe sind anklickbar
       break;
     case ST.PRIVACY: gameTime += dt; renderPrivacy(); break;
+    case ST.UPDASK: gameTime += dt; renderUpdAsk(); break;
     case ST.NAMEENTRY: gameTime += dt; renderNameEntry(); break;
     case ST.HIGHSCORES: gameTime += dt; renderHighscores(); break;
     case ST.LOBBY: gameTime += dt; renderLobby(); break;
@@ -5004,6 +5071,8 @@ applyMarket();
 buildWorld(0);
 musicStart();
 if (settings.liveData === undefined && !URLP.has("join")) state = ST.PRIVACY;
+else if (updAskDue() && !URLP.has("join")) state = ST.UPDASK;
+updPoll(); setInterval(updPoll, 3000);
 marketsFetch();
 setInterval(marketsFetch, 60000);
 if (!WEB_BUILD) fetch("/api/info", { cache: "no-store" }).then(r => r.json()).then(i => { myAddr = `${i.ip}:${i.port}`; }).catch(() => { });
