@@ -81,7 +81,7 @@
 // Sprache: Englisch ist Standard, Deutsch per Optionsmenue. L(en, de) waehlt den passenden Text.
 const L = (en, de) => { try { return settings.lang === "de" ? de : en; } catch (e) { return en; } };
 const LOC = () => L("en-US", "de-DE");
-const APP_VERSION = "3.40.0";
+const APP_VERSION = "3.40.1";
 // Online-Rangliste (Cloudflare Worker, siehe worker/README.md). Leer = nicht eingerichtet, dann ist alles Online ausgeblendet.
 const ONLINE_HS_URL = "https://margincall-highscores.margincall.workers.dev";
 const RW = 320, VH = 150, TEX = 32, MAP = 20, NUM_LEVELS = 5;
@@ -2731,7 +2731,7 @@ function updateGame(dt) {
       if (it.crash) { it.active = false; addScore(pl, 150); pl.ammo = Math.min(99, pl.ammo + 5); sayTo(pl, L("FIRE SALE +$150", "NOTVERKAUF +$150"), 1); if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "KACHING"); break; }
       if (it.type === 6) {   // YOLO: unverwundbar, Gegner umrennen
         it.active = false; pl.yoloT = yoloTime(); pl.slowT = 0; addScore(pl, 100);
-        sayTo(pl, L(`YOLO! ${pl.yoloT} SECONDS INVULNERABLE – RUN THEM OVER`, `YOLO! ${pl.yoloT} SEKUNDEN UNVERWUNDBAR – RENN SIE UM`), 3);
+        sayTo(pl, L("YOLO! RUN THEM ALL OVER!", "YOLO! RENNE ALLE DEINE GEGNER UM!"), 3);
         if (pl.local) pickT = .25; else emit(["pick", pl.id]); sfxTo(pl, "YOLO"); break;
       }
       if (it.type === 5) {   // Liquiditaetsschub: viel Cash, etwas Depot

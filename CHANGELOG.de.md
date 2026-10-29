@@ -2,6 +2,10 @@
 
 **Sprache:** [English](CHANGELOG.md) · **Deutsch**
 
+## Version 3.40.1 – Neuer YOLO-Text (29.10.2026)
+
+- **YOLO:** Beim Aufnehmen des Cocktails erscheint jetzt „YOLO! RENNE ALLE DEINE GEGNER UM!“ (auch auf dem Cardputer).
+
 ## Version 3.40.0 – Automatische Updates (29.10.2026)
 
 - **Desktop-App:** Die App kann beim Start nachsehen, ob es eine neue Version gibt. Beim ersten Start fragt sie einmal um Erlaubnis (änderbar unter *Optionen → Update-Suche*). Gibt es eine neue Version, erscheint im Hauptmenü „UPDATE x VERFÜGBAR – [U] JETZT INSTALLIEREN“. Mit [U] wird die passende Datei von GitHub geladen, Größe und SHA-256-Prüfsumme werden kontrolliert, dann ersetzt sie das Programm. Ein weiteres [U] startet die neue Version – auf demselben Port, Einstellungen und Bestenlisten bleiben also erhalten. Windows und Linux tauschen sich selbst aus; auf macOS wird das neue Disk-Image geöffnet und MARGIN CALL in „Programme“ gezogen.

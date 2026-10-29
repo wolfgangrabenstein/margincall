@@ -46,7 +46,7 @@ enum { S_BEAR0, S_BEAR1, S_SELL0, S_SELL1, S_BUB0, S_BUB1, S_SHARK0, S_SHARK1,
 static uint16_t sprTex[NUM_SPR][TEX * TEX];          // geswappt, 0 = transparent
 
 static uint32_t tmp[TEX * TEX];                      // RGB888-Arbeitspuffer (0 = transparent)
-#define FW_VERSION "3.40.0"   // Spielversion, wird mit jedem Release angehoben
+#define FW_VERSION "3.40.1"   // Spielversion, wird mit jedem Release angehoben
 static uint32_t rngState = 0x1234567;
 static uint32_t rnd() { rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5; return rngState; }
 static float frand() { return (rnd() & 0xFFFF) / 65535.0f; }
@@ -2380,7 +2380,7 @@ static void updateGame(float dt) {
     if (it.type == 6) {   // YOLO: unverwundbar, Gegner umrennen
       it.active = false; pickT = 0.25f; yoloT = easy ? 15 : hardcore ? 10 : 12; slowT = 0; pnl += hardcore ? 150 : 100;
       sfxPlay(SFX_ID_YOLO); musicStart(YOLO_SONG);
-      char b[48]; snprintf(b, sizeof(b), L("YOLO! %ds INVULNERABLE", "YOLO! %ds UNVERWUNDBAR"), (int)yoloT); say(b, 3);
+      say(L("YOLO! RUN THEM ALL OVER!", "YOLO! RENNE ALLE DEINE GEGNER UM!"), 3);
       continue;
     }
     if (it.type == 5) {   // Liquiditaetsschub: viel Cash, etwas Depot

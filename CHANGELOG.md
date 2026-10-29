@@ -2,6 +2,10 @@
 
 **Language:** **English** · [Deutsch](CHANGELOG.de.md)
 
+## Version 3.40.1 – New YOLO text (29.10.2026)
+
+- **YOLO:** Picking up the cocktail now shows “YOLO! RUN THEM ALL OVER!” (also on the Cardputer).
+
 ## Version 3.40.0 – Automatic updates (29.10.2026)
 
 - **Desktop app:** The app can check at startup whether a new version is available. On first start it asks for permission once (changeable under *Options → Check for updates*). If there is a new version, the main menu shows “UPDATE x AVAILABLE – [U] INSTALL NOW”. [U] downloads the matching file from GitHub, verifies its size and SHA-256 checksum and replaces the program. Another [U] starts the new version – on the same port, so settings and leaderboards are kept. Windows and Linux replace themselves; on macOS the new disk image is opened and MARGIN CALL is dragged into “Applications”.
